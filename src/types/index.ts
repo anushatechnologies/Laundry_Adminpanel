@@ -1,0 +1,672 @@
+export type Role =
+  | 'SUPER_ADMIN'
+  | 'ADMIN'
+  | 'MANAGER'
+  | 'LAUNDRY_STAFF'
+  | 'PICKUP_AGENT'
+  | 'DELIVERY_AGENT'
+  | 'CUSTOMER';
+
+export type PricingModel = 'PER_KG' | 'PER_ITEM';
+
+export type OrderStatus =
+  | 'ORDER_PLACED'
+  | 'PICKUP_ASSIGNED'
+  | 'PICKED_UP'
+  | 'RECEIVED_AT_FACILITY'
+  | 'WEIGHED_VERIFIED'
+  | 'WASHING'
+  | 'DRYING'
+  | 'IRONING'
+  | 'QUALITY_CHECK'
+  | 'PACKED'
+  | 'DELIVERY_ASSIGNED'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'COMPLETED'
+  | 'CANCELLED';
+
+export type PaymentMethod = 'ONLINE_RAZORPAY' | 'UPI' | 'CARD' | 'NET_BANKING' | 'WALLET' | 'COD';
+export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+export type ExpressTier = 'REGULAR' | 'EXPRESS_24H' | 'SAME_DAY';
+
+export interface ServiceCategory {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string;
+  description: string;
+  isPopular?: boolean;
+  color?: string;
+}
+
+export interface Service {
+  id: string;
+  categoryId: string;
+  name: string;
+  slug: string;
+  description: string;
+  pricingModel: PricingModel;
+  basePrice: number; // In INR (₹)
+  unit: string; // "KG", "Item", "Pair", "Piece"
+  minOrderQuantity?: number; // e.g. min 3 KG for wash & fold
+  turnaroundHours: number; // e.g. 24, 48
+  popular?: boolean;
+  image?: string;
+  imageUrl?: string;
+  includedItems?: string[];
+  expressAvailable?: boolean;
+}
+
+export interface OrderItem {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  categoryName: string;
+  pricingModel: PricingModel;
+  unitPrice: number;
+  quantity: number; // e.g. 4 (KG) or 3 (Items)
+  estimatedWeightKg?: number;
+  actualWeightKg?: number;
+  unit: string;
+  subtotal: number;
+  specialInstructions?: string;
+}
+
+export interface OrderStatusHistoryItem {
+  status: OrderStatus;
+  title: string;
+  description: string;
+  timestamp: string;
+  updatedBy?: string;
+  location?: string;
+}
+
+export interface Order {
+  id: string; // e.g. "LAU10245"
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
+  address: {
+    id: string;
+    type: 'Home' | 'Office' | 'Other';
+    street: string;
+    landmark?: string;
+    city: string;
+    pincode: string;
+  };
+  items: OrderItem[];
+  pricingModelSummary: PricingModel;
+  expressTier: ExpressTier;
+  pickupSlot: {
+    date: string;
+    slot: string; // "08:00 AM - 10:00 AM"
+  };
+  deliverySlot?: {
+    date: string;
+    slot: string;
+  };
+  pickupOtp: string; // e.g. "4921"
+  deliveryOtp: string; // e.g. "8134"
+  bagTagCode: string; // e.g. "BAG-LAU10245"
+  currentStatus: OrderStatus;
+  statusHistory: OrderStatusHistoryItem[];
+  assignedPickupAgent?: {
+    id: string;
+    name: string;
+    phone: string;
+    rating: number;
+  };
+  assignedDeliveryAgent?: {
+    id: string;
+    name: string;
+    phone: string;
+    rating: number;
+  };
+  facilityBatchId?: string;
+  isWeighed: boolean;
+  estimatedWeightKg?: number;
+  actualWeightKg?: number;
+  
+  // Financials
+  itemTotal: number;
+  discountAmount: number;
+  couponCode?: string;
+  pickupDeliveryFee: number;
+  expressFee: number;
+  taxAmount: number;
+  totalAmount: number;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  paymentTransactionId?: string;
+  razorpayPaymentId?: string;
+  razorpayOrderId?: string;
+  razorpaySignature?: string;
+  
+  notes?: string;
+  garmentTags?: GarmentTagItem[];
+  weightVerification?: WeightVerification;
+  internalNotes?: InternalNote[];
+  disputeReports?: DisputeReport[];
+  assignedHubId?: string;
+  deliveryDistanceKm?: number;
+  distanceDeliveryFee?: number;
+  qcRecords?: QCChecklistRecord[];
+  photoEvidence?: GarmentPhotoEvidence[];
+  reworkCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  title: string;
+  description: string;
+  discountType: 'PERCENTAGE' | 'FLAT';
+  discountValue: number; // 20 for 20%, 100 for ₹100
+  minOrderValue: number;
+  maxDiscountCap?: number;
+  firstOrderOnly?: boolean;
+  expiryDate: string;
+  usageCount: number;
+  usageLimit?: number;
+  isActive: boolean;
+}
+
+export interface Offer {
+  id: string;
+  title: string;
+  badge: string;
+  description: string;
+  code?: string;
+  discount: string;
+  validTill: string;
+  color: string;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  slug: string;
+  durationMonths?: number; // 1, 3, 6, 12 months
+  price: number; // e.g. 999
+  originalPrice?: number; // e.g. 1299
+  validityDays: number; // 30, 90, 180, 365
+  includedKg: number; // 20 KG / month
+  freePickupDelivery: boolean;
+  priorityService: boolean;
+  maxFamilyMembers?: number;
+  features: string[];
+  popular?: boolean;
+  isActive?: boolean;
+}
+
+export interface CustomerSubscription {
+  id: string;
+  customerId: string;
+  planId: string;
+  planName: string;
+  totalKg: number;
+  usedKg: number;
+  remainingKg: number;
+  startDate: string;
+  expiryDate: string;
+  autoRenew: boolean;
+  status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
+}
+
+export interface WalletTransaction {
+  id: string;
+  customerId?: string;
+  type: 'CREDIT' | 'DEBIT';
+  category?: 'WELCOME_BONUS' | 'REFERRAL_REWARD' | 'ORDER_PAYMENT' | 'DISPUTE_REFUND' | 'CASH_RECHARGE' | 'LOYALTY_REDEMPTION';
+  amount: number;
+  description: string;
+  date?: string;
+  timestamp?: string;
+  orderId?: string;
+  referenceId?: string;
+  balanceAfter: number;
+}
+
+export interface Wallet {
+  customerId: string;
+  balance: number;
+  rewardPoints: number;
+  transactions: WalletTransaction[];
+}
+
+export interface PincodeZone {
+  pincode: string;
+  areaName: string;
+  city: string;
+  isServiceable: boolean;
+  standardFee: number;
+  minFreeOrderValue: number;
+  expressAvailable: boolean;
+  averageTurnaroundHours: number;
+}
+
+export interface StaffMember {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: Role;
+  assignedFacility?: string;
+  assignedZone?: string;
+  isActive: boolean;
+  ordersProcessed?: number;
+  rating?: number;
+}
+
+export interface LaundryBatch {
+  id: string;
+  stage: 'WASHING' | 'DRYING' | 'IRONING' | 'QC' | 'PACKING';
+  machineId: string;
+  orderIds: string[];
+  totalWeightKg: number;
+  startedAt: string;
+  completedAt?: string;
+  operatorName: string;
+}
+
+export type PricingUnit =
+  | 'PER_PIECE'
+  | 'PER_SET'
+  | 'PER_KG'
+  | 'PER_SQ_FT'
+  | 'PER_PAIR'
+  | 'PER_PANEL';
+
+export type ClothCategoryTag =
+  | 'MENS'
+  | 'WOMENS'
+  | 'PREMIUM_BRIDAL'
+  | 'KIDS'
+  | 'HOME_TEXTILES'
+  | 'SPECIAL_CLEANING'
+  | 'BULK_KG'
+  | 'BABY_CARE'
+  | 'WEDDING_CARE'
+  | 'CORPORATE'
+  | 'TRADITIONAL';
+
+export interface ClothType {
+  id: string;
+  name: string;
+  icon: string;
+  categoryTag: ClothCategoryTag;
+  categoryLabel: string;
+  defaultUnit?: PricingUnit;
+  description?: string;
+  availableServices?: string[];
+  isActive: boolean;
+  sortOrder: number;
+  imageUrl?: string;
+}
+
+export interface ServiceMaster {
+  id: string;
+  name: string;
+  slug: string;
+  icon?: string;
+  pricingType: 'PER_KG' | 'PER_ITEM' | 'FIXED_PACKAGE';
+  baseKgPrice?: number;
+  minOrderKg?: number;
+  turnaroundHours: number;
+  description: string;
+  isActive: boolean;
+}
+
+export interface ServicePriceItem {
+  id: string;
+  clothTypeId: string;
+  clothName: string;
+  clothIcon: string;
+  categoryTag: ClothCategoryTag;
+  serviceId: string;
+  serviceName: string;
+  price: number;
+  expressPrice?: number;
+  pricingUnit?: PricingUnit;
+  minQuantity?: number;
+  turnaroundHours: number;
+  expressTurnaroundHours?: number;
+  isActive: boolean;
+  isAvailable?: boolean;
+  specialNotes?: string;
+}
+
+export interface PricingSettings {
+  taxPercentage: number;
+  minOrderValue: number;
+  freeDeliveryThreshold: number;
+  standardDeliveryFee: number;
+  expressDeliveryFee: number;
+  extraKgPrice: number;
+}
+
+// -------------------------------------------------------------
+// P0 Operational & Production Lifecycle Interfaces
+// -------------------------------------------------------------
+
+export type GarmentTagStatus =
+  | 'TAGGED'
+  | 'WASHING'
+  | 'DRYING'
+  | 'IRONING'
+  | 'QC_PASSED'
+  | 'PACKED'
+  | 'DISPUTED';
+
+export interface GarmentTagItem {
+  id: string; // e.g. "SH-10245-01"
+  orderId: string;
+  clothName: string;
+  clothIcon: string;
+  serviceName: string;
+  barcode: string;
+  currentStatus: GarmentTagStatus;
+  qcNotes?: string;
+  isDamaged?: boolean;
+}
+
+export type WeightVerificationStatus =
+  | 'PENDING_APPROVAL'
+  | 'APPROVED_BY_CUSTOMER'
+  | 'AUTO_APPROVED'
+  | 'DISPUTED';
+
+export interface WeightVerification {
+  orderId: string;
+  grossWeightKg: number;
+  tareWeightKg: number;
+  netWeightKg: number;
+  estimatedWeightKg: number;
+  ratePerKg: number;
+  estimatedAmount: number;
+  actualAmount: number;
+  differenceAmount: number; // positive = customer owes more, negative = refund
+  weighedAt: string;
+  weighedBy: string;
+  scalePhotoUrl?: string;
+  status: WeightVerificationStatus;
+  customerApprovedAt?: string;
+}
+
+export type DisputeType =
+  | 'MISSING_ITEM'
+  | 'DAMAGED_GARMENT'
+  | 'COLOR_BLEED'
+  | 'DELAY'
+  | 'BILLING_DISPUTE';
+
+export type DisputeStatus =
+  | 'OPEN'
+  | 'INVESTIGATING'
+  | 'STAFF_VERIFIED'
+  | 'RESOLVED_REFUND'
+  | 'RESOLVED_CREDIT'
+  | 'REJECTED';
+
+export interface DisputeReport {
+  id: string; // e.g. "DSP-1024"
+  orderId: string;
+  itemTagId?: string;
+  itemName: string;
+  issueType: DisputeType;
+  description: string;
+  evidencePhotoUrl?: string;
+  reportedBy: string;
+  reportedAt: string;
+  status: DisputeStatus;
+  resolutionNotes?: string;
+  compensationAmount?: number;
+  closedAt?: string;
+}
+
+export interface InternalNote {
+  id: string;
+  author: string;
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
+export type MachineStatus = 'AVAILABLE' | 'RUNNING' | 'MAINTENANCE' | 'OFFLINE';
+
+export interface LaundryMachine {
+  id: string; // "WM-001"
+  type: 'WASHER' | 'DRYER' | 'STEAM_PRESS' | 'HYDRO_EXTRACTOR';
+  name: string;
+  capacityKg: number;
+  currentLoadKg: number;
+  status: MachineStatus;
+  lastServiceDate: string;
+  nextServiceDate: string;
+}
+
+export interface CODReconciliationRecord {
+  id: string;
+  riderId: string;
+  riderName: string;
+  date: string;
+  orderIds: string[];
+  totalCollected: number;
+  depositedAmount: number;
+  difference: number;
+  status: 'SETTLED' | 'PENDING' | 'DISCREPANCY';
+  notes?: string;
+}
+
+// Enterprise Operational & Fleet Infrastructure
+export interface InHouseFleetVehicle {
+  id: string; // "VAN-01", "EV-SCOOT-02"
+  vehicleType: 'ELECTRIC_VAN' | 'DELIVERY_VAN' | 'CARGO_SCOOTER';
+  registrationNo: string;
+  driverName: string;
+  driverPhone: string;
+  capacityKg: number;
+  status: 'IDLE' | 'ON_ROUTE' | 'MAINTENANCE';
+  currentHubId: string;
+}
+
+export interface HubBranch {
+  id: string; // "HUB-RJY-01", "HUB-BGL-01"
+  name: string; // "Rajahmundry Central Hub"
+  city: string;
+  address: string;
+  pincodes: string[];
+  contactPhone: string;
+  capacityKgPerDay: number;
+  activeOrdersCount: number;
+  inHouseVehicles: InHouseFleetVehicle[];
+  isActive: boolean;
+}
+
+export interface DistanceTier {
+  minKm: number;
+  maxKm: number;
+  fee: number; // In INR
+}
+
+export interface DistanceDeliveryConfig {
+  baseDistanceKm: number; // e.g. 3 KM
+  baseFee: number; // e.g. 0
+  perKmRateAfterBase: number; // e.g. ₹10/KM
+  distanceTiers: DistanceTier[];
+  freeDeliveryOrderValue: number; // e.g. ₹499
+  maxServiceRadiusKm: number; // e.g. 25 KM
+  expressDeliveryMultiplier: number;
+}
+
+export interface TimeSlotCapacity {
+  id: string;
+  hubId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  maxOrders: number;
+  maxKg: number;
+  bookedOrders: number;
+  bookedKg: number;
+  isAvailable: boolean;
+  isActive: boolean;
+}
+
+export interface QCChecklistRecord {
+  id: string;
+  orderId: string;
+  garmentTagId: string;
+  clothName: string;
+  stainRemoved: boolean;
+  washedProperly: boolean;
+  driedProperly: boolean;
+  ironedProperly: boolean;
+  noDamage: boolean;
+  correctItem: boolean;
+  correctQuantity: boolean;
+  correctPackaging: boolean;
+  status: 'QC_PASSED' | 'QC_FAILED_REWORK';
+  reworkReason?: string;
+  reworkCount: number;
+  inspectedBy: string;
+  inspectedAt: string;
+}
+
+export interface GarmentPhotoEvidence {
+  id: string;
+  orderId: string;
+  garmentTagId?: string;
+  stage: 'PICKUP_PRE_INSPECTION' | 'FACILITY_RECEIVED' | 'POST_QC_PACKED' | 'DAMAGE_EVIDENCE';
+  photoUrl: string;
+  notes?: string;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
+export interface DamageCompensationRule {
+  id: string;
+  garmentCategory: string;
+  damageType: 'MINOR_TEAR' | 'MAJOR_TEAR' | 'COLOR_BLEED' | 'MISSING_ITEM' | 'BUTTON_LOSS';
+  maxCompensation: number;
+  requiresAdminApproval: boolean;
+}
+
+export interface LoyaltyPointsAccount {
+  customerId: string;
+  totalPoints: number; // 100 points = ₹10
+  pointsEarnedLifetime: number;
+  pointsRedeemedLifetime: number;
+  conversionRateInr: number;
+}
+
+export interface NotificationTemplate {
+  id: string;
+  eventName: string;
+  channel: 'WHATSAPP' | 'SMS' | 'EMAIL' | 'IN_APP';
+  title: string;
+  templateBody: string;
+  placeholders: string[];
+  isActive: boolean;
+}
+
+
+
+export interface AuditLogEntry {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: Role;
+  action: string;
+  module: string;
+  details: string;
+  ipAddress?: string;
+  timestamp: string;
+}
+
+export type BulkLaundryType =
+  | 'MIXED_LAUNDRY'
+  | 'FAMILY_LAUNDRY'
+  | 'STUDENT_LAUNDRY'
+  | 'HOSTEL_LAUNDRY'
+  | 'PG_LAUNDRY'
+  | 'CORPORATE_LAUNDRY';
+
+export interface BulkPricingItem {
+  id: string;
+  laundryType: BulkLaundryType;
+  serviceId: string;
+  serviceName: string;
+  weightKg: number;
+  regularPrice: number;
+  expressPrice: number;
+  regularTatHours: number;
+  expressTatHours: number;
+  minQuantity?: number;
+  maxQuantity?: number;
+  isActive: boolean;
+}
+
+export type InventoryCategory =
+  | 'DETERGENT'
+  | 'SOFTENER'
+  | 'CHEMICAL'
+  | 'PACKAGING'
+  | 'MACHINE_PARTS'
+  | 'HARDWARE';
+
+export interface ConsumableInventory {
+  id: string;
+  itemName: string;
+  category: InventoryCategory;
+  currentStock: number;
+  unit: 'LITERS' | 'KG' | 'UNITS' | 'PACKS' | 'ROLLS';
+  minThreshold: number;
+  unitCost: number;
+  status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+  location: string;
+  lastRestockedAt: string;
+}
+
+export interface PackagingInventoryItem {
+  id: string;
+  itemName: string;
+  type: 'GARMENT_BAG' | 'LAUNDRY_BAG' | 'TAG' | 'HANGER_COVER';
+  currentQuantity: number;
+  minQuantity: number;
+  packSize: number;
+  costPerPack: number;
+  status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+  supplierName: string;
+}
+
+export interface FacilityMachineItem {
+  id: string;
+  machineCode: string;
+  name: string;
+  type: 'WASHER' | 'DRYER' | 'STEAM_PRESS' | 'BARCODE_SCANNER';
+  capacityKg: number;
+  status: 'RUNNING' | 'AVAILABLE' | 'MAINTENANCE' | 'OFFLINE';
+  nextServiceDate: string;
+  totalCyclesRun: number;
+  lastServicedAt: string;
+}
+
+export interface MaintenanceLogEntry {
+  id: string;
+  machineId: string;
+  machineCode: string;
+  serviceType: 'PREVENTATIVE' | 'REPAIR' | 'CALIBRATION' | 'FILTER_CLEAN';
+  description: string;
+  technicianName: string;
+  cost: number;
+  performedAt: string;
+  nextDueDate: string;
+}
+
+
+
