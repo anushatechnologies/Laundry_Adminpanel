@@ -380,7 +380,7 @@ function StaffAndAdminManagementContent() {
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>👥 Customer Subscriptions ({customers.length})</span>
+            <span>👥 Registered Customers & Candidates ({customers.length})</span>
           </button>
 
           <button
@@ -581,38 +581,79 @@ function StaffAndAdminManagementContent() {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 2: CUSTOMERS DIRECTORY
+          TAB 2: REGISTERED CUSTOMERS DIRECTORY
       ───────────────────────────────────────────────────────────── */}
       {activeTab === 'CUSTOMERS' && (
         <div className="space-y-4">
+          <div className="azea-card p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 absolute left-3.5 top-2.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search by name, phone (+91), or email..."
+                value={staffSearch}
+                onChange={(e) => setStaffSearch(e.target.value)}
+                className="admin-input w-full pl-9"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+              <span>Total Registered:</span>
+              <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
+                {customers.length} Accounts
+              </span>
+            </div>
+          </div>
+
           <div className="azea-card p-6 space-y-4">
             <div className="overflow-x-auto text-xs">
               <table className="azea-table">
                 <thead>
                   <tr>
-                    <th className="pl-4">Customer Name</th>
-                    <th>Email & Phone</th>
-                    <th>Plan Tier</th>
-                    <th>Monthly KG Meter</th>
+                    <th className="pl-4">Customer Name & ID</th>
+                    <th>Contact Details</th>
+                    <th>Account Type</th>
+                    <th>Total Orders</th>
                     <th>Wallet Balance</th>
-                    <th className="text-right pr-4">LTV Spent</th>
+                    <th className="text-right pr-4">Total Spent</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {customers.map((c) => (
-                    <tr key={c.id}>
-                      <td className="pl-4 font-bold text-[var(--heading-color)]">{c.name}</td>
-                      <td>{c.email} • {c.phone}</td>
-                      <td>
-                        <span className="text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-0.5 rounded-full">
-                          {c.customerType}
-                        </span>
-                      </td>
-                      <td>{c.usedKgThisMonth} / {c.totalKgAllowance} KG</td>
-                      <td className="font-bold text-emerald-600">₹{c.walletBalance}</td>
-                      <td className="text-right pr-4 font-black">₹{c.totalSpent.toLocaleString()}</td>
-                    </tr>
-                  ))}
+                  {customers
+                    .filter((c) => {
+                      if (!staffSearch.trim()) return true;
+                      const q = staffSearch.toLowerCase();
+                      return (
+                        c.name.toLowerCase().includes(q) ||
+                        c.phone.toLowerCase().includes(q) ||
+                        c.email.toLowerCase().includes(q) ||
+                        c.id.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((c) => (
+                      <tr key={c.id}>
+                        <td className="pl-4">
+                          <span className="font-bold text-[var(--heading-color)] block">{c.name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">{c.id}</span>
+                        </td>
+                        <td>
+                          <div className="font-semibold text-slate-700 dark:text-slate-200">{c.phone}</div>
+                          <div className="text-[11px] text-slate-400">{c.email}</div>
+                        </td>
+                        <td>
+                          <span className="text-[10px] font-black uppercase bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                            {c.customerType || 'REGULAR'}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="font-bold text-slate-800 dark:text-slate-100">
+                            {c.totalOrders || 0} Orders
+                          </span>
+                        </td>
+                        <td className="font-bold text-emerald-600">₹{c.walletBalance || 0}</td>
+                        <td className="text-right pr-4 font-black">₹{(c.totalSpent || 0).toLocaleString()}</td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
