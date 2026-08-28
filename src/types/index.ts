@@ -475,16 +475,29 @@ export interface InHouseFleetVehicle {
 }
 
 export interface HubBranch {
-  id: string; // "HUB-RJY-01", "HUB-BGL-01"
+  id: string; // "hub-rjy-01", "hub-hyd-01"
   name: string; // "Rajahmundry Central Hub"
+  code?: string; // "HUB-RJY-01"
   city: string;
+  state?: string;
   address: string;
+  latitude?: number;
+  longitude?: number;
   pincodes: string[];
   contactPhone: string;
+  contactEmail?: string;
   capacityKgPerDay: number;
+  operatingHours?: string;
+  maxServiceRadiusKm?: number;
+  baseDistanceKm?: number;
+  baseDeliveryFare?: number;
+  perKmFare?: number;
+  freeDeliveryAbove?: number;
   activeOrdersCount: number;
   inHouseVehicles: InHouseFleetVehicle[];
   isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface DistanceTier {
