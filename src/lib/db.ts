@@ -814,6 +814,100 @@ export const INITIAL_PINCODES: PincodeZone[] = [
   { pincode: '500043', areaName: 'Bandlaguda Jagir / Sun City / Peerancheru', city: 'Hyderabad', isServiceable: true, standardFee: 40, minFreeOrderValue: 399, expressAvailable: true, averageTurnaroundHours: 24 },
 ];
 
+export const INITIAL_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
+  {
+    id: 'sub-basic-1m',
+    name: 'Basic Plan (1 Month)',
+    slug: 'basic-1m',
+    durationMonths: 1,
+    price: 999,
+    originalPrice: 1299,
+    validityDays: 30,
+    includedKg: 20,
+    freePickupDelivery: true,
+    priorityService: false,
+    maxFamilyMembers: 1,
+    features: [
+      '20 KG Wash & Fold / Wash & Iron per month',
+      'Free Doorstep Pickup & Delivery',
+      'Turnaround in 36 Hours',
+      'Rollover unused KG (up to 5 KG)',
+      'Standard eco-detergents & softeners',
+    ],
+    popular: false,
+    isActive: true,
+  },
+  {
+    id: 'sub-premium-1m',
+    name: 'Premium Plan (1 Month)',
+    slug: 'premium-1m',
+    durationMonths: 1,
+    price: 1999,
+    originalPrice: 2499,
+    validityDays: 30,
+    includedKg: 50,
+    freePickupDelivery: true,
+    priorityService: true,
+    maxFamilyMembers: 2,
+    features: [
+      '50 KG Wash & Fold / Steam Iron per month',
+      'Free Priority Pickup & Delivery',
+      'Fast 24-Hour Express Turnaround',
+      'Rollover unused KG (up to 15 KG)',
+      '1 Free Blazer/Saree Dry Clean / month',
+      'Antibacterial sanitization wash',
+    ],
+    popular: true,
+    isActive: true,
+  },
+  {
+    id: 'sub-family-3m',
+    name: 'Quarterly Family Saver (3 Months)',
+    slug: 'family-3m',
+    durationMonths: 3,
+    price: 4999,
+    originalPrice: 6999,
+    validityDays: 90,
+    includedKg: 150,
+    freePickupDelivery: true,
+    priorityService: true,
+    maxFamilyMembers: 4,
+    features: [
+      '150 KG Total Allowance (50 KG / Month)',
+      'Save ₹2,000 on quarterly commitment',
+      'VIP Priority Slots & 12h Emergency Express',
+      'Free pickup & delivery up to 24 visits',
+      '3 Free Dry Clean vouchers included',
+      'Dedicated Customer Support Concierge',
+    ],
+    popular: true,
+    isActive: true,
+  },
+  {
+    id: 'sub-annual-12m',
+    name: 'Annual Ultimate Care (12 Months)',
+    slug: 'annual-12m',
+    durationMonths: 12,
+    price: 14999,
+    originalPrice: 23999,
+    validityDays: 365,
+    includedKg: 600,
+    freePickupDelivery: true,
+    priorityService: true,
+    maxFamilyMembers: 6,
+    features: [
+      '600 KG Total Allowance (50 KG / Month)',
+      'Save ₹9,000 vs monthly billing',
+      'VIP Unlimited priority express pickups',
+      '12 Free Dry Clean garment vouchers',
+      'Annual shoe & curtain refresh bundle',
+      '24/7 dedicated personal account manager',
+    ],
+    popular: false,
+    isActive: true,
+  },
+];
+
 export const INITIAL_STAFF: StaffMember[] = [
   {
     id: 'stf-1',
@@ -1749,6 +1843,11 @@ class LaundryDatabase {
   // --- Subscription Plans CRUD ---
   getSubscriptionPlans(): SubscriptionPlan[] {
     return this.subscriptionPlans;
+  }
+
+  setSubscriptionPlans(plans: SubscriptionPlan[]): void {
+    this.subscriptionPlans = plans;
+    this.persist();
   }
 
   addSubscriptionPlan(plan: SubscriptionPlan): SubscriptionPlan {

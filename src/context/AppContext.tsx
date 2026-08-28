@@ -330,7 +330,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       if (remoteCoupons) setCoupons(remoteCoupons);
       if (remotePincodes) setPincodes(remotePincodes);
-      if (remotePlans) setSubscriptionPlans(remotePlans);
+      if (remotePlans && Array.isArray(remotePlans) && remotePlans.length > 0) {
+        db.setSubscriptionPlans(remotePlans);
+        setSubscriptionPlans(remotePlans);
+      }
       if (remoteSlots) {
         setSlotCapacities(
           remoteSlots.map((slot) => ({
@@ -354,43 +357,65 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addSubscriptionPlan = async (plan: SubscriptionPlan) => {
+    // 1. Optimistically save to local DB and state
+    db.addSubscriptionPlan(plan);
+    setSubscriptionPlans([...db.getSubscriptionPlans()]);
+
     try {
       const created = await adminApi<SubscriptionPlan>('/subscriptions/plans', {
         method: 'POST',
         body: JSON.stringify(plan),
       });
-      db.addSubscriptionPlan(created);
-      setSubscriptionPlans([...db.getSubscriptionPlans()]);
-      showToast(`Subscription plan ${created.name} created.`, 'success');
+      if (created) {
+        db.addSubscriptionPlan(created);
+        setSubscriptionPlans([...db.getSubscriptionPlans()]);
+      }
+      showToast(`Subscription plan "${plan.name}" saved to database.`, 'success');
+      return created || plan;
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Could not create subscription plan.', 'error');
+      showToast(`Plan saved locally. (${error instanceof Error ? error.message : 'Backend offline'})`, 'info');
+      return plan;
     }
   };
 
   const updateSubscriptionPlan = async (id: string, updates: Partial<SubscriptionPlan>) => {
+    // 1. Optimistically update local DB and state
+    const localUpdated = db.updateSubscriptionPlan(id, updates);
+    if (localUpdated) {
+      setSubscriptionPlans([...db.getSubscriptionPlans()]);
+    }
+
     try {
       const updated = await adminApi<SubscriptionPlan>(`/subscriptions/plans/${encodeURIComponent(id)}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
       });
-      db.updateSubscriptionPlan(id, updated);
-      setSubscriptionPlans([...db.getSubscriptionPlans()]);
-      showToast('Subscription plan updated.', 'success');
+      if (updated) {
+        db.updateSubscriptionPlan(id, updated);
+        setSubscriptionPlans([...db.getSubscriptionPlans()]);
+      }
+      showToast('Subscription plan updated in database.', 'success');
+      return updated || localUpdated;
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Could not update subscription plan.', 'error');
+      showToast(`Plan updated locally. (${error instanceof Error ? error.message : 'Backend offline'})`, 'info');
+      return localUpdated;
     }
   };
 
   const deleteSubscriptionPlan = async (id: string) => {
+    // 1. Optimistically delete from local DB and state
+    db.deleteSubscriptionPlan(id);
+    setSubscriptionPlans([...db.getSubscriptionPlans()]);
+
     try {
       await adminApi(`/subscriptions/plans/${encodeURIComponent(id)}`, {
         method: 'DELETE',
       });
-      db.deleteSubscriptionPlan(id);
-      setSubscriptionPlans([...db.getSubscriptionPlans()]);
-      showToast('Subscription plan removed.', 'success');
+      showToast('Subscription plan removed from database.', 'success');
+      return true;
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Could not remove subscription plan.', 'error');
+      showToast(`Plan removed locally. (${error instanceof Error ? error.message : 'Backend offline'})`, 'info');
+      return true;
     }
   };
 
