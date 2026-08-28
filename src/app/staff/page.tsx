@@ -142,8 +142,8 @@ function StaffAndAdminManagementContent() {
     },
   ]);
 
-  // Customers State
-  const [customers] = useState<CustomerRecord[]>([
+  // Customers State (Live Synchronized with Backend & Database)
+  const [customers, setCustomers] = useState<CustomerRecord[]>([
     {
       id: 'cust-101',
       name: 'Rajesh Kumar',
@@ -181,6 +181,40 @@ function StaffAndAdminManagementContent() {
       totalSpent: 9200,
     },
   ]);
+
+  useEffect(() => {
+    async function fetchLiveCustomers() {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://laundry.anushatechnologies.com/api';
+        const res = await fetch(`${apiUrl}/customers`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const liveRecords: CustomerRecord[] = json.data.map((c: any) => ({
+            id: c.id || `cust_${Date.now()}`,
+            name: c.name || 'Customer',
+            email: c.email || 'No email provided',
+            phone: c.phone ? (c.phone.startsWith('+91') ? c.phone : `+91 ${c.phone}`) : '+91 98765 43210',
+            pincode: c.pincode || '500072',
+            customerType: (c.totalOrders > 10 ? 'VIP_DIAMOND' : c.totalOrders > 3 ? 'GOLD' : 'REGULAR') as CustomerRecord['customerType'],
+            planName: c.planName || (c.totalOrders > 5 ? 'Gold Wash Regular' : 'Pay As You Go'),
+            totalKgAllowance: c.totalKgAllowance || 50,
+            usedKgThisMonth: c.usedKgThisMonth || 0,
+            freePickupsLeft: c.freePickupsLeft || 2,
+            renewalDate: c.renewalDate || '2026-09-30',
+            autoRenew: Boolean(c.autoRenew),
+            walletBalance: c.walletBalance || 0,
+            loyaltyPoints: c.loyaltyPoints || (c.totalOrders ? c.totalOrders * 50 : 100),
+            totalOrders: c.totalOrders || 0,
+            totalSpent: c.totalSpent || 0,
+          }));
+          setCustomers(liveRecords);
+        }
+      } catch (err) {
+        console.warn('Failed to load live customers from backend:', err);
+      }
+    }
+    fetchLiveCustomers();
+  }, []);
 
   const [staffSearch, setStaffSearch] = useState('');
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);

@@ -153,7 +153,29 @@ export default function AdminAuditPage() {
     },
   ];
 
-  const allLogs: ExtendedAuditEntry[] = [...initialLogs, ...(auditLogs as ExtendedAuditEntry[])];
+  const [liveServerLogs, setLiveServerLogs] = useState<ExtendedAuditEntry[]>([]);
+
+  React.useEffect(() => {
+    async function fetchLiveAudit() {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://laundry.anushatechnologies.com/api';
+        const res = await fetch(`${apiUrl}/audit`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setLiveServerLogs(json.data);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch live audit logs:', err);
+      }
+    }
+    fetchLiveAudit();
+  }, []);
+
+  const allLogs: ExtendedAuditEntry[] = [
+    ...liveServerLogs,
+    ...initialLogs.filter((init) => !liveServerLogs.some((l) => l.id === init.id)),
+    ...(auditLogs as ExtendedAuditEntry[]),
+  ];
 
   const filteredLogs = allLogs.filter((log) => {
     const matchesSearch =
