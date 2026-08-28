@@ -369,12 +369,6 @@ export const AdminNavWrapper: React.FC<{ children: React.ReactNode }> = ({ child
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Pincode / Hub Indicator Badge */}
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-secondary-card)] border border-[var(--border-color)] rounded-[8px] text-xs font-bold text-[var(--text-primary)]">
-              <Building2 className="w-3.5 h-3.5 text-[#16A34A]" />
-              <span>560034 • Koramangala Hub</span>
-            </div>
-
             {/* Theme Switcher Component (Light, Dark, Green) */}
             <div className="flex items-center bg-[var(--bg-secondary-card)] border border-[var(--border-color)] rounded-[8px] p-0.5">
               <button
@@ -437,7 +431,7 @@ export const AdminNavWrapper: React.FC<{ children: React.ReactNode }> = ({ child
                   <div className="divide-y divide-[var(--border-color)] text-xs">
                     <div className="p-3 hover:bg-[var(--bg-secondary-card)] transition-colors">
                       <div className="font-bold text-[var(--heading-color)]">🔔 New Order #LF10245</div>
-                      <div className="text-[11px] text-[var(--text-secondary)]">2 mins ago • Koramangala Hub</div>
+                      <div className="text-[11px] text-[var(--text-secondary)]">2 mins ago • Central Hub</div>
                     </div>
                     <div className="p-3 hover:bg-[var(--bg-secondary-card)] transition-colors">
                       <div className="font-bold text-amber-600">⚠️ Pickup Slot 80% Full</div>
