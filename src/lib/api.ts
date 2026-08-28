@@ -11,7 +11,9 @@ export class AdminApiError extends Error {
  */
 export async function adminApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const normalizedPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  let response: Response;
+  let response: Response | null = null;
+
+  // 1. Try local serverless proxy route
   try {
     response = await fetch(`/api/backend${normalizedPath}`, {
       ...options,
@@ -23,7 +25,25 @@ export async function adminApi<T>(endpoint: string, options?: RequestInit): Prom
       cache: 'no-store',
     });
   } catch {
-    throw new AdminApiError('The operations API could not be reached.');
+    response = null;
+  }
+
+  // 2. Direct production backend fallback if proxy failed (e.g. 503, 502, 404)
+  if (!response || !response.ok) {
+    try {
+      const directUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://laundry.anushatechnologies.com/api'}${normalizedPath}`;
+      response = await fetch(directUrl, {
+        ...options,
+        headers: {
+          Accept: 'application/json',
+          ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
+          ...options?.headers,
+        },
+        cache: 'no-store',
+      });
+    } catch {
+      throw new AdminApiError('The operations API could not be reached.');
+    }
   }
 
   const payload = await response.json().catch(() => ({}));
