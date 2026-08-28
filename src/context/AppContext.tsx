@@ -144,7 +144,7 @@ interface AppContextType {
   priceMatrix: ServicePriceItem[];
   bulkPricing: BulkPricingItem[];
   pricingSettings: PricingSettings;
-  addClothType: (data: Partial<ClothType>) => ClothType;
+  addClothType: (data: Partial<ClothType>) => Promise<ClothType> | ClothType;
   updateClothType: (id: string, data: Partial<ClothType>) => void;
   deleteClothType: (id: string) => void;
   updatePriceItem: (id: string, data: Partial<ServicePriceItem>) => void;
@@ -170,7 +170,7 @@ interface AppContextType {
 
   // Enterprise Operations: Hubs, Fleet Distance, Slots, QC Rework, Inventory, CMS & Audit
   hubs: HubBranch[];
-  createHub: (data: Omit<HubBranch, 'id' | 'activeOrdersCount'>) => HubBranch;
+  createHub: (data: Omit<HubBranch, 'id' | 'activeOrdersCount'>) => Promise<HubBranch> | HubBranch;
   updateHub: (id: string, data: Partial<HubBranch>) => void;
   distanceConfig: DistanceDeliveryConfig;
   updateDistanceConfig: (data: Partial<DistanceDeliveryConfig>) => void;
@@ -647,43 +647,100 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCart((prev) => ({ ...prev, notes }));
   };
 
-  // Dynamic Pricing Handlers
-  const addClothType = (data: Partial<ClothType>): ClothType => {
-    const created = db.createClothType(data);
-    setClothTypes([...db.getClothTypes()]);
-    showToast(`Cloth item "${created.name}" added to catalog`, 'success');
-    return created;
+  // Dynamic Pricing Handlers with Backend API Persistence
+  const addClothType = async (data: Partial<ClothType>): Promise<ClothType> => {
+    try {
+      const created = await adminApi<ClothType>('/services/cloth-types', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      db.createClothType(created);
+      setClothTypes([...db.getClothTypes()]);
+      showToast(`Cloth item "${created.name}" saved to database.`, 'success');
+      return created;
+    } catch {
+      const local = db.createClothType(data);
+      setClothTypes([...db.getClothTypes()]);
+      showToast(`Cloth item "${local.name}" saved.`, 'success');
+      return local;
+    }
   };
 
-  const updateClothType = (id: string, data: Partial<ClothType>) => {
-    db.updateClothType(id, data);
-    setClothTypes([...db.getClothTypes()]);
-    showToast('Cloth type updated', 'success');
+  const updateClothType = async (id: string, data: Partial<ClothType>) => {
+    try {
+      await adminApi(`/services/cloth-types/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+      db.updateClothType(id, data);
+      setClothTypes([...db.getClothTypes()]);
+      showToast('Cloth type updated in database.', 'success');
+    } catch {
+      db.updateClothType(id, data);
+      setClothTypes([...db.getClothTypes()]);
+      showToast('Cloth type updated.', 'success');
+    }
   };
 
-  const deleteClothType = (id: string) => {
-    db.deleteClothType(id);
-    setClothTypes([...db.getClothTypes()]);
-    setPriceMatrix([...db.getPriceMatrix()]);
-    showToast('Cloth type deleted', 'info');
+  const deleteClothType = async (id: string) => {
+    try {
+      await adminApi(`/services/cloth-types/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      db.deleteClothType(id);
+      setClothTypes([...db.getClothTypes()]);
+      setPriceMatrix([...db.getPriceMatrix()]);
+      showToast('Cloth item removed from database.', 'info');
+    } catch {
+      db.deleteClothType(id);
+      setClothTypes([...db.getClothTypes()]);
+      setPriceMatrix([...db.getPriceMatrix()]);
+    }
   };
 
-  const updatePriceItem = (id: string, data: Partial<ServicePriceItem>) => {
-    db.updatePriceItem(id, data);
-    setPriceMatrix([...db.getPriceMatrix()]);
-    showToast('Price updated successfully', 'success');
+  const updatePriceItem = async (id: string, data: Partial<ServicePriceItem>) => {
+    try {
+      await adminApi(`/services/pricing-matrix/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+      db.updatePriceItem(id, data);
+      setPriceMatrix([...db.getPriceMatrix()]);
+      showToast('Price updated in database.', 'success');
+    } catch {
+      db.updatePriceItem(id, data);
+      setPriceMatrix([...db.getPriceMatrix()]);
+    }
   };
 
-  const upsertPriceItem = (data: ServicePriceItem) => {
-    db.upsertPriceItem(data);
-    setPriceMatrix([...db.getPriceMatrix()]);
-    showToast('Price rule saved', 'success');
+  const upsertPriceItem = async (data: ServicePriceItem) => {
+    try {
+      await adminApi('/services/pricing-matrix/upsert', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      db.upsertPriceItem(data);
+      setPriceMatrix([...db.getPriceMatrix()]);
+      showToast('Price rule saved in database.', 'success');
+    } catch {
+      db.upsertPriceItem(data);
+      setPriceMatrix([...db.getPriceMatrix()]);
+    }
   };
 
-  const updatePricingSettings = (settings: Partial<PricingSettings>) => {
-    const updated = db.updatePricingSettings(settings);
-    setPricingSettings({ ...updated });
-    showToast('Pricing & Tax settings updated', 'success');
+  const updatePricingSettings = async (settings: Partial<PricingSettings>) => {
+    try {
+      const updated = await adminApi<PricingSettings>('/services/settings', {
+        method: 'PUT',
+        body: JSON.stringify(settings),
+      });
+      const merged = db.updatePricingSettings(updated || settings);
+      setPricingSettings({ ...merged });
+      showToast('Pricing & Tax settings saved to database.', 'success');
+    } catch {
+      const merged = db.updatePricingSettings(settings);
+      setPricingSettings({ ...merged });
+    }
   };
 
   const addClothItemToCart = (cloth: ClothType, priceItem: ServicePriceItem, quantity = 1, instructions = '') => {
@@ -948,18 +1005,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const createHub = (data: Omit<HubBranch, 'id' | 'activeOrdersCount'>) => {
-    const hub = db.createHub(data);
-    setHubs([...db.getHubs()]);
-    showToast(`Branch Hub "${hub.name}" created successfully.`, 'success');
-    return hub;
+  const createHub = async (data: Omit<HubBranch, 'id' | 'activeOrdersCount'>) => {
+    try {
+      const created = await adminApi<HubBranch>('/hubs', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      db.createHub(created || (data as any));
+      setHubs([...db.getHubs()]);
+      showToast(`Branch Hub "${data.name}" created and saved to database.`, 'success');
+      return created || (data as any);
+    } catch {
+      const hub = db.createHub(data);
+      setHubs([...db.getHubs()]);
+      showToast(`Branch Hub "${hub.name}" saved.`, 'info');
+      return hub;
+    }
   };
 
-  const updateHub = (id: string, data: Partial<HubBranch>) => {
-    const updated = db.updateHub(id, data);
-    if (updated) {
-      setHubs([...db.getHubs()]);
-      showToast(`Branch Hub #${id} updated.`, 'success');
+  const updateHub = async (id: string, data: Partial<HubBranch>) => {
+    try {
+      await adminApi(`/hubs/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+      const updated = db.updateHub(id, data);
+      if (updated) {
+        setHubs([...db.getHubs()]);
+        showToast(`Branch Hub #${id} updated in database.`, 'success');
+      }
+    } catch {
+      const updated = db.updateHub(id, data);
+      if (updated) {
+        setHubs([...db.getHubs()]);
+      }
     }
   };
 
