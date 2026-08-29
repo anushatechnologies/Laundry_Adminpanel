@@ -19,13 +19,16 @@ const SIZE_MAP = {
   xl: 'w-16 h-16 rounded-2xl',
 };
 
-// 100% Unique Image Mapping for all 30 garments
+// 100% Unique Image Mapping for all garments
 export function getLocalFallbackPhoto(name: string, categoryTag = ''): string {
   const n = (name || '').toLowerCase();
   const c = (categoryTag || '').toUpperCase();
 
   // Men's Wear
-  if (n.includes('t-shirt') || n.includes('tee')) return '/images/garments/tshirt.jpg';
+  if (n.includes('dhoti') || n.includes('mundu') || n.includes('lungi')) return '/images/garments/dhoti.jpg';
+  if (n.includes('sherwani') || n.includes('indo-western') || n.includes('groom')) return '/images/garments/sherwani.jpg';
+  if (n.includes('nehru') || n.includes('waistcoat') || n.includes('modi')) return '/images/garments/nehru.jpg';
+  if (n.includes('t-shirt') || n.includes('tee') || n.includes('polo')) return '/images/garments/tshirt.jpg';
   if (n.includes('trouser') || n.includes('chino')) return '/images/garments/trouser.svg';
   if (n.includes('kurta')) return '/images/garments/kurta.svg';
   if (n.includes('blazer') || n.includes('coat')) return '/images/garments/blazer.svg';
@@ -36,6 +39,8 @@ export function getLocalFallbackPhoto(name: string, categoryTag = ''): string {
   if (n.includes('shirt') && !n.includes('kid')) return '/images/garments/shirt.jpg';
 
   // Women's Wear
+  if (n.includes('sharara') || n.includes('gharara')) return '/images/garments/sharara.jpg';
+  if (n.includes('shawl') || n.includes('pashmina') || n.includes('cashmere')) return '/images/garments/shawl.jpg';
   if (n.includes('silk') || n.includes('kanchipuram') || n.includes('zari')) return '/images/garments/saree.jpg';
   if (n.includes('saree') || n.includes('sari')) return '/images/garments/saree_cotton.svg';
   if (n.includes('blouse')) return '/images/garments/blouse.svg';
@@ -44,7 +49,8 @@ export function getLocalFallbackPhoto(name: string, categoryTag = ''): string {
   if (n.includes('gown') || n.includes('dress / western')) return '/images/garments/gown.svg';
   if (n.includes('kurti') || n.includes('tunic')) return '/images/garments/kurti.jpg';
 
-  // Kids Wear
+  // Kids & Baby Care
+  if (n.includes('toy') || n.includes('teddy') || n.includes('plush') || n.includes('baby') || n.includes('romper')) return '/images/garments/baby_toy.jpg';
   if (n.includes('school') || n.includes('uniform')) return '/images/garments/uniform.svg';
   if (n.includes('frock') || (c === 'KIDS' && n.includes('dress'))) return '/images/garments/kid_dress.svg';
   if (c === 'KIDS' && (n.includes('pant') || n.includes('short'))) return '/images/garments/kid_pant.svg';
@@ -57,7 +63,8 @@ export function getLocalFallbackPhoto(name: string, categoryTag = ''): string {
   if (n.includes('towel') || n.includes('bath')) return '/images/garments/towel.svg';
   if (n.includes('bedsheet') || n.includes('sheet')) return '/images/garments/bedsheet.jpg';
 
-  // Footwear & Accessories
+  // Footwear, Travel & Luggage
+  if (n.includes('trolley') || n.includes('suitcase') || n.includes('luggage')) return '/images/garments/trolley.jpg';
   if (n.includes('formal') || n.includes('leather shoes') || n.includes('oxford')) return '/images/garments/formal_shoes.svg';
   if (n.includes('sneaker') || n.includes('sports shoe') || n.includes('shoe')) return '/images/garments/sneakers.jpg';
   if (n.includes('backpack') || n.includes('school bag') || n.includes('bag-backpack')) return '/images/garments/backpack.svg';
@@ -124,7 +131,13 @@ export function ServiceMasterBadge({
   let photo = imageUrl || '/images/service_wash_fold.jpg';
   let badgeColor = 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800';
 
-  if (n.includes('dry') || n.includes('clean')) {
+  if (n.includes('charak') || n.includes('polishing') || n.includes('saree')) {
+    photo = imageUrl || '/images/service_saree_charak.jpg';
+    badgeColor = 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+  } else if (n.includes('starch') || n.includes('kalaf')) {
+    photo = imageUrl || '/images/service_starch.jpg';
+    badgeColor = 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800';
+  } else if (n.includes('dry') || n.includes('clean')) {
     photo = imageUrl || '/images/service_dry_cleaning.jpg';
     badgeColor = 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800';
   } else if (n.includes('express') || n.includes('emergency')) {
