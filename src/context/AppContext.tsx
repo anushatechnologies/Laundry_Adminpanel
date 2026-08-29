@@ -323,10 +323,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (remoteOrders) setOrders(remoteOrders);
       if (catalog) {
-        if (catalog.clothTypes) setClothTypes(catalog.clothTypes);
-        if (catalog.serviceMasters) setServiceMasters(catalog.serviceMasters);
-        if (catalog.priceMatrix) setPriceMatrix(catalog.priceMatrix);
-        if (catalog.bulkPricing) setBulkPricing(catalog.bulkPricing);
+        if (catalog.clothTypes && Array.isArray(catalog.clothTypes) && catalog.clothTypes.length >= 50) {
+          setClothTypes(catalog.clothTypes);
+        }
+        if (catalog.serviceMasters && Array.isArray(catalog.serviceMasters) && catalog.serviceMasters.length >= 6) {
+          setServiceMasters(catalog.serviceMasters);
+        }
+        if (
+          catalog.priceMatrix &&
+          Array.isArray(catalog.priceMatrix) &&
+          catalog.priceMatrix.length >= 50 &&
+          !catalog.priceMatrix.some((p: any) => p.clothName === 'Shirt' && p.serviceId === 'srv-m-dry-clean' && p.price < 50)
+        ) {
+          setPriceMatrix(catalog.priceMatrix);
+        }
+        if (catalog.bulkPricing && Array.isArray(catalog.bulkPricing) && catalog.bulkPricing.length > 0) {
+          setBulkPricing(catalog.bulkPricing);
+        }
         if (catalog.settings) setPricingSettings(catalog.settings);
       }
       if (remoteCoupons) setCoupons(remoteCoupons);
