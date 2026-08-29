@@ -275,9 +275,11 @@ export const AdminNavWrapper: React.FC<{ children: React.ReactNode }> = ({ child
           {/* Brand Header */}
           <div className="h-16 px-4 border-b border-slate-800 flex items-center justify-between shrink-0">
             <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-[8px] bg-[#16A34A] flex items-center justify-center text-white font-bold text-base shadow-xs shrink-0">
-                🧺
-              </div>
+              <img
+                src="/logo.png"
+                alt="LaundryFresh Logo"
+                className="w-8 h-8 rounded-[8px] bg-white p-0.5 object-contain shadow-xs shrink-0"
+              />
               {!collapsed && (
                 <div className="truncate">
                   <span className="font-extrabold text-base text-white tracking-tight font-poppins">
