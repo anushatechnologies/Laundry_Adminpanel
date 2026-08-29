@@ -292,7 +292,10 @@ export type ClothCategoryTag =
   | 'BABY_CARE'
   | 'WEDDING_CARE'
   | 'CORPORATE'
-  | 'TRADITIONAL';
+  | 'TRADITIONAL'
+  | 'FOOTWEAR'
+  | 'ACCESSORIES'
+  | string;
 
 export interface ClothType {
   id: string;

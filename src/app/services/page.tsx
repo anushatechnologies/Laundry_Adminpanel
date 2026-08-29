@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { INITIAL_CATEGORIES } from '@/lib/db';
+import { INITIAL_CATEGORIES, db } from '@/lib/db';
 import { useApp } from '@/context/AppContext';
 import { Layers, Plus, Search, Edit2, Check, X, Clock, Scale, Trash2, Image as ImageIcon, Upload, Link as LinkIcon, FileImage } from 'lucide-react';
 import { Service, PricingModel } from '@/types';
@@ -9,7 +9,7 @@ import { adminApi } from '@/lib/api';
 
 export default function AdminServicesPage() {
   const { showToast } = useApp();
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<Service[]>(() => db.getServices());
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
@@ -18,8 +18,14 @@ export default function AdminServicesPage() {
 
   React.useEffect(() => {
     adminApi<{ services: Service[] }>('/services')
-      .then((catalog) => setServices(catalog.services))
-      .catch((error) => showToast(error instanceof Error ? error.message : 'Could not load services.', 'error'));
+      .then((catalog) => {
+        if (catalog?.services && Array.isArray(catalog.services) && catalog.services.length > 0) {
+          setServices(catalog.services);
+        }
+      })
+      .catch(() => {
+        setServices(db.getServices());
+      });
   }, []);
 
   const [formData, setFormData] = useState({

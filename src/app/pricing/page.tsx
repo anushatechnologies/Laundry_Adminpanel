@@ -57,6 +57,7 @@ export default function AdminPricingEnginePage() {
     updatePriceItem,
     upsertPriceItem,
     updatePricingSettings,
+    resetToMasterCatalog,
     showToast,
   } = useApp();
 
@@ -386,6 +387,19 @@ export default function AdminPricingEnginePage() {
           >
             <FolderPlus className="w-3.5 h-3.5 text-[#16A34A]" />
             <span>Add Category</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (confirm('Reset to standard 54-garment master catalog and fresh pricing matrix? This will clear any stale browser cache and reload the complete 54-item catalog.')) {
+                resetToMasterCatalog();
+              }
+            }}
+            className="admin-btn-secondary"
+            title="Reset any cached browser prices to the full 54-garment master matrix"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>Master Matrix Reset</span>
           </button>
 
           <button onClick={openAddClothModal} className="admin-btn-primary">

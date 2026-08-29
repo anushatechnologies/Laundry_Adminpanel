@@ -154,6 +154,7 @@ interface AppContextType {
   deleteBulkPrice: (id: string) => void;
   updateBulkSlab: (serviceId: string, laundryType: BulkLaundryType, slabs: { weightKg: number; regularPrice: number; expressPrice: number }[]) => void;
   updatePricingSettings: (settings: Partial<PricingSettings>) => void;
+  resetToMasterCatalog: () => void;
   addClothItemToCart: (cloth: ClothType, priceItem: ServicePriceItem, quantity?: number, instructions?: string) => void;
   // Operational Workflows & Lifecycle
   disputes: DisputeReport[];
@@ -768,6 +769,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const resetToMasterCatalog = () => {
+    const res = db.resetToMasterCatalog();
+    setClothTypes([...res.clothTypes]);
+    setServiceMasters([...res.serviceMasters]);
+    setPriceMatrix([...res.priceMatrix]);
+    showToast('Reset to 54-garment master pricing matrix successfully!', 'success');
+  };
+
   const addClothItemToCart = (cloth: ClothType, priceItem: ServicePriceItem, quantity = 1, instructions = '') => {
     setCart((prev) => {
       const itemKey = `${cloth.id}-${priceItem.serviceId}`;
@@ -1212,6 +1221,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setBulkPricing([...db.getBulkPricing()]);
         },
         updatePricingSettings,
+        resetToMasterCatalog,
         addClothItemToCart,
         disputes,
         createDispute,
