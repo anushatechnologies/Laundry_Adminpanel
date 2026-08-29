@@ -60,8 +60,28 @@ export const getAdminCoupons = () => adminApi<any[]>('/coupons');
 export const getAdminPincodes = () => adminApi<any[]>('/pincodes');
 export const getAdminPlans = () => adminApi<any[]>('/subscriptions/plans');
 export const getAdminSlots = () => adminApi<any[]>('/slots');
+export const getAdminBanners = () => adminApi<import('@/types').Banner[]>('/banners/all');
+export const createAdminBanner = (data: Partial<import('@/types').Banner>) =>
+  adminApi<import('@/types').Banner>('/banners', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+export const updateAdminBanner = (id: string, data: Partial<import('@/types').Banner>) =>
+  adminApi<import('@/types').Banner>(`/banners/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+export const toggleAdminBanner = (id: string) =>
+  adminApi<import('@/types').Banner>(`/banners/${encodeURIComponent(id)}/toggle`, {
+    method: 'PATCH',
+  });
+export const deleteAdminBanner = (id: string) =>
+  adminApi<{ success: boolean }>(`/banners/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
 
 // Kept as small compatibility helpers for the slot capacity screen. They use
+// the authenticated server-side proxy above, never a browser-visible API key.
 // the authenticated server-side proxy above, never a browser-visible API key.
 export const getBackendSlots = () => getAdminSlots().catch(() => null);
 export const updateBackendSlot = (id: string, data: Record<string, unknown>) =>

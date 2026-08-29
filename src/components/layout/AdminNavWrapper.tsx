@@ -201,6 +201,7 @@ export const AdminNavWrapper: React.FC<{ children: React.ReactNode }> = ({ child
     {
       group: 'MARKETING',
       items: [
+        { name: 'Banners & Promos', href: '/banners', icon: Sparkles, badge: 'App' },
         { name: 'Coupons & Offers', href: '/coupons', icon: Tag },
         { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
         { name: 'Loyalty & Wallet', href: '/subscriptions?tab=loyalty', icon: Sparkles },
