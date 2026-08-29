@@ -228,6 +228,23 @@ export default function AdminHubsPage() {
     setDeleteConfirmId(null);
   };
 
+  // ── One-click Active/Inactive Toggle ─────────────────────────────────────────
+  const handleToggleActive = async (hub: HubBranch, e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't select the hub card
+    const newStatus = !hub.isActive;
+    // Optimistically update UI
+    setHubs((prev) => prev.map((h) => h.id === hub.id ? { ...h, isActive: newStatus } : h));
+    if (selectedHub?.id === hub.id) setSelectedHub((prev) => prev ? { ...prev, isActive: newStatus } : prev);
+    // Persist to backend
+    try {
+      await fetch(`${API_URL}/hubs/${hub.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...hub, isActive: newStatus }),
+      });
+    } catch { /* local update already applied */ }
+  };
+
   // Run Test Distance & Fare Calculator
   const runFareCalculation = async () => {
     try {
@@ -380,15 +397,17 @@ export default function AdminHubsPage() {
                       </div>
                     </div>
 
-                    <span
-                      className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                    <button
+                      onClick={(e) => handleToggleActive(hub, e)}
+                      title={hub.isActive ? 'Click to Deactivate — removes from routing' : 'Click to Activate — adds to routing'}
+                      className={`text-[10px] font-black px-2 py-0.5 rounded-full cursor-pointer transition-all hover:scale-105 active:scale-95 ${
                         hub.isActive
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                          : 'bg-slate-100 text-slate-600'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300'
+                          : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-emerald-100 hover:text-emerald-700 hover:border-emerald-300'
                       }`}
                     >
-                      {hub.isActive ? 'ACTIVE' : 'INACTIVE'}
-                    </span>
+                      {hub.isActive ? '● ACTIVE' : '○ INACTIVE'}
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 text-[11px] pt-3 mt-3 border-t border-[var(--border-color)]">
@@ -432,7 +451,19 @@ export default function AdminHubsPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Active / Inactive instant toggle */}
+                  <button
+                    onClick={(e) => handleToggleActive(selectedHub, e)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                      selectedHub.isActive
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
+                        : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300'
+                    }`}
+                  >
+                    <span className="text-base leading-none">{selectedHub.isActive ? '●' : '○'}</span>
+                    <span>{selectedHub.isActive ? 'Active — Click to Deactivate' : 'Inactive — Click to Activate'}</span>
+                  </button>
                   <button
                     onClick={() => openEditModal(selectedHub)}
                     className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors flex items-center gap-1.5 cursor-pointer"
