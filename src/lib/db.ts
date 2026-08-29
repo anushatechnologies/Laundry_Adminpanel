@@ -1902,8 +1902,35 @@ class LaundryDatabase {
         const savedPlans = localStorage.getItem('laundry_subscription_plans');
         if (savedPlans) this.subscriptionPlans = JSON.parse(savedPlans);
 
+        const PINCODE_CACHE_VERSION = 'v2.0_hyderabad_50';
+        const currentPincodeVersion = localStorage.getItem('laundry_pincode_version');
         const savedPincodes = localStorage.getItem('laundry_pincodes');
-        if (savedPincodes) this.pincodes = JSON.parse(savedPincodes);
+        if (
+          !savedPincodes ||
+          currentPincodeVersion !== PINCODE_CACHE_VERSION
+        ) {
+          // Seed from code defaults — includes all 50 Hyderabad pincodes
+          this.pincodes = [...INITIAL_PINCODES];
+          this.safeSetItem('laundry_pincodes', JSON.stringify(this.pincodes));
+          this.safeSetItem('laundry_pincode_version', PINCODE_CACHE_VERSION);
+        } else {
+          try {
+            const parsedPincodes = JSON.parse(savedPincodes);
+            // If saved list is too small (< 50), force re-seed
+            if (!Array.isArray(parsedPincodes) || parsedPincodes.length < 50) {
+              this.pincodes = [...INITIAL_PINCODES];
+              this.safeSetItem('laundry_pincodes', JSON.stringify(this.pincodes));
+              this.safeSetItem('laundry_pincode_version', PINCODE_CACHE_VERSION);
+            } else {
+              this.pincodes = parsedPincodes;
+            }
+          } catch {
+            this.pincodes = [...INITIAL_PINCODES];
+          }
+        }
+
+        const CATALOG_CACHE_VERSION = 'v3.3_full_comprehensive_matrix';
+        const currentVersion = localStorage.getItem('laundry_catalog_version');
 
         const savedOrders = localStorage.getItem('laundry_orders');
         if (savedOrders) this.orders = JSON.parse(savedOrders);
@@ -1916,9 +1943,6 @@ class LaundryDatabase {
 
         const savedWallet = localStorage.getItem('laundry_wallet');
         if (savedWallet) this.wallet = JSON.parse(savedWallet);
-
-        const CATALOG_CACHE_VERSION = 'v3.3_full_comprehensive_matrix';
-        const currentVersion = localStorage.getItem('laundry_catalog_version');
 
         const savedClothTypes = localStorage.getItem('laundry_cloth_types');
         const savedMasters = localStorage.getItem('laundry_service_masters');
