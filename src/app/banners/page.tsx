@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -17,6 +17,8 @@ import {
   ShoppingBag,
   ExternalLink,
   Percent,
+  Upload,
+  Link as LinkIcon,
 } from 'lucide-react';
 import {
   getAdminBanners,
@@ -24,6 +26,7 @@ import {
   updateAdminBanner,
   toggleAdminBanner,
   deleteAdminBanner,
+  adminApi,
 } from '@/lib/api';
 import { Banner } from '@/types';
 
@@ -58,8 +61,11 @@ export default function AdminBannersPage() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingS3, setUploadingS3] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+  const [imageInputMode, setImageInputMode] = useState<'FILE' | 'URL'>('FILE');
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -101,6 +107,7 @@ export default function AdminBannersPage() {
     setActionTarget('');
     setDisplayOrder(banners.length + 1);
     setIsActive(true);
+    setSelectedFileName(null);
     setIsModalOpen(true);
   };
 
@@ -116,7 +123,62 @@ export default function AdminBannersPage() {
     setActionTarget(banner.actionTarget || '');
     setDisplayOrder(banner.displayOrder || 1);
     setIsActive(banner.isActive);
+    setSelectedFileName(null);
     setIsModalOpen(true);
+  };
+
+  const compressImageFile = (file: File, maxWidth = 1400, quality = 0.85): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressedBase64);
+        };
+        img.onerror = () => resolve(event.target?.result as string);
+      };
+    });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFileName(file.name);
+      setUploadingS3(true);
+      try {
+        const compressedDataUrl = await compressImageFile(file);
+        setImageUrl(compressedDataUrl);
+
+        const uploaded = await adminApi<{ s3Url: string }>('/services/upload-s3', {
+          method: 'POST',
+          body: JSON.stringify({ imageBase64: compressedDataUrl, fileName: `banner-${Date.now()}-${file.name}` }),
+        });
+
+        if (uploaded?.s3Url) {
+          setImageUrl(uploaded.s3Url);
+        }
+      } catch {
+        // keep preview
+      } finally {
+        setUploadingS3(false);
+      }
+    }
   };
 
   const handleSaveBanner = async (e: React.FormEvent) => {
@@ -432,18 +494,69 @@ export default function AdminBannersPage() {
                 </div>
               </div>
 
-              {/* Image URL & Presets */}
-              <div>
-                <label className="block font-bold text-[var(--text-primary)] mb-1">
-                  Banner Image URL *
-                </label>
-                <input
-                  type="url"
-                  required
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-page)] text-[var(--text-primary)] font-mono text-[11px]"
-                />
+              {/* Image Input Options: Upload to S3 vs URL vs Presets */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-[var(--text-primary)]">
+                    Banner Photo (AWS S3 Cloud / URL) *
+                  </label>
+                  <div className="flex bg-[var(--bg-hover)] p-0.5 rounded-lg border border-[var(--border-color)]">
+                    <button
+                      type="button"
+                      onClick={() => setImageInputMode('FILE')}
+                      className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
+                        imageInputMode === 'FILE'
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      <Upload className="w-3 h-3" /> Upload Device Image to S3
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageInputMode('URL')}
+                      className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
+                        imageInputMode === 'URL'
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      <LinkIcon className="w-3 h-3" /> Direct S3 / Image Link
+                    </button>
+                  </div>
+                </div>
+
+                {imageInputMode === 'FILE' ? (
+                  <div className="border-2 border-dashed border-[var(--border-color)] rounded-xl p-4 text-center hover:border-purple-500/50 transition-colors bg-[var(--bg-page)]">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="banner-file-upload"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <label htmlFor="banner-file-upload" className="cursor-pointer flex flex-col items-center gap-1.5">
+                      <div className="w-9 h-9 rounded-full bg-purple-500/10 text-purple-600 flex items-center justify-center">
+                        <Upload className="w-4 h-4" />
+                      </div>
+                      <span className="font-bold text-[var(--text-primary)] text-xs">
+                        {uploadingS3 ? 'Uploading to AWS S3...' : selectedFileName ? `Uploaded: ${selectedFileName}` : 'Choose banner file to upload directly to S3'}
+                      </span>
+                      <span className="text-[10px] text-[var(--text-secondary)]">
+                        PNG, JPG, WEBP up to 8MB • Automatically stored on AWS S3
+                      </span>
+                    </label>
+                  </div>
+                ) : (
+                  <input
+                    type="url"
+                    required
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/..."
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-page)] text-[var(--text-primary)] font-mono text-[11px]"
+                  />
+                )}
 
                 {/* Preset Quick Selectors */}
                 <div className="mt-2">
@@ -574,7 +687,7 @@ export default function AdminBannersPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || uploadingS3}
                   className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-md disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : editingBanner ? 'Update Banner' : 'Create Banner'}
