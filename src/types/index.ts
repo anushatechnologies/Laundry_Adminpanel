@@ -303,6 +303,7 @@ export interface ClothType {
   icon: string;
   categoryTag: ClothCategoryTag;
   categoryLabel: string;
+  subCategory?: string;
   defaultUnit?: PricingUnit;
   description?: string;
   availableServices?: string[];
