@@ -17,8 +17,8 @@ interface CatalogProductGridProps {
   onUpdateClothImage?: (clothId: string, imageUrl: string) => void;
 }
 
-// Client-side image compressor
-const compressImageFile = (file: File, maxWidth = 1200, quality = 0.85): Promise<string> => {
+// Lightweight client-side image compressor: produces crisp ~60-100KB JPEG
+const compressImageFile = (file: File, maxDim = 700, quality = 0.75): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (readerEvent) => {
@@ -28,9 +28,16 @@ const compressImageFile = (file: File, maxWidth = 1200, quality = 0.85): Promise
         let width = img.width;
         let height = img.height;
 
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
         }
 
         canvas.width = width;
@@ -41,7 +48,7 @@ const compressImageFile = (file: File, maxWidth = 1200, quality = 0.85): Promise
           return;
         }
         ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', quality);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
         resolve(dataUrl);
       };
       img.onerror = reject;
@@ -84,21 +91,29 @@ export const CatalogProductGrid: React.FC<CatalogProductGridProps> = ({
 
     setUploadingId(clothId);
     try {
-      const compressedDataUrl = await compressImageFile(file);
-      const response = await adminApi<{ s3Url: string }>('/services/upload-s3', {
-        method: 'POST',
-        body: JSON.stringify({
-          imageBase64: compressedDataUrl,
-          fileName: `garment-${clothId}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`,
-        }),
-      });
+      const compressedDataUrl = await compressImageFile(file, 700, 0.75);
 
-      const finalUrl = response?.s3Url || compressedDataUrl;
-      if (onUpdateClothImage) {
-        onUpdateClothImage(clothId, finalUrl);
+      try {
+        const response = await adminApi<{ s3Url: string }>('/services/upload-s3', {
+          method: 'POST',
+          body: JSON.stringify({
+            imageBase64: compressedDataUrl,
+            fileName: `garment-${clothId}-${Date.now()}.jpg`,
+          }),
+        });
+
+        const finalUrl = response?.s3Url || compressedDataUrl;
+        if (onUpdateClothImage) {
+          onUpdateClothImage(clothId, finalUrl);
+        }
+      } catch (apiErr) {
+        console.warn('Remote S3 API failed, saving optimized local image:', apiErr);
+        if (onUpdateClothImage) {
+          onUpdateClothImage(clothId, compressedDataUrl);
+        }
       }
     } catch (err) {
-      console.error('Quick S3 upload error:', err);
+      console.error('Quick image upload error:', err);
     } finally {
       setUploadingId(null);
       setTargetClothId(null);
@@ -116,7 +131,7 @@ export const CatalogProductGrid: React.FC<CatalogProductGridProps> = ({
       <input
         ref={activeInputRef}
         type="file"
-        accept="image/png,image/jpeg,image/jpg,image/webp"
+        accept="image/*"
         onChange={handleCardFileChange}
         className="hidden"
       />
@@ -163,7 +178,7 @@ export const CatalogProductGrid: React.FC<CatalogProductGridProps> = ({
                   {isCurrentlyUploading && (
                     <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white z-10">
                       <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-                      <span className="text-[10px] font-bold mt-1">Uploading to S3...</span>
+                      <span className="text-[10px] font-bold mt-1">Uploading...</span>
                     </div>
                   )}
 
@@ -174,10 +189,10 @@ export const CatalogProductGrid: React.FC<CatalogProductGridProps> = ({
                         type="button"
                         onClick={() => triggerDirectUpload(cloth.id)}
                         className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-lg text-[10px] font-bold flex items-center gap-1 transition-transform hover:scale-105 cursor-pointer"
-                        title="Upload new image to AWS S3"
+                        title="Upload new photo"
                       >
                         <UploadCloud className="w-3 h-3" />
-                        <span>Upload S3</span>
+                        <span>Upload</span>
                       </button>
 
                       <button

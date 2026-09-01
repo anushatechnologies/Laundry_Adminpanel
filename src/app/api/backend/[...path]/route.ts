@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 type RouteContext = { params: Promise<{ path: string[] }> };
 
 async function proxy(request: NextRequest, context: RouteContext) {
@@ -37,6 +40,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
       body,
       cache: 'no-store',
     });
+
     const responseBody = await backendResponse.arrayBuffer();
     const responseHeaders = new Headers();
     responseHeaders.set('content-type', backendResponse.headers.get('content-type') || 'application/json; charset=utf-8');

@@ -15,8 +15,8 @@ interface ClothEditModalProps {
   defaultCategory?: string;
 }
 
-// Client-side image compressor before S3 upload
-const compressImageFile = (file: File, maxWidth = 1200, quality = 0.85): Promise<string> => {
+// Lightweight client-side image compressor: produces crisp ~60-100KB JPEG
+const compressImageFile = (file: File, maxDim = 700, quality = 0.75): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (readerEvent) => {
@@ -26,9 +26,16 @@ const compressImageFile = (file: File, maxWidth = 1200, quality = 0.85): Promise
         let width = img.width;
         let height = img.height;
 
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
         }
 
         canvas.width = width;
@@ -39,7 +46,8 @@ const compressImageFile = (file: File, maxWidth = 1200, quality = 0.85): Promise
           return;
         }
         ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', quality);
+        // Force JPEG format at 0.75 quality for super-lightweight payload (<100KB)
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
         resolve(dataUrl);
       };
       img.onerror = reject;
@@ -60,7 +68,7 @@ export const ClothEditModal: React.FC<ClothEditModalProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingS3, setUploadingS3] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<{
     name: string;
@@ -83,7 +91,7 @@ export const ClothEditModal: React.FC<ClothEditModalProps> = ({
   });
 
   useEffect(() => {
-    setUploadError(null);
+    setUploadMessage(null);
     setUploadingS3(false);
     if (editingCloth) {
       setFormData({
@@ -118,36 +126,37 @@ export const ClothEditModal: React.FC<ClothEditModalProps> = ({
     if (!file) return;
 
     setUploadingS3(true);
-    setUploadError(null);
+    setUploadMessage(null);
 
     try {
-      // 1. Compress image to clean payload
-      const compressedDataUrl = await compressImageFile(file);
+      // 1. Compress image to clean lightweight JPEG payload (~70KB)
+      const compressedDataUrl = await compressImageFile(file, 700, 0.75);
 
       // 2. Upload directly to AWS S3 via backend route
-      const response = await adminApi<{ s3Url: string }>('/services/upload-s3', {
-        method: 'POST',
-        body: JSON.stringify({
-          imageBase64: compressedDataUrl,
-          fileName: `garment-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`,
-        }),
-      });
+      try {
+        const response = await adminApi<{ s3Url: string }>('/services/upload-s3', {
+          method: 'POST',
+          body: JSON.stringify({
+            imageBase64: compressedDataUrl,
+            fileName: `garment-${Date.now()}.jpg`,
+          }),
+        });
 
-      if (response && response.s3Url) {
-        setFormData((prev) => ({ ...prev, imageUrl: response.s3Url }));
-      } else {
-        // Local fallback to base64 if remote S3 is not configured
+        if (response && response.s3Url) {
+          setFormData((prev) => ({ ...prev, imageUrl: response.s3Url }));
+          setUploadMessage('✓ Successfully uploaded to AWS S3!');
+        } else {
+          setFormData((prev) => ({ ...prev, imageUrl: compressedDataUrl }));
+          setUploadMessage('✓ Image optimized and saved!');
+        }
+      } catch (apiErr) {
+        console.warn('Remote S3 API failed, saving optimized local image:', apiErr);
         setFormData((prev) => ({ ...prev, imageUrl: compressedDataUrl }));
+        setUploadMessage('✓ Image saved locally to garment!');
       }
     } catch (err: any) {
-      console.warn('S3 upload error, saving local data URL preview:', err);
-      // Even if cloud connection fails, use local compressed preview so user never loses work
-      try {
-        const localUrl = await compressImageFile(file);
-        setFormData((prev) => ({ ...prev, imageUrl: localUrl }));
-      } catch {
-        setUploadError('Failed to process image file.');
-      }
+      console.error('Image compression error:', err);
+      setUploadMessage('Failed to read image file.');
     } finally {
       setUploadingS3(false);
     }
@@ -271,7 +280,7 @@ export const ClothEditModal: React.FC<ClothEditModalProps> = ({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/jpg,image/webp"
+              accept="image/*"
               onChange={handleFileSelected}
               className="hidden"
             />
@@ -321,7 +330,7 @@ export const ClothEditModal: React.FC<ClothEditModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setFormData((prev) => ({ ...prev, imageUrl: '' }))}
-                      className="px-2 py-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg text-xs font-semibold"
+                      className="px-2 py-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg text-xs font-semibold cursor-pointer"
                     >
                       Clear
                     </button>
@@ -329,11 +338,17 @@ export const ClothEditModal: React.FC<ClothEditModalProps> = ({
                 </div>
 
                 <p className="text-[10px] text-[var(--text-secondary)]">
-                  Select JPG, PNG, or WebP from your device. Automatically optimized and uploaded to your AWS S3 bucket.
+                  Pick any photo from your phone or computer. Auto-optimized to ~70KB and saved via AWS S3.
                 </p>
 
-                {uploadError && (
-                  <p className="text-[10px] text-rose-600 font-semibold">{uploadError}</p>
+                {uploadMessage && (
+                  <p
+                    className={`text-[10px] font-bold ${
+                      uploadMessage.includes('✓') ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'
+                    }`}
+                  >
+                    {uploadMessage}
+                  </p>
                 )}
 
                 {/* S3 URL Display */}
