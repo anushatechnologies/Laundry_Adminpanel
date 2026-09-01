@@ -135,13 +135,12 @@ export const INITIAL_CATEGORIES: ServiceCategory[] = [
 ];
 
 export const INITIAL_SERVICES: Service[] = [
-  // 1. Laundry (Wash & Fold / Wash & Iron)
   {
     id: 'srv-1',
     categoryId: 'cat-1',
     name: 'Wash & Fold (Standard)',
     slug: 'wash-and-fold',
-    description: 'Everyday clothes washed, tumble dried, and neatly folded. Price calculated per KG.',
+    description: 'Everyday clothes washed, tumble dried, and neatly folded.',
     pricingModel: 'PER_KG',
     basePrice: 60,
     unit: 'KG',
@@ -149,14 +148,15 @@ export const INITIAL_SERVICES: Service[] = [
     turnaroundHours: 24,
     popular: true,
     expressAvailable: true,
-    includedItems: ['T-shirts', 'Jeans', 'Trousers', 'Towels', 'Undergarments', 'Socks', 'Daily Wear'],
+    image: '/images/service_wash_fold.jpg',
+    imageUrl: '/images/service_wash_fold.jpg',
   },
   {
     id: 'srv-2',
     categoryId: 'cat-1',
     name: 'Wash & Steam Iron',
     slug: 'wash-and-iron',
-    description: 'Complete hygiene wash + crisp steam press with hanger or compact fold packaging.',
+    description: 'Hygiene wash + crisp steam press with hanger packaging.',
     pricingModel: 'PER_KG',
     basePrice: 85,
     unit: 'KG',
@@ -164,189 +164,64 @@ export const INITIAL_SERVICES: Service[] = [
     turnaroundHours: 36,
     popular: true,
     expressAvailable: true,
-    includedItems: ['Shirts', 'Trousers', 'Kurtas', 'Salwars', 'Dresses'],
+    image: '/images/service_wash_iron.jpg',
+    imageUrl: '/images/service_wash_iron.jpg',
   },
-  {
-    id: 'srv-3',
-    categoryId: 'cat-1',
-    name: 'Premium Gentle Wash',
-    slug: 'premium-gentle-wash',
-    description: 'Individual load wash with imported fabric conditioner, zero color bleed guarantee.',
-    pricingModel: 'PER_KG',
-    basePrice: 110,
-    unit: 'KG',
-    minOrderQuantity: 2,
-    turnaroundHours: 36,
-    popular: false,
-    expressAvailable: true,
-  },
-  {
-    id: 'srv-4',
-    categoryId: 'cat-1',
-    name: 'Hand Wash Delicate',
-    slug: 'hand-wash-delicate',
-    description: 'Manual gentle wash for delicate knits, lace, and sensitive blended fabrics.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 75,
-    unit: 'Item',
-    turnaroundHours: 48,
-    popular: false,
-  },
-  {
-    id: 'srv-5',
-    categoryId: 'cat-1',
-    name: 'Express Same-Day Laundry',
-    slug: 'express-same-day',
-    description: 'Morning pickup (by 10 AM) and evening delivery (by 8 PM) fresh & ready.',
-    pricingModel: 'PER_KG',
-    basePrice: 120,
-    unit: 'KG',
-    minOrderQuantity: 3,
-    turnaroundHours: 12,
-    popular: true,
-    expressAvailable: true,
-  },
-
-  // 2. Ironing
   {
     id: 'srv-6',
     categoryId: 'cat-2',
-    name: 'Steam Ironing — Shirt / Pant / Top',
+    name: 'Steam Ironing — Shirt / Pant',
     slug: 'steam-iron-regular',
-    description: 'Industrial steam press for wrinkle-free finish with crisp collar & cuff shape.',
+    description: 'Industrial steam press for wrinkle-free finish.',
     pricingModel: 'PER_ITEM',
     basePrice: 15,
     unit: 'Item',
     turnaroundHours: 18,
     popular: true,
-    expressAvailable: true,
+    image: '/images/service_steam_iron.jpg',
+    imageUrl: '/images/service_steam_iron.jpg',
   },
-  {
-    id: 'srv-7',
-    categoryId: 'cat-2',
-    name: 'Saree Steam Pressing',
-    slug: 'saree-steam-iron',
-    description: 'Long table tension pressing for cotton, chiffon, and georgette sarees with roll-fold.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 60,
-    unit: 'Item',
-    turnaroundHours: 24,
-    popular: true,
-  },
-  {
-    id: 'srv-8',
-    categoryId: 'cat-2',
-    name: 'Suit 2-Piece Steam Pressing',
-    slug: 'suit-pressing',
-    description: 'Form-finish 3D steam dummy press for blazer and trousers to preserve canvas structure.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 120,
-    unit: 'Item',
-    turnaroundHours: 24,
-    popular: true,
-  },
-  {
-    id: 'srv-9',
-    categoryId: 'cat-2',
-    name: 'Curtain / Drapes Pressing',
-    slug: 'curtain-ironing',
-    description: 'Heavy steam pressing for long pleated drapes up to 9 ft.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 90,
-    unit: 'Piece',
-    turnaroundHours: 24,
-  },
-
-  // 3. Dry Cleaning
   {
     id: 'srv-10',
     categoryId: 'cat-3',
     name: 'Dry Clean — Formal Shirt / Top',
     slug: 'dry-clean-shirt',
-    description: 'Hydrocarbon solvent clean, collar stain scrub, and premium form pressing.',
+    description: 'Collar stain scrub, hydrocarbon solvent clean.',
     pricingModel: 'PER_ITEM',
     basePrice: 80,
     unit: 'Item',
     turnaroundHours: 48,
     popular: true,
-    expressAvailable: true,
+    image: '/images/service_dry_cleaning.jpg',
+    imageUrl: '/images/service_dry_cleaning.jpg',
   },
   {
     id: 'srv-11',
     categoryId: 'cat-3',
     name: 'Dry Clean — 2-Piece Suit / Blazer',
     slug: 'dry-clean-suit',
-    description: 'Multi-stage gentle dry clean, shoulder pad preservation, lint removal & breathable garment bag.',
+    description: 'Multi-stage gentle dry clean with breathable cover.',
     pricingModel: 'PER_ITEM',
     basePrice: 280,
     unit: 'Item',
     turnaroundHours: 48,
     popular: true,
-    expressAvailable: true,
+    image: '/images/service_dry_cleaning.jpg',
+    imageUrl: '/images/service_dry_cleaning.jpg',
   },
-  {
-    id: 'srv-12',
-    categoryId: 'cat-3',
-    name: 'Dry Clean — Silk Saree / Zari',
-    slug: 'dry-clean-silk-saree',
-    description: 'Specialized chemical solvent treatment for Kanchipuram, Banarasi, and Tussar silk.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 220,
-    unit: 'Item',
-    turnaroundHours: 48,
-    popular: true,
-  },
-  {
-    id: 'srv-13',
-    categoryId: 'cat-3',
-    name: 'Dry Clean — Winter Coat / Trench / Leather',
-    slug: 'dry-clean-coat',
-    description: 'Heavy woolen overcoat or genuine leather jacket conditioning and dry clean.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 350,
-    unit: 'Item',
-    turnaroundHours: 72,
-    popular: false,
-  },
-
-  // 4. Wedding & Traditional Wear
   {
     id: 'srv-14',
     categoryId: 'cat-4',
     name: 'Bridal Lehenga / Heavy Gown',
     slug: 'bridal-lehenga-cleaning',
-    description: 'Delicate stone, zardozi, and sequence hand-shielding dry clean with tissue wrap box.',
+    description: 'Delicate stone hand-shielding dry clean with tissue wrap box.',
     pricingModel: 'PER_ITEM',
     basePrice: 650,
     unit: 'Set',
     turnaroundHours: 72,
     popular: true,
-  },
-  {
-    id: 'srv-15',
-    categoryId: 'cat-4',
-    name: 'Sherwani & Kurta Set',
-    slug: 'sherwani-cleaning',
-    description: 'Groom sherwani, stole & churidar dry clean with anti-tarnish metallic protection.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 450,
-    unit: 'Set',
-    turnaroundHours: 72,
-    popular: true,
-  },
-
-  // 5. Home Textiles
-  {
-    id: 'srv-16',
-    categoryId: 'cat-5',
-    name: 'Double Bedsheet + 2 Pillow Covers Wash',
-    slug: 'bedsheet-set-wash',
-    description: 'Thermal disinfection wash at 60°C for deep mite removal and crisp calendar pressing.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 120,
-    unit: 'Set',
-    turnaroundHours: 36,
-    popular: true,
+    image: '/images/service_dry_cleaning.jpg',
+    imageUrl: '/images/service_dry_cleaning.jpg',
   },
   {
     id: 'srv-17',
@@ -359,197 +234,8 @@ export const INITIAL_SERVICES: Service[] = [
     unit: 'Item',
     turnaroundHours: 48,
     popular: true,
-  },
-  {
-    id: 'srv-18',
-    categoryId: 'cat-5',
-    name: 'Bath Towels & Robes (Per KG)',
-    slug: 'towels-per-kg',
-    description: 'Ultra-fluff soft wash with antimicrobial rinse for hotel-grade softness.',
-    pricingModel: 'PER_KG',
-    basePrice: 70,
-    unit: 'KG',
-    minOrderQuantity: 2,
-    turnaroundHours: 24,
-  },
-
-  // 6. Home Cleaning
-  {
-    id: 'srv-19',
-    categoryId: 'cat-6',
-    name: 'Sofa Deep Shampooing (Per Seat)',
-    slug: 'sofa-cleaning',
-    description: 'On-site injection-extraction foam deep clean to remove dirt, stains and odors.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 200,
-    unit: 'Seat',
-    turnaroundHours: 24,
-  },
-  {
-    id: 'srv-20',
-    categoryId: 'cat-6',
-    name: 'Carpet Cleaning (Up to 5x7 ft)',
-    slug: 'carpet-cleaning',
-    description: 'Rotary brush wash, dust extraction, and anti-fungal treatment for area rugs.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 450,
-    unit: 'Piece',
-    turnaroundHours: 48,
-  },
-
-  // 7. Bags & Accessories
-  {
-    id: 'srv-21',
-    categoryId: 'cat-7',
-    name: 'Backpack / Laptop Bag Deep Clean',
-    slug: 'backpack-cleaning',
-    description: 'Zipper lubrication, inner liner sanitize, stain wash, and deodorization.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 180,
-    unit: 'Item',
-    turnaroundHours: 48,
-  },
-  {
-    id: 'srv-22',
-    categoryId: 'cat-7',
-    name: 'Luxury Leather Handbag Spa',
-    slug: 'leather-bag-spa',
-    description: 'pH-neutral leather cleaner, edge conditioning, color rejuvenation, and moisture shield.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 490,
-    unit: 'Item',
-    turnaroundHours: 72,
-  },
-
-  // 8. Baby & Kids
-  {
-    id: 'srv-23',
-    categoryId: 'cat-8',
-    name: 'Baby Clothes Gentle Sanitization (Per KG)',
-    slug: 'baby-clothes-per-kg',
-    description: 'Special zero-phosphate baby detergent, double rinse cycle, anti-allergen steam pressing.',
-    pricingModel: 'PER_KG',
-    basePrice: 80,
-    unit: 'KG',
-    minOrderQuantity: 2,
-    turnaroundHours: 24,
-    popular: true,
-  },
-  {
-    id: 'srv-24',
-    categoryId: 'cat-8',
-    name: 'Plush / Soft Toy Deep Hygiene Wash',
-    slug: 'soft-toy-wash',
-    description: 'UV disinfection, anti-dust-mite organic wash, and gentle tumble restoration.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 110,
-    unit: 'Item',
-    turnaroundHours: 48,
-  },
-
-  // 9. Corporate & Hospitality
-  {
-    id: 'srv-25',
-    categoryId: 'cat-9',
-    name: 'Hotel & PG Bedding Bulk Contract (Per KG)',
-    slug: 'corporate-bedding-bulk',
-    description: 'Commercial high-volume wash, thermal ozone disinfection, and automated folding.',
-    pricingModel: 'PER_KG',
-    basePrice: 42,
-    unit: 'KG',
-    minOrderQuantity: 25,
-    turnaroundHours: 24,
-  },
-  {
-    id: 'srv-26',
-    categoryId: 'cat-9',
-    name: 'Staff Uniform Wash & Press (Per Set)',
-    slug: 'corporate-uniform-set',
-    description: 'Corporate staff aprons, scrubs, security, or hospitality uniforms barcode tagged.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 45,
-    unit: 'Set',
-    minOrderQuantity: 10,
-    turnaroundHours: 24,
-  },
-
-  // 10. Special Treatments
-  {
-    id: 'srv-27',
-    categoryId: 'cat-10',
-    name: 'Targeted Stubborn Stain Removal',
-    slug: 'stain-removal',
-    description: 'Spotting table ultrasonic gun treatment for wine, grease, ink, turmeric, and rust.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 60,
-    unit: 'Garment',
-    turnaroundHours: 24,
-  },
-  {
-    id: 'srv-28',
-    categoryId: 'cat-10',
-    name: 'Ozone Sanitization & Odor Extraction',
-    slug: 'ozone-sanitization',
-    description: 'Eliminates smoke, mold, pet, and sweat odors without harsh chemicals.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 75,
-    unit: 'Garment',
-    turnaroundHours: 24,
-  },
-
-  // 11. Pet Products
-  {
-    id: 'srv-29',
-    categoryId: 'cat-11',
-    name: 'Pet Bed & Mattress Deep Sanitization',
-    slug: 'pet-bed-clean',
-    description: 'Fur extraction, enzyme urine cleaner, flea prevention wash, and UV sterilization.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 220,
-    unit: 'Item',
-    turnaroundHours: 48,
-  },
-
-  // 12. Sports & Fitness
-  {
-    id: 'srv-30',
-    categoryId: 'cat-12',
-    name: 'Gym Wear & Jersey Pro Wash (Per KG)',
-    slug: 'sports-wear-per-kg',
-    description: 'Active-wear polymer wash that restores breathability and eliminates deep sweat bacteria.',
-    pricingModel: 'PER_KG',
-    basePrice: 75,
-    unit: 'KG',
-    minOrderQuantity: 2,
-    turnaroundHours: 24,
-  },
-
-  // 13. Express Services
-  {
-    id: 'srv-31',
-    categoryId: 'cat-13',
-    name: 'Super Express 6-Hour Emergency Laundry',
-    slug: 'super-express-6h',
-    description: 'Immediate dedicated machine run and hot steam press for urgent travel & events.',
-    pricingModel: 'PER_KG',
-    basePrice: 150,
-    unit: 'KG',
-    minOrderQuantity: 3,
-    turnaroundHours: 6,
-    popular: true,
-  },
-
-  // 14. Seasonal
-  {
-    id: 'srv-32',
-    categoryId: 'cat-14',
-    name: 'Winter Woolens & Sweaters Conditioning',
-    slug: 'winter-woolens',
-    description: 'Cashmere and wool gentle wash with natural cedar moth-repellent protective packaging.',
-    pricingModel: 'PER_ITEM',
-    basePrice: 140,
-    unit: 'Item',
-    turnaroundHours: 48,
+    image: '/images/service_wash_fold.jpg',
+    imageUrl: '/images/service_wash_fold.jpg',
   },
 ];
 
@@ -24479,14 +24165,32 @@ class LaundryDatabase {
           }
         }
 
-        const CATALOG_CACHE_VERSION = 'v4.4_public_s3_shirts';
+        const CATALOG_CACHE_VERSION = 'v5.0_clean_original_services';
         const currentVersion = localStorage.getItem('laundry_catalog_version');
 
         const savedOrders = localStorage.getItem('laundry_orders');
         if (savedOrders) this.orders = JSON.parse(savedOrders);
 
         const savedServices = localStorage.getItem('laundry_services');
-        if (savedServices) this.services = JSON.parse(savedServices);
+        if (savedServices) {
+          try {
+            const parsedSrv = JSON.parse(savedServices);
+            if (Array.isArray(parsedSrv) && parsedSrv.length > 7) {
+              // Purge old 32 dummy sample services
+              this.services = [...INITIAL_SERVICES];
+              this.safeSetItem('laundry_services', JSON.stringify(this.services));
+            } else if (Array.isArray(parsedSrv) && parsedSrv.length > 0) {
+              this.services = parsedSrv;
+            } else {
+              this.services = [...INITIAL_SERVICES];
+            }
+          } catch {
+            this.services = [...INITIAL_SERVICES];
+          }
+        } else {
+          this.services = [...INITIAL_SERVICES];
+          this.safeSetItem('laundry_services', JSON.stringify(this.services));
+        }
 
         const savedCoupons = localStorage.getItem('laundry_coupons');
         if (savedCoupons) this.coupons = JSON.parse(savedCoupons);
