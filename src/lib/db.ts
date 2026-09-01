@@ -947,7 +947,7 @@ const MENS_CLOTHES: ClothType[] = [
     "description": "Crisp collar & cuff pressing on hanger",
     "isActive": true,
     "sortOrder": 1,
-    "imageUrl": "https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/1788242435253-formal-shirt-blue.jpg"
+    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/formal-shirt-blue-model.jpg"
   },
   {
     "id": "cloth-mens-casual-shirt",
@@ -959,7 +959,7 @@ const MENS_CLOTHES: ClothType[] = [
     "description": "Soft wash & wrinkle-free steam press",
     "isActive": true,
     "sortOrder": 2,
-    "imageUrl": "https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/1788242437906-casual-linen-shirt-green.jpg"
+    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/casual-linen-shirt-green-model.jpg"
   },
   {
     "id": "cloth-mens-linen-shirt",
@@ -971,7 +971,7 @@ const MENS_CLOTHES: ClothType[] = [
     "description": "Gentle temperature linen steam finish",
     "isActive": true,
     "sortOrder": 3,
-    "imageUrl": "https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/1788242437906-casual-linen-shirt-green.jpg"
+    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/casual-linen-shirt-green-model.jpg"
   },
   {
     "id": "cloth-mens-cotton-shirt",
@@ -24479,7 +24479,7 @@ class LaundryDatabase {
           }
         }
 
-        const CATALOG_CACHE_VERSION = 'v4.3_user_shirts_uploaded';
+        const CATALOG_CACHE_VERSION = 'v4.4_public_s3_shirts';
         const currentVersion = localStorage.getItem('laundry_catalog_version');
 
         const savedOrders = localStorage.getItem('laundry_orders');
