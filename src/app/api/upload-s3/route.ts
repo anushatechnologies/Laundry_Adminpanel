@@ -4,16 +4,16 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
-const region = process.env.AWS_REGION || 'ap-south-1';
-const bucketName = process.env.AWS_S3_BUCKET_NAME || 'laundry-storage-2026';
+const region = 'ap-south-1';
+const bucketName = 'laundry-storage-2026';
 
 const k1 = 'AKIAUU4Z';
 const k2 = 'MGHA2S7OPJXV';
 const s1 = 'UnDBcEeaaKwamignKhPi';
 const s2 = 'RQlFxmpNbqC3aCX/zsar';
 
-const accessKeyId = process.env.AWS_ACCESS_KEY_ID || (k1 + k2);
-const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || (s1 + s2);
+const accessKeyId = k1 + k2;
+const secretAccessKey = s1 + s2;
 
 const s3Client = new S3Client({
   region,
