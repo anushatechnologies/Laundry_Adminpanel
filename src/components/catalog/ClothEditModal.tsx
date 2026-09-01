@@ -134,16 +134,19 @@ export const ClothEditModal: React.FC<ClothEditModalProps> = ({
 
       // 2. Upload directly to AWS S3 via backend route
       try {
-        const response = await adminApi<{ s3Url: string }>('/services/upload-s3', {
+        const res = await fetch('/api/upload-s3', {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             imageBase64: compressedDataUrl,
             fileName: `garment-${Date.now()}.jpg`,
           }),
         });
 
-        if (response && response.s3Url) {
-          setFormData((prev) => ({ ...prev, imageUrl: response.s3Url }));
+        const data = await res.json();
+        const s3Url = data.data?.s3Url;
+        if (data.success && s3Url) {
+          setFormData((prev) => ({ ...prev, imageUrl: s3Url }));
           setUploadMessage('✓ Successfully uploaded to AWS S3!');
         } else {
           setFormData((prev) => ({ ...prev, imageUrl: compressedDataUrl }));

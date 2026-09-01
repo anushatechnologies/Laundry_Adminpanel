@@ -25,7 +25,10 @@ export function getLocalFallbackPhoto(name: string, categoryTag = ''): string {
   const n = (name || '').toLowerCase();
   const c = (categoryTag || '').toUpperCase();
 
-  // Men's Wear
+  // Men's Wear (Strictly Unique)
+  if (n === 'formal shirt') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/formal-shirt-blue-model.jpg';
+  if (n === 'casual shirt') return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/casual-linen-shirt-green-model.jpg';
+  if (n === 'denim shirt') return '/images/garments/jeans.jpg';
   if (n.includes('dhoti') || n.includes('mundu') || n.includes('lungi')) return '/images/garments/dhoti.jpg';
   if (n.includes('sherwani') || n.includes('indo-western') || n.includes('groom')) return '/images/garments/sherwani.jpg';
   if (n.includes('nehru') || n.includes('waistcoat') || n.includes('modi')) return '/images/garments/nehru.jpg';
@@ -37,9 +40,7 @@ export function getLocalFallbackPhoto(name: string, categoryTag = ''): string {
   if (n.includes('sweater') || n.includes('pullover')) return '/images/garments/sweater.svg';
   if (n.includes('jacket') || n.includes('winter')) return '/images/garments/jacket.svg';
   if (n.includes('jean') || n.includes('denim')) return '/images/garments/jeans.jpg';
-  if (n === 'formal shirt' || (n.includes('formal') && n.includes('shirt'))) return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/formal-shirt-blue-model.jpg';
-  if (n === 'casual shirt' || n === 'linen shirt' || (n.includes('casual') && n.includes('shirt')) || (n.includes('linen') && n.includes('shirt'))) return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/casual-linen-shirt-green-model.jpg';
-  if (n.includes('shirt') && !n.includes('kid')) return 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/formal-shirt-blue-model.jpg';
+  if (n.includes('shirt') && !n.includes('kid')) return '/images/garments/shirt.jpg';
 
   // Women's Wear
   if (n.includes('sharara') || n.includes('gharara')) return '/images/garments/sharara.jpg';

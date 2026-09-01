@@ -94,15 +94,17 @@ export const CatalogProductGrid: React.FC<CatalogProductGridProps> = ({
       const compressedDataUrl = await compressImageFile(file, 700, 0.75);
 
       try {
-        const response = await adminApi<{ s3Url: string }>('/services/upload-s3', {
+        const res = await fetch('/api/upload-s3', {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             imageBase64: compressedDataUrl,
             fileName: `garment-${clothId}-${Date.now()}.jpg`,
           }),
         });
 
-        const finalUrl = response?.s3Url || compressedDataUrl;
+        const uploadData = await res.json();
+        const finalUrl = (uploadData.success && uploadData.data?.s3Url) ? uploadData.data.s3Url : compressedDataUrl;
         if (onUpdateClothImage) {
           onUpdateClothImage(clothId, finalUrl);
         }
@@ -140,10 +142,7 @@ export const CatalogProductGrid: React.FC<CatalogProductGridProps> = ({
         {clothes.map((cloth) => {
           const isS3 = cloth.imageUrl && cloth.imageUrl.includes('s3');
           const isCurrentlyUploading = uploadingId === cloth.id;
-          const displayImage =
-            cloth.imageUrl && !cloth.imageUrl.includes('cloth-shirt.jpg') && !cloth.imageUrl.includes('cloth-jacket.jpg')
-              ? cloth.imageUrl
-              : getLocalFallbackPhoto(cloth.name, cloth.categoryTag);
+          const displayImage = cloth.imageUrl || getLocalFallbackPhoto(cloth.name, cloth.categoryTag);
 
           return (
             <div
