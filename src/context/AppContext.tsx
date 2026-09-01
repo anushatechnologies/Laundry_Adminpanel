@@ -323,7 +323,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (remoteOrders) setOrders(remoteOrders);
       if (catalog) {
-        if (catalog.clothTypes && Array.isArray(catalog.clothTypes) && catalog.clothTypes.length >= 50) {
+        if (catalog.clothTypes && Array.isArray(catalog.clothTypes) && catalog.clothTypes.length >= 500) {
           setClothTypes(catalog.clothTypes);
         }
         if (catalog.serviceMasters && Array.isArray(catalog.serviceMasters) && catalog.serviceMasters.length >= 6) {
@@ -332,7 +332,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (
           catalog.priceMatrix &&
           Array.isArray(catalog.priceMatrix) &&
-          catalog.priceMatrix.length >= 50 &&
+          catalog.priceMatrix.length >= 1000 &&
           !catalog.priceMatrix.some((p: any) => p.clothName === 'Shirt' && p.serviceId === 'srv-m-dry-clean' && p.price < 50)
         ) {
           setPriceMatrix(catalog.priceMatrix);
@@ -787,7 +787,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setClothTypes([...res.clothTypes]);
     setServiceMasters([...res.serviceMasters]);
     setPriceMatrix([...res.priceMatrix]);
-    showToast('Reset to 54-garment master pricing matrix successfully!', 'success');
+    showToast('Reset to 542-garment master pricing matrix successfully!', 'success');
   };
 
   const addClothItemToCart = (cloth: ClothType, priceItem: ServicePriceItem, quantity = 1, instructions = '') => {
