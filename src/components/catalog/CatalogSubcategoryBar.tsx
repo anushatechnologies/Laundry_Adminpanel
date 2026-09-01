@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Search, Sparkles } from 'lucide-react';
+import { getSubcategoryImageUrl } from '@/lib/category-photos';
 
 interface SubcategoryCount {
   name: string;
@@ -15,6 +16,7 @@ interface CatalogSubcategoryBarProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   totalFilteredCount: number;
+  activeCategory?: string;
 }
 
 export const CatalogSubcategoryBar: React.FC<CatalogSubcategoryBarProps> = ({
@@ -24,6 +26,7 @@ export const CatalogSubcategoryBar: React.FC<CatalogSubcategoryBarProps> = ({
   searchQuery,
   onSearchChange,
   totalFilteredCount,
+  activeCategory = 'MENS',
 }) => {
   const allCount = subcategories.reduce((sum, s) => sum + s.count, 0);
 
@@ -50,34 +53,51 @@ export const CatalogSubcategoryBar: React.FC<CatalogSubcategoryBarProps> = ({
         </div>
       </div>
 
-      {/* Subcategory Filter Pills */}
+      {/* Subcategory Filter Pills with Real Photos */}
       {subcategories.length > 0 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
           <button
             type="button"
             onClick={() => onSelectSubcategory('ALL')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border shrink-0 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border shrink-0 cursor-pointer flex items-center gap-2 ${
               activeSubcategory === 'ALL'
                 ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent shadow-xs'
                 : 'bg-[var(--bg-secondary-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:text-[var(--heading-color)]'
             }`}
           >
-            All Subcategories ({allCount})
+            <div className="w-5 h-5 rounded-md overflow-hidden shrink-0 border border-white/20 bg-slate-200 dark:bg-slate-700">
+              <img
+                src="https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/home-textiles.jpg"
+                alt="All"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <span>All Subcategories</span>
+            <span className="text-[10px] opacity-75 font-bold">({allCount})</span>
           </button>
 
           {subcategories.map((sub) => {
             const isSelected = activeSubcategory === sub.name;
+            const photoUrl = getSubcategoryImageUrl(sub.name, activeCategory);
+
             return (
               <button
                 key={sub.name}
                 type="button"
                 onClick={() => onSelectSubcategory(sub.name)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all border shrink-0 cursor-pointer flex items-center gap-2 shadow-2xs ${
                   isSelected
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-1 ring-blue-500/50'
                     : 'bg-[var(--bg-secondary-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:text-[var(--heading-color)] hover:border-slate-300'
                 }`}
               >
+                <div className="w-5 h-5 rounded-md overflow-hidden shrink-0 border border-white/20 bg-slate-100 dark:bg-slate-800">
+                  <img
+                    src={photoUrl}
+                    alt={sub.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
                 <span>{sub.name}</span>
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${

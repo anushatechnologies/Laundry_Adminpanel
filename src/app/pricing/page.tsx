@@ -440,6 +440,7 @@ export default function AdminPricingEnginePage() {
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             totalFilteredCount={filteredClothes.length}
+            activeCategory={activeCategory}
           />
         </div>
 
