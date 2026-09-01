@@ -20,11 +20,19 @@ export default function AdminServicesPage() {
     adminApi<{ services: Service[] }>('/services')
       .then((catalog) => {
         if (catalog?.services && Array.isArray(catalog.services) && catalog.services.length > 0) {
-          setServices(catalog.services);
+          setServices(catalog.services.map((s: any) => ({
+            ...s,
+            imageUrl: s.imageUrl || s.image || '/images/service_wash_fold.jpg',
+            image: s.image || s.imageUrl || '/images/service_wash_fold.jpg',
+          })));
         }
       })
       .catch(() => {
-        setServices(db.getServices());
+        setServices(db.getServices().map((s: any) => ({
+          ...s,
+          imageUrl: s.imageUrl || s.image || '/images/service_wash_fold.jpg',
+          image: s.image || s.imageUrl || '/images/service_wash_fold.jpg',
+        })));
       });
   }, []);
 
@@ -127,7 +135,12 @@ export default function AdminServicesPage() {
       const saved = editingServiceId
         ? await adminApi<Service>(`/services/${encodeURIComponent(editingServiceId)}`, { method: 'PUT', body: JSON.stringify(payload) })
         : await adminApi<Service>('/services', { method: 'POST', body: JSON.stringify(payload) });
-      setServices((current) => editingServiceId ? current.map((service) => service.id === saved.id ? saved : service) : [saved, ...current]);
+      const normalizedSaved = {
+        ...saved,
+        imageUrl: formData.imageUrl,
+        image: formData.imageUrl,
+      };
+      setServices((current) => editingServiceId ? current.map((service) => service.id === normalizedSaved.id ? normalizedSaved : service) : [normalizedSaved, ...current]);
       setEditingServiceId(null);
       setShowAddModal(false);
       showToast(`Service "${saved.name}" saved.`, 'success');
@@ -154,6 +167,7 @@ export default function AdminServicesPage() {
 
   const handleStartEdit = (s: Service) => {
     setEditingServiceId(s.id);
+    const existingImg = (s as any).imageUrl || s.image || '/images/service_wash_fold.jpg';
     setFormData({
       name: s.name,
       categoryId: s.categoryId,
@@ -165,7 +179,7 @@ export default function AdminServicesPage() {
       minOrderQuantity: s.minOrderQuantity || 1,
       turnaroundHours: s.turnaroundHours,
       expressAvailable: s.expressAvailable ?? true,
-      imageUrl: s.image || '/images/service_wash_fold.jpg',
+      imageUrl: existingImg,
     });
     setSelectedFileName(null);
     setShowAddModal(true);
@@ -259,7 +273,7 @@ export default function AdminServicesPage() {
                     <td className="p-3">
                       <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 relative shrink-0">
                         <img
-                          src={service.imageUrl || '/images/service_wash_fold.jpg'}
+                          src={(service as any).imageUrl || (service as any).image || '/images/service_wash_fold.jpg'}
                           alt={service.name}
                           className="w-full h-full object-cover"
                           suppressHydrationWarning
