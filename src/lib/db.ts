@@ -4725,7 +4725,7 @@ const HOME_CLOTHES: ClothType[] = [
     "description": "Single bed sheet wash & steam iron",
     "isActive": true,
     "sortOrder": 1,
-    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-bedsheet.jpg"
+    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/bedsheet-single.jpg"
   },
   {
     "id": "cloth-home-double-bedsheet",
@@ -4737,7 +4737,7 @@ const HOME_CLOTHES: ClothType[] = [
     "description": "Queen/Double bed sheet crisp press",
     "isActive": true,
     "sortOrder": 2,
-    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-bedsheet.jpg"
+    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/bedsheet-double.jpg"
   },
   {
     "id": "cloth-home-king-size-bedsheet",
@@ -4749,7 +4749,7 @@ const HOME_CLOTHES: ClothType[] = [
     "description": "Extra large king bedsheet care",
     "isActive": true,
     "sortOrder": 3,
-    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-bedsheet.jpg"
+    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/bedsheet-king.jpg"
   },
   {
     "id": "cloth-home-queen-size-bedsheet",
@@ -4761,7 +4761,7 @@ const HOME_CLOTHES: ClothType[] = [
     "description": "Queen bed sheet deep wash & fold",
     "isActive": true,
     "sortOrder": 4,
-    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-bedsheet.jpg"
+    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/bedsheet-queen.jpg"
   },
   {
     "id": "cloth-home-cotton-bedsheet",
@@ -4773,7 +4773,7 @@ const HOME_CLOTHES: ClothType[] = [
     "description": "100% cotton bed sheet with light starch",
     "isActive": true,
     "sortOrder": 5,
-    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-bedsheet.jpg"
+    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/bedsheet-cotton.jpg"
   },
   {
     "id": "cloth-home-silk-bedsheet",
@@ -4785,7 +4785,7 @@ const HOME_CLOTHES: ClothType[] = [
     "description": "Pure silk luxury bedsheet dry clean",
     "isActive": true,
     "sortOrder": 6,
-    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-bedsheet.jpg"
+    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/bedsheet-silk.jpg"
   },
   {
     "id": "cloth-home-linen-bedsheet",
@@ -4797,7 +4797,7 @@ const HOME_CLOTHES: ClothType[] = [
     "description": "Pure organic linen bedsheet",
     "isActive": true,
     "sortOrder": 7,
-    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-bedsheet.jpg"
+    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/bedsheet-linen.jpg"
   },
   {
     "id": "cloth-home-microfiber-bedsheet",
@@ -4821,7 +4821,7 @@ const HOME_CLOTHES: ClothType[] = [
     "description": "Color-fast floral/geometric sheet",
     "isActive": true,
     "sortOrder": 9,
-    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-bedsheet.jpg"
+    "imageUrl": "https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/bedsheet-printed.jpg"
   },
   {
     "id": "cloth-home-embroidered-bedsheet",
@@ -24253,6 +24253,8 @@ class LaundryDatabase {
           }
         }
 
+        this.applyPersistentOverrides();
+
         const savedSettings = localStorage.getItem('laundry_pricing_settings');
         if (savedSettings) this.pricingSettings = JSON.parse(savedSettings);
 
@@ -24685,10 +24687,57 @@ class LaundryDatabase {
     return newCloth;
   }
 
+
+  public getDeletedClothIds(): string[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem('laundry_deleted_cloth_ids');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  public getClothOverrides(): Record<string, Partial<ClothType>> {
+    if (typeof window === 'undefined') return {};
+    try {
+      const saved = localStorage.getItem('laundry_cloth_overrides');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  public applyPersistentOverrides() {
+    const deleted = new Set(this.getDeletedClothIds());
+    if (deleted.size > 0) {
+      this.clothTypes = this.clothTypes.filter((c) => !deleted.has(c.id));
+      this.priceMatrix = this.priceMatrix.filter((p) => !deleted.has(p.clothTypeId));
+    }
+    const overrides = this.getClothOverrides();
+    for (const [id, data] of Object.entries(overrides)) {
+      const item = this.clothTypes.find((c) => c.id === id);
+      if (item) {
+        Object.assign(item, data);
+      }
+    }
+  }
+
   updateClothType(id: string, data: Partial<ClothType>): ClothType | null {
     const item = this.clothTypes.find((c) => c.id === id);
     if (!item) return null;
     Object.assign(item, data);
+
+    if (typeof window !== 'undefined') {
+      try {
+        const overrides = this.getClothOverrides();
+        overrides[id] = { ...(overrides[id] || {}), ...data };
+        localStorage.setItem('laundry_cloth_overrides', JSON.stringify(overrides));
+      } catch (err) {
+        console.warn('Failed to save cloth override to localStorage', err);
+      }
+    }
+
     this.persist();
     return item;
   }
@@ -24698,6 +24747,19 @@ class LaundryDatabase {
     if (idx === -1) return false;
     this.clothTypes.splice(idx, 1);
     this.priceMatrix = this.priceMatrix.filter((p) => p.clothTypeId !== id);
+
+    if (typeof window !== 'undefined') {
+      try {
+        const deleted = this.getDeletedClothIds();
+        if (!deleted.includes(id)) {
+          deleted.push(id);
+          localStorage.setItem('laundry_deleted_cloth_ids', JSON.stringify(deleted));
+        }
+      } catch (err) {
+        console.warn('Failed to save deleted cloth id', err);
+      }
+    }
+
     this.persist();
     return true;
   }
@@ -24765,6 +24827,12 @@ class LaundryDatabase {
 
   // --- Reset to Complete Master 54-Garment Catalog ---
   public resetToMasterCatalog(): { clothTypes: ClothType[]; serviceMasters: ServiceMaster[]; priceMatrix: ServicePriceItem[] } {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('laundry_deleted_cloth_ids');
+        localStorage.removeItem('laundry_cloth_overrides');
+      } catch {}
+    }
     this.clothTypes = [...INITIAL_CLOTH_TYPES];
     this.serviceMasters = [...INITIAL_SERVICE_MASTERS];
     this.priceMatrix = [...INITIAL_SERVICE_PRICE_MATRIX];

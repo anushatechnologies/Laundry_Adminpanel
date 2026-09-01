@@ -55,7 +55,10 @@ export default function AdminPricingEnginePage() {
 
   useEffect(() => {
     setIsMounted(true);
-  }, []);
+    if (clothTypes.length > 0 && clothTypes.length < 500) {
+      resetToMasterCatalog();
+    }
+  }, [clothTypes.length]);
 
   // Reset subcategory filter when switching main category
   const handleSelectCategory = (catTag: string) => {
