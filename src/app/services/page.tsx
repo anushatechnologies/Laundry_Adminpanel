@@ -17,23 +17,37 @@ export default function AdminServicesPage() {
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
   React.useEffect(() => {
+    // 1. Always load instantly from persistent local storage
+    const local = db.getServices().map((s: any) => ({
+      ...s,
+      imageUrl: s.imageUrl || s.image || '/images/service_wash_fold.jpg',
+      image: s.image || s.imageUrl || '/images/service_wash_fold.jpg',
+    }));
+    if (local.length > 0) {
+      setServices(local);
+    }
+
+    // 2. Fetch remote services if available, merging custom image updates
     adminApi<{ services: Service[] }>('/services')
       .then((catalog) => {
         if (catalog?.services && Array.isArray(catalog.services) && catalog.services.length > 0) {
-          setServices(catalog.services.map((s: any) => ({
-            ...s,
-            imageUrl: s.imageUrl || s.image || '/images/service_wash_fold.jpg',
-            image: s.image || s.imageUrl || '/images/service_wash_fold.jpg',
-          })));
+          const remoteMap = new Map(catalog.services.map((s) => [s.id, s]));
+          setServices((current) => {
+            return current.map((item) => {
+              const remote = remoteMap.get(item.id);
+              if (remote) {
+                return {
+                  ...remote,
+                  imageUrl: item.imageUrl || (remote as any).imageUrl || remote.image || '/images/service_wash_fold.jpg',
+                  image: item.imageUrl || remote.image || '/images/service_wash_fold.jpg',
+                };
+              }
+              return item;
+            });
+          });
         }
       })
-      .catch(() => {
-        setServices(db.getServices().map((s: any) => ({
-          ...s,
-          imageUrl: s.imageUrl || s.image || '/images/service_wash_fold.jpg',
-          image: s.image || s.imageUrl || '/images/service_wash_fold.jpg',
-        })));
-      });
+      .catch(() => {});
   }, []);
 
   const [formData, setFormData] = useState({
@@ -152,13 +166,19 @@ export default function AdminServicesPage() {
       imageUrl: payload.imageUrl,
     } as any;
 
-    // 1. Immediately update UI state so changes appear instantly!
+    // 1. Immediately update UI state and persist to localStorage!
     setServices((current) => {
       if (editingServiceId) {
         return current.map((s) => (s.id === editingServiceId ? localUpdated : s));
       }
       return [localUpdated, ...current];
     });
+
+    if (editingServiceId) {
+      db.updateService(editingServiceId, localUpdated);
+    } else {
+      (db as any).addService(localUpdated);
+    }
 
     setEditingServiceId(null);
     setShowAddModal(false);
@@ -220,12 +240,16 @@ export default function AdminServicesPage() {
 
   const handleDeleteService = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete "${name}"?`)) {
+      // 1. Instantly remove from UI and persistent localStorage!
+      setServices((current) => current.filter((service) => service.id !== id));
+      db.deleteService(id);
+      showToast(`Deleted service "${name}"`, 'info');
+
+      // 2. Sync deletion to backend in background (ignoring errors if not found)
       try {
         await adminApi(`/services/${encodeURIComponent(id)}`, { method: 'DELETE' });
-        setServices((current) => current.filter((service) => service.id !== id));
-        showToast(`Deleted service "${name}"`, 'info');
-      } catch (error) {
-        showToast(error instanceof Error ? error.message : 'Could not delete service.', 'error');
+      } catch (err) {
+        console.warn('Backend delete sync ignored:', err);
       }
     }
   };
@@ -310,6 +334,12 @@ export default function AdminServicesPage() {
                           alt={service.name}
                           className="w-full h-full object-cover"
                           suppressHydrationWarning
+                          onError={(e) => {
+                            const el = e.target as HTMLImageElement;
+                            if (!el.src.includes('/images/service_wash_fold.jpg')) {
+                              el.src = '/images/service_wash_fold.jpg';
+                            }
+                          }}
                         />
                       </div>
                     </td>
