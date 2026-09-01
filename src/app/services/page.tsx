@@ -82,38 +82,35 @@ export default function AdminServicesPage() {
     if (file) {
       setSelectedFileName(file.name);
       try {
-        const compressedDataUrl = await compressImageFile(file);
+        const compressedDataUrl = await compressImageFile(file, 800, 0.8);
         
-        // Show instant preview while uploading to AWS S3
+        // Show instant preview immediately
         setFormData((prev) => ({
           ...prev,
           imageUrl: compressedDataUrl,
         }));
 
-        showToast(`Uploading ${file.name} to secure media storage…`, 'info');
-        const uploaded = await adminApi<{ s3Url: string }>('/services/upload-s3', {
+        showToast(`Uploading ${file.name} to AWS S3…`, 'info');
+        const res = await fetch('/api/upload-s3', {
           method: 'POST',
-          body: JSON.stringify({ imageBase64: compressedDataUrl, fileName: file.name }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: compressedDataUrl, fileName: `service-${Date.now()}-${file.name}` }),
         });
 
-        if (uploaded.s3Url) {
+        const uploadData = await res.json();
+        const s3Url = uploadData.data?.s3Url;
+
+        if (uploadData.success && s3Url) {
           setFormData((prev) => ({
             ...prev,
-            imageUrl: uploaded.s3Url,
+            imageUrl: s3Url,
           }));
-          showToast('Image uploaded successfully.', 'success');
+          showToast('Service image uploaded successfully to AWS S3!', 'success');
         } else {
-          showToast('The image could not be saved to media storage.', 'error');
+          showToast('Image saved locally to service.', 'info');
         }
       } catch (err) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setFormData((prev) => ({
-            ...prev,
-            imageUrl: reader.result as string,
-          }));
-        };
-        reader.readAsDataURL(file);
+        console.error('Service upload error:', err);
       }
     }
   };
