@@ -50,6 +50,7 @@ export const INITIAL_CATEGORIES: ServiceCategory[] = [
     description: 'Shirts, T-Shirts, Trousers, Suits, Blazers, Kurtas & Jackets.',
     isPopular: true,
     color: 'blue',
+    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/mens-wear.jpg',
   },
   {
     id: 'cat-2',
@@ -59,6 +60,7 @@ export const INITIAL_CATEGORIES: ServiceCategory[] = [
     description: 'Sarees, Kurtis, Salwar Suits, Dresses, Gowns, Dupattas & Tops.',
     isPopular: true,
     color: 'pink',
+    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/womens-wear.jpg',
   },
   {
     id: 'cat-3',
@@ -68,6 +70,7 @@ export const INITIAL_CATEGORIES: ServiceCategory[] = [
     description: 'Bridal Lehengas, Heavy Sarees, Gowns, Sherwanis & Designer Wear.',
     isPopular: true,
     color: 'purple',
+    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/wedding-silk.jpg',
   },
   {
     id: 'cat-4',
@@ -77,6 +80,7 @@ export const INITIAL_CATEGORIES: ServiceCategory[] = [
     description: 'Shirts, Frocks, Uniforms, Baby Rompers & Baby Blankets.',
     isPopular: false,
     color: 'amber',
+    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/kids-baby.jpg',
   },
   {
     id: 'cat-5',
@@ -86,6 +90,7 @@ export const INITIAL_CATEGORIES: ServiceCategory[] = [
     description: 'Bedsheets, Blankets, Comforters, Curtains, Towels & Cushion Covers.',
     isPopular: true,
     color: 'teal',
+    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/home-textiles.jpg',
   },
   {
     id: 'cat-6',
@@ -95,6 +100,7 @@ export const INITIAL_CATEGORIES: ServiceCategory[] = [
     description: 'Mattress, Carpet, Rug, Curtain & Sofa Cover Deep Treatment.',
     isPopular: false,
     color: 'indigo',
+    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/winter-wear.jpg',
   },
   {
     id: 'cat-7',

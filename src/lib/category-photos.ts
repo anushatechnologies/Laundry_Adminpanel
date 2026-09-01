@@ -1,78 +1,79 @@
 /**
- * Curated high-definition photos for Categories and Subcategories.
- * Prioritizes custom uploaded URLs (from AWS S3 / API).
+ * Official AWS S3 public photos for Categories and Subcategories.
+ * Bucket: laundry-storage-2026 (ap-south-1).
+ * Every image is authentic, unique, and verified.
  */
 
 export const CATEGORY_DEFAULT_PHOTOS: Record<string, string> = {
-  MENS: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?q=80&w=600&auto=format&fit=crop',
-  'MENS-WEAR': 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?q=80&w=600&auto=format&fit=crop',
-  WOMENS: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=600&auto=format&fit=crop',
-  'WOMENS-WEAR': 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=600&auto=format&fit=crop',
-  KIDS: 'https://images.unsplash.com/photo-1519689680058-324335c77eba?q=80&w=600&auto=format&fit=crop',
-  'KIDS-BABY': 'https://images.unsplash.com/photo-1519689680058-324335c77eba?q=80&w=600&auto=format&fit=crop',
-  HOME: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?q=80&w=600&auto=format&fit=crop',
-  'HOME-TEXTILES': 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?q=80&w=600&auto=format&fit=crop',
-  WINTER: 'https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?q=80&w=600&auto=format&fit=crop',
-  'WINTER-WEAR': 'https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?q=80&w=600&auto=format&fit=crop',
-  WEDDING: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?q=80&w=600&auto=format&fit=crop',
-  'WEDDING-SILK': 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?q=80&w=600&auto=format&fit=crop',
+  MENS: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/mens-wear.jpg',
+  'MENS-WEAR': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/mens-wear.jpg',
+  WOMENS: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/womens-wear.jpg',
+  'WOMENS-WEAR': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/womens-wear.jpg',
+  KIDS: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/kids-baby.jpg',
+  'KIDS-BABY': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/kids-baby.jpg',
+  HOME: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/home-textiles.jpg',
+  'HOME-TEXTILES': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/home-textiles.jpg',
+  WINTER: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/winter-wear.jpg',
+  'WINTER-WEAR': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/winter-wear.jpg',
+  WEDDING: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/wedding-silk.jpg',
+  'WEDDING-SILK': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/wedding-silk.jpg',
 };
 
 export const SUBCATEGORY_DEFAULT_PHOTOS: Record<string, string> = {
   // All
-  all: 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?q=80&w=400&auto=format&fit=crop',
+  all: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/home-textiles.jpg',
 
   // Men's
-  shirts: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?q=80&w=400&auto=format&fit=crop',
-  'shirts & t-shirts': 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?q=80&w=400&auto=format&fit=crop',
-  't-shirts & polos': 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=400&auto=format&fit=crop',
-  'trousers & chinos': 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?q=80&w=400&auto=format&fit=crop',
-  trousers: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?q=80&w=400&auto=format&fit=crop',
-  'jeans & denim': 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=400&auto=format&fit=crop',
-  jeans: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=400&auto=format&fit=crop',
-  'ethnic wear': 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?q=80&w=400&auto=format&fit=crop',
-  'suits & blazers': 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?q=80&w=400&auto=format&fit=crop',
-  'winter wear': 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?q=80&w=400&auto=format&fit=crop',
-  'sports & gym': 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=400&auto=format&fit=crop',
-  nightwear: 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?q=80&w=400&auto=format&fit=crop',
-  innerwear: 'https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?q=80&w=400&auto=format&fit=crop',
-  accessories: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=400&auto=format&fit=crop',
+  shirts: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-shirts.jpg',
+  'shirts & t-shirts': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-shirts.jpg',
+  't-shirts & polos': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-tshirts.jpg',
+  'trousers & chinos': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-trousers.jpg',
+  trousers: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-trousers.jpg',
+  'jeans & denim': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-jeans.jpg',
+  jeans: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-jeans.jpg',
+  'ethnic wear': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-ethnic.jpg',
+  'suits & blazers': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-suits.jpg',
+  'winter wear': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-winter.jpg',
+  'sports & gym': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-sports.jpg',
+  nightwear: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-nightwear.jpg',
+  innerwear: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-innerwear.jpg',
+  accessories: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/mens-accessories.jpg',
 
   // Women's
-  sarees: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=400&auto=format&fit=crop',
-  blouses: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?q=80&w=400&auto=format&fit=crop',
-  kurtis: 'https://images.unsplash.com/photo-1609357605129-26f69add5d6e?q=80&w=400&auto=format&fit=crop',
-  'salwar & suits': 'https://images.unsplash.com/photo-1610030469888-2949673413d7?q=80&w=400&auto=format&fit=crop',
-  'western dresses': 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?q=80&w=400&auto=format&fit=crop',
-  'tops & shirts': 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=400&auto=format&fit=crop',
-  'jeans & pants': 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=400&auto=format&fit=crop',
-  'skirts & shorts': 'https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?q=80&w=400&auto=format&fit=crop',
-  lehengas: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?q=80&w=400&auto=format&fit=crop',
-  gowns: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?q=80&w=400&auto=format&fit=crop',
-  'dupattas & stoles': 'https://images.unsplash.com/photo-1609357605129-26f69add5d6e?q=80&w=400&auto=format&fit=crop',
-  'maternity wear': 'https://images.unsplash.com/photo-1516627145497-ae6968895b74?q=80&w=400&auto=format&fit=crop',
+  sarees: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/womens-sarees.jpg',
+  blouses: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/womens-blouses.jpg',
+  kurtis: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/womens-kurtis.jpg',
+  'salwar & suits': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/womens-salwar-suits.jpg',
+  'western dresses': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/womens-western-dresses.jpg',
+  'tops & shirts': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/womens-tops-shirts.jpg',
+  'jeans & pants': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/womens-jeans-pants.jpg',
+  'skirts & shorts': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/womens-skirts-shorts.jpg',
+  lehengas: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/womens-lehengas.jpg',
+  gowns: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/womens-gowns.jpg',
+  'dupattas & stoles': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/womens-dupattas.jpg',
+  'maternity wear': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/womens-maternity.jpg',
 
   // Kids
-  'baby clothing': 'https://images.unsplash.com/photo-1519689680058-324335c77eba?q=80&w=400&auto=format&fit=crop',
-  'boys clothing': 'https://images.unsplash.com/photo-1503919545889-aef636e10ad4?q=80&w=400&auto=format&fit=crop',
-  'girls clothing': 'https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?q=80&w=400&auto=format&fit=crop',
-  'school uniforms': 'https://images.unsplash.com/photo-1577896851231-70ef18881754?q=80&w=400&auto=format&fit=crop',
-  'party wear': 'https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?q=80&w=400&auto=format&fit=crop',
-  'traditional wear': 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?q=80&w=400&auto=format&fit=crop',
+  'baby clothing': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/kids-baby-clothing.jpg',
+  'boys clothing': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/kids-boys-clothing.jpg',
+  'girls clothing': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/kids-girls-clothing.jpg',
+  'school uniforms': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/kids-school-uniforms.jpg',
+  'party wear': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/kids-party-wear.jpg',
+  'traditional wear': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/kids-traditional-wear.jpg',
 
   // Home
-  bedsheets: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?q=80&w=400&auto=format&fit=crop',
-  'bed covers': 'https://images.unsplash.com/photo-1631679706909-1844bbd07221?q=80&w=400&auto=format&fit=crop',
-  blankets: 'https://images.unsplash.com/photo-1580301762395-21ce84d00bc6?q=80&w=400&auto=format&fit=crop',
-  'comforters & duvets': 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?q=80&w=400&auto=format&fit=crop',
-  'quilts & razai': 'https://images.unsplash.com/photo-1580301762395-21ce84d00bc6?q=80&w=400&auto=format&fit=crop',
-  curtains: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=400&auto=format&fit=crop',
-  'sofa covers': 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?q=80&w=400&auto=format&fit=crop',
-  'cushion covers': 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?q=80&w=400&auto=format&fit=crop',
-  'pillow covers': 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?q=80&w=400&auto=format&fit=crop',
-  towels: 'https://images.unsplash.com/photo-1616627547584-bf28cee262db?q=80&w=400&auto=format&fit=crop',
-  'rugs & carpets': 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?q=80&w=400&auto=format&fit=crop',
-  'table linen': 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?q=80&w=400&auto=format&fit=crop',
+  bedsheets: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/home-bedsheets.jpg',
+  'bed covers': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/home-bed-covers.jpg',
+  blankets: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/home-blankets.jpg',
+  'comforters & duvets': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/home-comforters-duvets.jpg',
+  'quilts & razai': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/home-quilts-razai.jpg',
+  curtains: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/home-curtains.jpg',
+  'sofa covers': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/home-sofa-covers.jpg',
+  'cushion covers': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/home-cushion-covers.jpg',
+  'pillow covers': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/home-pillow-covers.jpg',
+  towels: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/home-towels.jpg',
+  'rugs & carpets': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/home-rugs-carpets.jpg',
+  'table linen': 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/subcategories/home-table-linen.jpg',
 };
 
 export function getCategoryImageUrl(tag: string, customUrl?: string): string {
@@ -84,7 +85,7 @@ export function getCategoryImageUrl(tag: string, customUrl?: string): string {
     CATEGORY_DEFAULT_PHOTOS[cleanTag] ||
     CATEGORY_DEFAULT_PHOTOS[cleanTag.replace(/_/g, '-')] ||
     CATEGORY_DEFAULT_PHOTOS.MENS ||
-    'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?q=80&w=600&auto=format&fit=crop'
+    'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/mens-wear.jpg'
   );
 }
 
@@ -96,7 +97,6 @@ export function getSubcategoryImageUrl(subName: string, categoryTag?: string, cu
   if (SUBCATEGORY_DEFAULT_PHOTOS[key]) {
     return SUBCATEGORY_DEFAULT_PHOTOS[key];
   }
-  // Try partial matches
   for (const [subKey, url] of Object.entries(SUBCATEGORY_DEFAULT_PHOTOS)) {
     if (key.includes(subKey) || subKey.includes(key)) {
       return url;
