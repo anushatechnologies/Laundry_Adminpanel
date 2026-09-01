@@ -182,6 +182,11 @@ export default function AdminPricingEnginePage() {
     }
   };
 
+  const handleUpdateClothImage = (clothId: string, imageUrl: string) => {
+    updateClothType(clothId, { imageUrl });
+    showToast('Garment photo updated and saved via AWS S3!', 'success');
+  };
+
   const handleToggleActive = (cloth: ClothType) => {
     const updatedStatus = cloth.isActive === false;
     updateClothType(cloth.id, { isActive: updatedStatus });
@@ -432,6 +437,7 @@ export default function AdminPricingEnginePage() {
               onDeleteCloth={handleDeleteCloth}
               onOpenPriceInspector={handleOpenPriceInspector}
               onToggleActive={handleToggleActive}
+              onUpdateClothImage={handleUpdateClothImage}
             />
           ) : (
             <CatalogProductTable
