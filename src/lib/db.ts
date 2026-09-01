@@ -24479,7 +24479,7 @@ class LaundryDatabase {
           }
         }
 
-        const CATALOG_CACHE_VERSION = 'v3.3_full_comprehensive_matrix';
+        const CATALOG_CACHE_VERSION = 'v4.2_542_master_catalog';
         const currentVersion = localStorage.getItem('laundry_catalog_version');
 
         const savedOrders = localStorage.getItem('laundry_orders');
@@ -24519,9 +24519,9 @@ class LaundryDatabase {
             // If parsed data is old dummy list (< 50 items) or matrix size < 150, reset to master
             if (
               !Array.isArray(parsedCloth) ||
-              parsedCloth.length < 50 ||
+              parsedCloth.length < 500 ||
               !Array.isArray(parsedMatrix) ||
-              parsedMatrix.length < 150 ||
+              parsedMatrix.length < 1000 ||
               parsedMatrix.some((p: any) => p.clothName === 'Shirt' && p.serviceId === 'srv-m-dry-clean' && p.price === 1)
             ) {
               this.clothTypes = [...INITIAL_CLOTH_TYPES];
