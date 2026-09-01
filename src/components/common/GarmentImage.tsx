@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface GarmentImageProps {
   name: string;
@@ -8,7 +8,7 @@ interface GarmentImageProps {
   icon?: string;
   imageUrl?: string;
   categoryTag?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   className?: string;
 }
 
@@ -17,6 +17,7 @@ const SIZE_MAP = {
   md: 'w-9 h-9 rounded-xl',
   lg: 'w-12 h-12 rounded-2xl',
   xl: 'w-16 h-16 rounded-2xl',
+  full: 'w-full h-full rounded-none',
 };
 
 // 100% Unique Image Mapping for all garments
@@ -90,6 +91,10 @@ export function GarmentImage({
   className = '',
 }: GarmentImageProps) {
   const [imgSrc, setImgSrc] = useState<string>(() => getGarmentPhotoUrl(name, categoryTag, imageUrl));
+
+  useEffect(() => {
+    setImgSrc(getGarmentPhotoUrl(name, categoryTag, imageUrl));
+  }, [imageUrl, name, categoryTag]);
   const sizeClass = SIZE_MAP[size] || SIZE_MAP.md;
 
   return (
