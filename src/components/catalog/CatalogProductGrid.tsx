@@ -140,7 +140,10 @@ export const CatalogProductGrid: React.FC<CatalogProductGridProps> = ({
         {clothes.map((cloth) => {
           const isS3 = cloth.imageUrl && cloth.imageUrl.includes('s3');
           const isCurrentlyUploading = uploadingId === cloth.id;
-          const displayImage = cloth.imageUrl || getLocalFallbackPhoto(cloth.name, cloth.categoryTag);
+          const displayImage =
+            cloth.imageUrl && !cloth.imageUrl.includes('cloth-shirt.jpg') && !cloth.imageUrl.includes('cloth-jacket.jpg')
+              ? cloth.imageUrl
+              : getLocalFallbackPhoto(cloth.name, cloth.categoryTag);
 
           return (
             <div
