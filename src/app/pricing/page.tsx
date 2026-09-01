@@ -11,6 +11,7 @@ import {
   List,
   Layers,
   CheckCircle2,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { ClothType, ServiceMaster, ServicePriceItem } from '@/types';
 import { CatalogCategoryTabs } from '@/components/catalog/CatalogCategoryTabs';
@@ -18,6 +19,7 @@ import { CatalogSubcategoryBar } from '@/components/catalog/CatalogSubcategoryBa
 import { CatalogProductGrid } from '@/components/catalog/CatalogProductGrid';
 import { CatalogProductTable } from '@/components/catalog/CatalogProductTable';
 import { ClothEditModal } from '@/components/catalog/ClothEditModal';
+import { CategorySubcategoryModal } from '@/components/catalog/CategorySubcategoryModal';
 import { CellInspectorModal } from '@/components/catalog/CellInspectorModal';
 
 export default function AdminPricingEnginePage() {
@@ -43,6 +45,7 @@ export default function AdminPricingEnginePage() {
 
   // Modals state
   const [showClothModal, setShowClothModal] = useState(false);
+  const [showCategoryPhotosModal, setShowCategoryPhotosModal] = useState(false);
   const [editingCloth, setEditingCloth] = useState<ClothType | null>(null);
   const [inspectCell, setInspectCell] = useState<{
     cloth: ClothType;
@@ -296,6 +299,17 @@ export default function AdminPricingEnginePage() {
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             <span className="hidden sm:inline">Reload Catalog</span>
+          </button>
+
+          {/* Category & Subcategory Photos Button */}
+          <button
+            type="button"
+            onClick={() => setShowCategoryPhotosModal(true)}
+            className="px-3.5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+            title="Upload and manage photos for Categories & Subcategories"
+          >
+            <ImageIcon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Category & Subcategory Photos</span>
           </button>
 
           {/* Add Garment Button */}
