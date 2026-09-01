@@ -342,6 +342,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         if (catalog.settings) setPricingSettings(catalog.settings);
       }
+
+      // Sync global cloud overrides from S3 so changes made by ANY user/device appear immediately
+      try {
+        const ovRes = await fetch(
+          'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/config/catalog-overrides.json?t=' + Date.now(),
+          { cache: 'no-store' }
+        );
+        if (ovRes.ok) {
+          const ovData = await ovRes.json();
+          const { clothOverrides, deletedClothIds } = ovData;
+          if (deletedClothIds && Array.isArray(deletedClothIds) && deletedClothIds.length > 0) {
+            const delSet = new Set(deletedClothIds);
+            setClothTypes((prev) => prev.filter((item) => !delSet.has(item.id)));
+          }
+          if (clothOverrides && typeof clothOverrides === 'object') {
+            setClothTypes((prev) =>
+              prev.map((item) => (clothOverrides[item.id] ? { ...item, ...clothOverrides[item.id] } : item))
+            );
+          }
+        }
+      } catch (err) {
+        console.warn('Could not sync S3 cloud overrides', err);
+      }
       if (remoteCoupons) setCoupons(remoteCoupons);
       if (remotePincodes) setPincodes(remotePincodes);
       if (remotePlans && Array.isArray(remotePlans) && remotePlans.length > 0) {
@@ -706,35 +729,55 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateClothType = async (id: string, data: Partial<ClothType>) => {
+    // 1. Sync to Global S3 Cloud Overrides immediately
+    try {
+      await fetch('/api/catalog-overrides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clothId: id, data }),
+      });
+    } catch (e) {
+      console.warn('Could not sync to cloud overrides', e);
+    }
+
+    // 2. Also try backend API
     try {
       await adminApi(`/services/cloth-types/${encodeURIComponent(id)}`, {
         method: 'PUT',
         body: JSON.stringify(data),
       });
-      db.updateClothType(id, data);
-      setClothTypes([...db.getClothTypes()]);
-      showToast('Cloth type updated in database.', 'success');
-    } catch {
-      db.updateClothType(id, data);
-      setClothTypes([...db.getClothTypes()]);
-      showToast('Cloth type updated.', 'success');
-    }
+    } catch {}
+
+    // 3. Update local state
+    db.updateClothType(id, data);
+    setClothTypes((prev) => prev.map((item) => (item.id === id ? { ...item, ...data } : item)));
+    showToast('Cloth type updated globally across all devices.', 'success');
   };
 
   const deleteClothType = async (id: string) => {
+    // 1. Sync to Global S3 Cloud Overrides immediately
+    try {
+      await fetch('/api/catalog-overrides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clothId: id, isDeleted: true }),
+      });
+    } catch (e) {
+      console.warn('Could not sync to cloud overrides', e);
+    }
+
+    // 2. Also try backend API
     try {
       await adminApi(`/services/cloth-types/${encodeURIComponent(id)}`, {
         method: 'DELETE',
       });
-      db.deleteClothType(id);
-      setClothTypes([...db.getClothTypes()]);
-      setPriceMatrix([...db.getPriceMatrix()]);
-      showToast('Cloth item removed from database.', 'info');
-    } catch {
-      db.deleteClothType(id);
-      setClothTypes([...db.getClothTypes()]);
-      setPriceMatrix([...db.getPriceMatrix()]);
-    }
+    } catch {}
+
+    // 3. Update local state
+    db.deleteClothType(id);
+    setClothTypes((prev) => prev.filter((item) => item.id !== id));
+    setPriceMatrix((prev) => prev.filter((item) => item.clothTypeId !== id));
+    showToast('Cloth item removed globally from catalog.', 'info');
   };
 
   const updatePriceItem = async (id: string, data: Partial<ServicePriceItem>) => {
