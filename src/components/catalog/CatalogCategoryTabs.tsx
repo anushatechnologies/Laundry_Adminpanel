@@ -14,7 +14,6 @@ export const CATALOG_MAIN_CATEGORIES: CategoryInfo[] = [
   { tag: 'WOMENS', label: "Women's Wear", icon: '👗' },
   { tag: 'KIDS', label: 'Kids & Baby', icon: '👶' },
   { tag: 'HOME_TEXTILES', label: 'Home Textiles', icon: '🛏️' },
-  { tag: 'FOOTWEAR', label: 'Footwear & Bags', icon: '👟' },
   { tag: 'ALL', label: 'All Garments', icon: '🌐' },
 ];
 
