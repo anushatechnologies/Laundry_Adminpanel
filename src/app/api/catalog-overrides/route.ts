@@ -53,7 +53,13 @@ async function fetchOverridesFromS3() {
     console.warn('Error reading overrides from S3 SDK:', err.message);
   }
 
-  return { clothOverrides: {}, deletedClothIds: [], updatedAt: new Date().toISOString() };
+  return {
+    clothOverrides: {},
+    categoryOverrides: {},
+    subcategoryOverrides: {},
+    deletedClothIds: [],
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 export async function GET() {
@@ -64,31 +70,49 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { clothId, data, isDeleted } = body;
-
-    if (!clothId) {
-      return NextResponse.json({ success: false, error: 'clothId is required' }, { status: 400 });
-    }
+    const {
+      clothId,
+      data,
+      isDeleted,
+      categoryTag,
+      categoryImageUrl,
+      subcategoryName,
+      subcategoryImageUrl,
+    } = body;
 
     const current = await fetchOverridesFromS3();
     const clothOverrides = current.clothOverrides || {};
+    const categoryOverrides = current.categoryOverrides || {};
+    const subcategoryOverrides = current.subcategoryOverrides || {};
     const deletedClothIds = Array.isArray(current.deletedClothIds) ? current.deletedClothIds : [];
 
-    if (isDeleted) {
-      if (!deletedClothIds.includes(clothId)) {
-        deletedClothIds.push(clothId);
-      }
-      delete clothOverrides[clothId];
-    } else if (data) {
-      clothOverrides[clothId] = { ...(clothOverrides[clothId] || {}), ...data };
-      const idx = deletedClothIds.indexOf(clothId);
-      if (idx !== -1) {
-        deletedClothIds.splice(idx, 1);
+    if (categoryTag && categoryImageUrl) {
+      categoryOverrides[categoryTag.toUpperCase()] = categoryImageUrl;
+    }
+
+    if (subcategoryName && subcategoryImageUrl) {
+      subcategoryOverrides[subcategoryName.toLowerCase()] = subcategoryImageUrl;
+    }
+
+    if (clothId) {
+      if (isDeleted) {
+        if (!deletedClothIds.includes(clothId)) {
+          deletedClothIds.push(clothId);
+        }
+        delete clothOverrides[clothId];
+      } else if (data) {
+        clothOverrides[clothId] = { ...(clothOverrides[clothId] || {}), ...data };
+        const idx = deletedClothIds.indexOf(clothId);
+        if (idx !== -1) {
+          deletedClothIds.splice(idx, 1);
+        }
       }
     }
 
     const payload = {
       clothOverrides,
+      categoryOverrides,
+      subcategoryOverrides,
       deletedClothIds,
       updatedAt: new Date().toISOString(),
     };
