@@ -165,13 +165,14 @@ export default function AdminBannersPage() {
         const compressedDataUrl = await compressImageFile(file);
         setImageUrl(compressedDataUrl);
 
-        const uploaded = await adminApi<{ s3Url: string }>('/services/upload-s3', {
+        const res = await fetch('/api/upload-s3', {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageBase64: compressedDataUrl, fileName: `banner-${Date.now()}-${file.name}` }),
         });
-
-        if (uploaded?.s3Url) {
-          setImageUrl(uploaded.s3Url);
+        const uploadData = await res.json();
+        if (uploadData.success && uploadData.data?.s3Url) {
+          setImageUrl(uploadData.data.s3Url);
         }
       } catch {
         // keep preview
