@@ -323,20 +323,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (remoteOrders) setOrders(remoteOrders);
       if (catalog) {
-        if (catalog.clothTypes && Array.isArray(catalog.clothTypes) && catalog.clothTypes.length >= 10) {
-          setClothTypes(catalog.clothTypes);
+        // Safe Catalog Ingestion: Never drop new categories/items if remote backend has an older/smaller list
+        const localMasterCloths = db.getClothTypes();
+        const remoteCloths = Array.isArray(catalog.clothTypes) ? catalog.clothTypes : (catalog.data?.clothTypes || []);
+
+        if (Array.isArray(remoteCloths) && remoteCloths.length > 0) {
+          if (remoteCloths.length < localMasterCloths.length) {
+            // Remote backend is running an older seed (e.g. 55 items vs 72 local master items).
+            // Merge: keep all 72 items, applying any remote modifications to existing items.
+            const remoteMap = new Map(remoteCloths.map((c: any) => [c.id, c]));
+            const merged = localMasterCloths.map((localItem) => {
+              const remoteMatch = remoteMap.get(localItem.id);
+              return remoteMatch ? { ...localItem, ...remoteMatch } : localItem;
+            });
+            setClothTypes(merged);
+          } else {
+            setClothTypes(remoteCloths);
+          }
+        } else {
+          setClothTypes(localMasterCloths);
         }
+
         if (catalog.serviceMasters && Array.isArray(catalog.serviceMasters) && catalog.serviceMasters.length >= 6) {
           setServiceMasters(catalog.serviceMasters);
         }
-        if (
-          catalog.priceMatrix &&
-          Array.isArray(catalog.priceMatrix) &&
-          catalog.priceMatrix.length >= 40 &&
-          !catalog.priceMatrix.some((p: any) => p.clothName === 'Shirt' && p.serviceId === 'srv-m-dry-clean' && p.price < 50)
-        ) {
-          setPriceMatrix(catalog.priceMatrix);
+
+        const localMasterPrices = db.getPriceMatrix();
+        const remotePrices = Array.isArray(catalog.priceMatrix) ? catalog.priceMatrix : (catalog.data?.priceMatrix || []);
+        if (Array.isArray(remotePrices) && remotePrices.length > 0) {
+          if (remotePrices.length < localMasterPrices.length) {
+            const remotePriceMap = new Map(remotePrices.map((p: any) => [`${p.clothTypeId}-${p.serviceId}`, p]));
+            const mergedPrices = localMasterPrices.map((p) => {
+              const r = remotePriceMap.get(`${p.clothTypeId}-${p.serviceId}`);
+              return r ? { ...p, ...r } : p;
+            });
+            setPriceMatrix(mergedPrices);
+          } else {
+            setPriceMatrix(remotePrices);
+          }
+        } else {
+          setPriceMatrix(localMasterPrices);
         }
+
         if (catalog.bulkPricing && Array.isArray(catalog.bulkPricing) && catalog.bulkPricing.length > 0) {
           setBulkPricing(catalog.bulkPricing);
         }
