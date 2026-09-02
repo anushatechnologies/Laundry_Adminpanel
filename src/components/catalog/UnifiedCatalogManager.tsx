@@ -18,17 +18,17 @@ const MASTER_CATEGORIES = [
 ];
 
 const SERVICE_FOCUS_OPTIONS = [
-  { id: 'ALL', name: 'All Services', icon: '✨', badge: null },
+  { id: 'ALL', name: 'All Services (Full View)', icon: '✨', badge: null },
+  { id: 'srv-m-steam-iron', name: 'Iron Only (Steam Press)', icon: '🔥', badge: 'DAILY' },
   { id: 'srv-m-dry-clean', name: 'Dry Cleaning', icon: '👔', badge: 'POPULAR' },
   { id: 'srv-m-wash-iron', name: 'Wash & Steam Iron', icon: '👕', badge: null },
-  { id: 'srv-m-steam-iron', name: 'Steam Pressing', icon: '🔥', badge: null },
   { id: 'srv-m-wash-fold', name: 'Wash & Fold', icon: '🧺', badge: null },
 ];
 
 const KEY_SERVICES = [
-  { id: 'srv-m-steam-iron', name: 'Steam Press', icon: '🔥' },
-  { id: 'srv-m-wash-iron', name: 'Wash & Iron', icon: '👕' },
+  { id: 'srv-m-steam-iron', name: 'Iron Only (Steam Press)', icon: '🔥' },
   { id: 'srv-m-dry-clean', name: 'Dry Clean', icon: '👔' },
+  { id: 'srv-m-wash-iron', name: 'Wash & Steam Iron', icon: '👕' },
   { id: 'srv-m-wash-fold', name: 'Wash & Fold', icon: '🧺' },
 ];
 
