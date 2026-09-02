@@ -461,8 +461,8 @@ export default function AdminNotificationsPage() {
                               title={template.isActive ? 'Click to Deactivate email sending' : 'Click to Activate email sending'}
                               className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full transition-all cursor-pointer shrink-0 shadow-2xs hover:scale-105 active:scale-95 ${
                                 template.isActive
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300'
-                                  : 'bg-slate-100 text-slate-500 border border-slate-300 hover:bg-emerald-100 hover:text-emerald-700 hover:border-emerald-300'
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 dark:hover:bg-rose-950/60 dark:hover:text-rose-300 dark:hover:border-rose-800'
+                                  : 'bg-slate-100 text-slate-500 border border-slate-300 hover:bg-emerald-100 hover:text-emerald-700 hover:border-emerald-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-300 dark:hover:border-emerald-800'
                               }`}
                             >
                               {template.isActive ? '● Active' : '○ Disabled'}
@@ -533,8 +533,8 @@ export default function AdminNotificationsPage() {
                   <div
                     className={`p-3 rounded-lg text-[11px] font-semibold border ${
                       testStatusMessage.type === 'success'
-                        ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200'
-                        : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                        : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
                     }`}
                   >
                     {testStatusMessage.text}
@@ -573,8 +573,8 @@ export default function AdminNotificationsPage() {
                         <span
                           className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
                             editIsActive
-                              ? 'bg-emerald-200/80 text-emerald-900 font-bold'
-                              : 'bg-slate-200 text-slate-700'
+                              ? 'bg-emerald-200/80 text-emerald-900 font-bold dark:bg-emerald-900/70 dark:text-emerald-200'
+                              : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                           }`}
                         >
                           {editIsActive ? 'ACTIVE & SENDING' : 'PAUSED / INACTIVE'}
@@ -905,7 +905,7 @@ export default function AdminNotificationsPage() {
 
           {/* WhatsApp Mobile Simulator Screen */}
           <div className="space-y-4">
-            <div className="bg-[#0F172A] rounded-[28px] p-4 shadow-2xl border-4 border-slate-800 text-slate-800 relative">
+            <div className="bg-[#0F172A] rounded-[28px] p-4 shadow-2xl border-4 border-slate-800 text-slate-200 relative">
               {/* Phone Speaker & Camera Notch */}
               <div className="w-24 h-4 bg-slate-800 rounded-full mx-auto mb-3" />
 

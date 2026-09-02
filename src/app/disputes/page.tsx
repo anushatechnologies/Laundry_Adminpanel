@@ -136,7 +136,7 @@ export default function AdminDisputesPage() {
       {/* 4 Summary Metric Cards with Icons */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         {/* Total Claims */}
-        <div className="azea-card p-5 relative overflow-hidden group hover:border-slate-300 transition-all">
+        <div className="azea-card p-5 relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Total Claims</span>
             <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
@@ -145,13 +145,13 @@ export default function AdminDisputesPage() {
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-black text-[var(--heading-color)] font-poppins">{disputes.length}</span>
-            <span className="text-[11px] font-bold text-slate-500">All-Time</span>
+            <span className="text-[11px] font-bold text-[var(--text-secondary)]">All-Time</span>
           </div>
           <p className="text-[11px] text-[var(--text-secondary)] mt-1 font-medium">Customer logged issues</p>
         </div>
 
         {/* Under Investigation */}
-        <div className="azea-card p-5 relative overflow-hidden group hover:border-amber-300 transition-all">
+        <div className="azea-card p-5 relative overflow-hidden group hover:border-amber-300 dark:hover:border-amber-800 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Under Investigation</span>
             <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950/60 flex items-center justify-center text-amber-700 dark:text-amber-400">
@@ -160,7 +160,7 @@ export default function AdminDisputesPage() {
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-black text-amber-600 dark:text-amber-400 font-poppins">{openCount}</span>
-            <span className="text-[10px] font-extrabold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-extrabold text-amber-700 bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300 px-2 py-0.5 rounded-full">
               Action Required
             </span>
           </div>
@@ -168,16 +168,16 @@ export default function AdminDisputesPage() {
         </div>
 
         {/* Resolved Claims */}
-        <div className="azea-card p-5 relative overflow-hidden group hover:border-emerald-300 transition-all">
+        <div className="azea-card p-5 relative overflow-hidden group hover:border-emerald-300 dark:hover:border-emerald-800 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-[#059669] dark:text-emerald-400 uppercase tracking-wider">Resolved Claims</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center text-[#059669]">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center text-[#059669] dark:text-emerald-400">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-black text-[#059669] dark:text-emerald-400 font-poppins">{resolvedCount}</span>
-            <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 px-2 py-0.5 rounded-full">
               Settled
             </span>
           </div>
@@ -185,7 +185,7 @@ export default function AdminDisputesPage() {
         </div>
 
         {/* Total Compensated */}
-        <div className="azea-card p-5 relative overflow-hidden group hover:border-blue-300 transition-all">
+        <div className="azea-card p-5 relative overflow-hidden group hover:border-blue-300 dark:hover:border-blue-800 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Total Compensated</span>
             <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 flex items-center justify-center text-blue-600">
@@ -194,7 +194,7 @@ export default function AdminDisputesPage() {
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-black text-blue-600 dark:text-blue-400 font-poppins">₹{totalCompensated}</span>
-            <span className="text-[10px] font-extrabold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-extrabold text-blue-700 bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 px-2 py-0.5 rounded-full">
               Wallet / Bank
             </span>
           </div>
@@ -251,7 +251,7 @@ export default function AdminDisputesPage() {
                     className={`p-4 rounded-[14px] border transition-all cursor-pointer ${
                       isSelected
                         ? 'bg-[var(--bg-card)] border-emerald-500 ring-2 ring-emerald-500/20 shadow-md'
-                        : 'bg-[var(--bg-card)] border-[var(--border-color)] hover:border-slate-400 shadow-xs'
+                        : 'bg-[var(--bg-card)] border-[var(--border-color)] hover:border-slate-400 dark:hover:border-slate-600 shadow-xs'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1.5">
@@ -368,7 +368,7 @@ export default function AdminDisputesPage() {
               <h3 className="font-extrabold text-sm text-[var(--heading-color)]">
                 Settle & Resolve Claim #{selectedDispute.id}
               </h3>
-              <button onClick={() => setResolveModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+              <button onClick={() => setResolveModalOpen(false)} className="rounded-md p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary-card)] hover:text-[var(--heading-color)] cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -397,7 +397,7 @@ export default function AdminDisputesPage() {
                     onChange={(e) => setCompensationAmount(parseFloat(e.target.value) || 0)}
                     className="admin-input w-full font-mono font-bold text-sm"
                   />
-                  <span className="text-[10px] text-[#059669] font-bold block mt-1">
+                  <span className="text-[10px] text-[#059669] dark:text-emerald-400 font-bold block mt-1">
                     ✓ Amount will immediately credit to customer wallet balance.
                   </span>
                 </div>
@@ -433,7 +433,7 @@ export default function AdminDisputesPage() {
           <div className="bg-[var(--bg-card)] rounded-[16px] max-w-md w-full p-6 shadow-2xl border border-[var(--border-color)] space-y-4 animate-in fade-in">
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
               <h3 className="font-extrabold text-sm text-[var(--heading-color)]">Log New Dispute Ticket</h3>
-              <button onClick={() => setNewModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+              <button onClick={() => setNewModalOpen(false)} className="rounded-md p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary-card)] hover:text-[var(--heading-color)] cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>

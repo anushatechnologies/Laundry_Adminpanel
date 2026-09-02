@@ -482,11 +482,11 @@ function InventoryContent() {
       <div className="azea-card p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-white via-slate-50 to-emerald-50/40 dark:from-slate-900 dark:via-slate-900/90 dark:to-emerald-950/30 border border-[var(--border-color)]">
         <div>
           <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/80 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800 inline-flex items-center gap-1.5 mb-2">
-            <PackageCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <PackageCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             Facility Operations & Asset Management
           </span>
           <h1 className="text-2xl sm:text-3xl font-black text-[var(--heading-color)] font-poppins flex items-center gap-2.5">
-            <Box className="w-7 h-7 text-[#0D7A73]" />
+            <Box className="w-7 h-7 text-[#0D7A73] dark:text-teal-300" />
             <span>Facility Inventory, Packaging & Machinery</span>
           </h1>
           <p className="text-xs text-[var(--text-secondary)] mt-1 font-medium">
@@ -582,13 +582,13 @@ function InventoryContent() {
         <div className="azea-card p-5">
           <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">Total Consumables</span>
           <span className="text-2xl font-black text-[var(--heading-color)] font-poppins mt-1 block">{consumableItems.length} Items</span>
-          <span className="text-[11px] text-emerald-600 font-bold">5 Active Categories</span>
+          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">5 Active Categories</span>
         </div>
 
         <div className="azea-card p-5">
           <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">Low Stock Alerts</span>
           <span className="text-2xl font-black text-rose-600 dark:text-rose-400 font-poppins mt-1 block">{lowStockCount} Items</span>
-          <span className="text-[11px] text-rose-600 font-bold">Requires Purchase Order</span>
+          <span className="text-[11px] text-rose-600 dark:text-rose-400 font-bold">Requires Purchase Order</span>
         </div>
 
         <div className="azea-card p-5">
@@ -604,7 +604,7 @@ function InventoryContent() {
           <span className="text-2xl font-black text-amber-600 dark:text-amber-400 font-poppins mt-1 block">
             {facilityMachines.filter((m) => m.status === 'RUNNING').length} / {facilityMachines.length} RUNNING
           </span>
-          <span className="text-[11px] text-amber-600 font-bold">Ozone cycles active</span>
+          <span className="text-[11px] text-amber-600 dark:text-amber-400 font-bold">Ozone cycles active</span>
         </div>
       </div>
 
@@ -665,7 +665,7 @@ function InventoryContent() {
                           {item.category}
                         </span>
                       </td>
-                      <td className="font-black text-emerald-600">
+                      <td className="font-black text-emerald-600 dark:text-emerald-400">
                         {item.currentStock} {item.unit}
                       </td>
                       <td className="text-[var(--text-secondary)] font-semibold">{item.minThreshold} {item.unit}</td>
@@ -675,8 +675,8 @@ function InventoryContent() {
                         <span
                           className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
                             item.status === 'IN_STOCK'
-                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                              : 'bg-rose-50 text-rose-800 border border-rose-200 animate-pulse'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800'
+                              : 'bg-rose-50 text-rose-800 border border-rose-200 animate-pulse dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800'
                           }`}
                         >
                           {item.status}
@@ -692,7 +692,7 @@ function InventoryContent() {
                           </button>
                           <button
                             onClick={() => handleDeleteConsumable(item.id, item.itemName)}
-                            className="p-1.5 border border-slate-200 dark:border-slate-800 hover:border-rose-300 hover:text-rose-600 rounded-lg text-slate-500 cursor-pointer"
+                            className="p-1.5 border border-[var(--border-color)] hover:border-rose-300 dark:hover:border-rose-800 hover:text-rose-600 rounded-lg text-[var(--text-secondary)] cursor-pointer"
                             title="Delete Item"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -717,7 +717,7 @@ function InventoryContent() {
             <div className="flex justify-between items-center pb-3 border-b border-[var(--border-color)]">
               <div>
                 <h3 className="font-extrabold text-base text-[var(--heading-color)] font-poppins flex items-center gap-2">
-                  <Box className="w-5 h-5 text-blue-600" />
+                  <Box className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   <span>Garment Packaging & Thermal Tag Inventory</span>
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)]">Track clear garment covers, laundry bags, thermal barcode hanger tags, and hangers.</p>
@@ -749,11 +749,11 @@ function InventoryContent() {
                     <tr key={pkg.id}>
                       <td className="pl-4 font-bold text-[var(--heading-color)]">{pkg.itemName}</td>
                       <td>
-                        <span className="text-[10px] font-black uppercase bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] font-black uppercase bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-full dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-800">
                           {pkg.type}
                         </span>
                       </td>
-                      <td className="font-black text-blue-600">{pkg.currentQuantity} units</td>
+                      <td className="font-black text-blue-600 dark:text-blue-400">{pkg.currentQuantity} units</td>
                       <td className="text-[var(--text-secondary)]">{pkg.minQuantity} units</td>
                       <td className="font-semibold">{pkg.packSize} u/pack</td>
                       <td className="font-bold text-[var(--heading-color)]">₹{pkg.costPerPack}</td>
@@ -762,8 +762,8 @@ function InventoryContent() {
                         <span
                           className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
                             pkg.status === 'IN_STOCK'
-                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                              : 'bg-amber-50 text-amber-800 border border-amber-200'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800'
+                              : 'bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800'
                           }`}
                         >
                           {pkg.status}
@@ -772,7 +772,7 @@ function InventoryContent() {
                       <td className="text-right pr-4">
                         <button
                           onClick={() => handleDeletePackaging(pkg.id, pkg.itemName)}
-                          className="p-1.5 border border-slate-200 dark:border-slate-800 hover:border-rose-300 hover:text-rose-600 rounded-lg text-slate-500 cursor-pointer"
+                          className="p-1.5 border border-[var(--border-color)] hover:border-rose-300 dark:hover:border-rose-800 hover:text-rose-600 rounded-lg text-[var(--text-secondary)] cursor-pointer"
                           title="Delete Packaging Item"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -797,7 +797,7 @@ function InventoryContent() {
               <div key={mach.id} className="azea-card p-6 space-y-4 relative border border-[var(--border-color)] hover:shadow-lg transition-all">
                 <div className="flex justify-between items-center pb-3 border-b border-[var(--border-color)]">
                   <div>
-                    <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                    <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded dark:bg-indigo-950/70 dark:text-indigo-300">
                       {mach.machineCode}
                     </span>
                     <h3 className="font-extrabold text-sm text-[var(--heading-color)] mt-1">{mach.name}</h3>
@@ -807,10 +807,10 @@ function InventoryContent() {
                     <span
                       className={`text-[10px] font-black px-2.5 py-1 rounded-full ${
                         mach.status === 'RUNNING'
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 animate-pulse'
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 animate-pulse dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800'
                           : mach.status === 'AVAILABLE'
-                          ? 'bg-blue-50 text-blue-800 border border-blue-300'
-                          : 'bg-rose-50 text-rose-800 border border-rose-300'
+                          ? 'bg-blue-50 text-blue-800 border border-blue-300 dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-800'
+                          : 'bg-rose-50 text-rose-800 border border-rose-300 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800'
                       }`}
                     >
                       ● {mach.status}
@@ -832,11 +832,11 @@ function InventoryContent() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--text-secondary)]">Total Cycles Run:</span>
-                    <span className="font-black text-indigo-600">{mach.totalCyclesRun.toLocaleString()} Cycles</span>
+                    <span className="font-black text-indigo-600 dark:text-indigo-400">{mach.totalCyclesRun.toLocaleString()} Cycles</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--text-secondary)]">Next Preventative Service:</span>
-                    <span className="font-bold text-amber-600">{mach.nextServiceDate}</span>
+                    <span className="font-bold text-amber-600 dark:text-amber-400">{mach.nextServiceDate}</span>
                   </div>
                 </div>
 
@@ -863,7 +863,7 @@ function InventoryContent() {
             <div className="flex justify-between items-center pb-3 border-b border-[var(--border-color)]">
               <div>
                 <h3 className="font-extrabold text-base text-[var(--heading-color)] font-poppins flex items-center gap-2">
-                  <Wrench className="w-5 h-5 text-purple-600" />
+                  <Wrench className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   <span>Facility Machine Service & Repair History</span>
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)]">Audit logs of technician visits, part replacements, and preventative filter cleaning.</p>
@@ -892,21 +892,21 @@ function InventoryContent() {
                 <tbody>
                   {maintenanceLogs.map((log) => (
                     <tr key={log.id}>
-                      <td className="pl-4 font-black text-indigo-600">{log.machineCode}</td>
+                      <td className="pl-4 font-black text-indigo-600 dark:text-indigo-400">{log.machineCode}</td>
                       <td>
-                        <span className="text-[10px] font-black uppercase bg-purple-50 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-black uppercase bg-purple-50 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-full dark:bg-purple-950/70 dark:text-purple-300 dark:border-purple-800">
                           {log.serviceType}
                         </span>
                       </td>
                       <td className="font-medium text-[var(--heading-color)] max-w-xs">{log.description}</td>
                       <td className="text-[var(--text-secondary)] font-semibold">{log.technicianName}</td>
-                      <td className="font-bold text-emerald-600">₹{log.cost}</td>
+                      <td className="font-bold text-emerald-600 dark:text-emerald-400">₹{log.cost}</td>
                       <td className="text-[var(--text-secondary)]">{log.performedAt}</td>
-                      <td className="font-bold text-amber-600">{log.nextDueDate}</td>
+                      <td className="font-bold text-amber-600 dark:text-amber-400">{log.nextDueDate}</td>
                       <td className="text-right pr-4">
                         <button
                           onClick={() => handleDeleteMaintenance(log.id)}
-                          className="p-1.5 border border-slate-200 dark:border-slate-800 hover:border-rose-300 hover:text-rose-600 rounded-lg text-slate-500 cursor-pointer"
+                          className="p-1.5 border border-[var(--border-color)] hover:border-rose-300 dark:hover:border-rose-800 hover:text-rose-600 rounded-lg text-[var(--text-secondary)] cursor-pointer"
                           title="Delete Record"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -929,10 +929,10 @@ function InventoryContent() {
           <div className="bg-[var(--bg-card)] rounded-[20px] shadow-2xl max-w-md w-full p-6 border border-[var(--border-color)] text-xs space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-[var(--border-color)]">
               <h3 className="font-extrabold text-sm text-[var(--heading-color)] flex items-center gap-2">
-                <PackageCheck className="w-4 h-4 text-emerald-600" />
+                <PackageCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>Add New Detergent / Chemical Consumable</span>
               </h3>
-              <button onClick={() => setShowAddConsumableModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowAddConsumableModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -990,7 +990,7 @@ function InventoryContent() {
                     required
                     value={consumableForm.currentStock}
                     onChange={(e) => setConsumableForm({ ...consumableForm, currentStock: parseFloat(e.target.value) || 0 })}
-                    className="admin-input w-full font-bold text-emerald-600"
+                    className="admin-input w-full font-bold text-emerald-600 dark:text-emerald-400"
                   />
                 </div>
 
@@ -1049,10 +1049,10 @@ function InventoryContent() {
           <div className="bg-[var(--bg-card)] rounded-[20px] shadow-2xl max-w-md w-full p-6 border border-[var(--border-color)] text-xs space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-[var(--border-color)]">
               <h3 className="font-extrabold text-sm text-[var(--heading-color)] flex items-center gap-2">
-                <Box className="w-4 h-4 text-blue-600" />
+                <Box className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span>Add Garment Packaging Item</span>
               </h3>
-              <button onClick={() => setShowAddPackagingModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowAddPackagingModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1104,7 +1104,7 @@ function InventoryContent() {
                     required
                     value={packagingForm.currentQuantity}
                     onChange={(e) => setPackagingForm({ ...packagingForm, currentQuantity: parseFloat(e.target.value) || 0 })}
-                    className="admin-input w-full font-bold text-blue-600"
+                    className="admin-input w-full font-bold text-blue-600 dark:text-blue-400"
                   />
                 </div>
 
@@ -1155,7 +1155,7 @@ function InventoryContent() {
                 <Wrench className="w-4 h-4 text-amber-500" />
                 <span>Add Facility Washing Drum / Dryer Machine</span>
               </h3>
-              <button onClick={() => setShowAddMachineModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowAddMachineModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1209,7 +1209,7 @@ function InventoryContent() {
                     required
                     value={machineForm.capacityKg}
                     onChange={(e) => setMachineForm({ ...machineForm, capacityKg: parseFloat(e.target.value) || 0 })}
-                    className="admin-input w-full font-bold text-amber-600"
+                    className="admin-input w-full font-bold text-amber-600 dark:text-amber-400"
                   />
                 </div>
 
@@ -1246,10 +1246,10 @@ function InventoryContent() {
           <div className="bg-[var(--bg-card)] rounded-[20px] shadow-2xl max-w-md w-full p-6 border border-[var(--border-color)] text-xs space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-[var(--border-color)]">
               <h3 className="font-extrabold text-sm text-[var(--heading-color)] flex items-center gap-2">
-                <Settings className="w-4 h-4 text-purple-600" />
+                <Settings className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                 <span>Log Preventative Maintenance Record</span>
               </h3>
-              <button onClick={() => setShowAddMaintenanceModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowAddMaintenanceModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1318,7 +1318,7 @@ function InventoryContent() {
                     required
                     value={maintenanceForm.cost}
                     onChange={(e) => setMaintenanceForm({ ...maintenanceForm, cost: parseFloat(e.target.value) || 0 })}
-                    className="admin-input w-full font-bold text-emerald-600"
+                    className="admin-input w-full font-bold text-emerald-600 dark:text-emerald-400"
                   />
                 </div>
               </div>
@@ -1344,7 +1344,7 @@ function InventoryContent() {
               <h3 className="font-extrabold text-sm text-[var(--heading-color)]">
                 Restock {restockModalItem.itemName}
               </h3>
-              <button onClick={() => setRestockModalItem(null)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setRestockModalItem(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1358,7 +1358,7 @@ function InventoryContent() {
                   min={1}
                   value={newStockValue}
                   onChange={(e) => setNewStockValue(parseFloat(e.target.value) || 0)}
-                  className="admin-input w-full font-bold text-emerald-600 text-lg"
+                  className="admin-input w-full font-bold text-emerald-600 dark:text-emerald-400 text-lg"
                 />
               </div>
 

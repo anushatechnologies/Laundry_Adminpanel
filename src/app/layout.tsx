@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, Poppins, Plus_Jakarta_Sans } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import { AppProvider } from '@/context/AppContext';
 import { ThemeProvider } from '@/context/ThemeContext';
@@ -32,8 +33,23 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${poppins.variable} ${jakarta.variable}`} data-theme="light">
+    <html
+      lang="en"
+      className={`${inter.variable} ${poppins.variable} ${jakarta.variable}`}
+      data-theme="light"
+      suppressHydrationWarning
+    >
       <body className="min-h-screen antialiased">
+        <Script id="admin-theme-bootstrap" strategy="beforeInteractive">
+          {`
+            try {
+              const theme = localStorage.getItem('laundryfresh_admin_theme');
+              if (theme === 'light' || theme === 'dark' || theme === 'green') {
+                document.documentElement.setAttribute('data-theme', theme);
+              }
+            } catch {}
+          `}
+        </Script>
         <ThemeProvider>
           <AppProvider>
             <AdminNavWrapper>{children}</AdminNavWrapper>

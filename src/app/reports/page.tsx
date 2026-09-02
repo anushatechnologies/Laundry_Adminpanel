@@ -405,10 +405,10 @@ function ReportsContent() {
                 onChange={(event) => setRange(event.target.value as DateRange)}
                 className="h-10 min-w-32 cursor-pointer bg-transparent text-xs font-bold text-white outline-none"
               >
-                <option className="text-slate-900" value="all">All time</option>
-                <option className="text-slate-900" value="7d">Last 7 days</option>
-                <option className="text-slate-900" value="30d">Last 30 days</option>
-                <option className="text-slate-900" value="month">This month</option>
+                <option className="bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" value="all">All time</option>
+                <option className="bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" value="7d">Last 7 days</option>
+                <option className="bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" value="30d">Last 30 days</option>
+                <option className="bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100" value="month">This month</option>
               </select>
             </span>
             <button type="button" onClick={handleExport} className="admin-btn-primary bg-white text-slate-900 shadow-none hover:bg-blue-50 hover:text-slate-900">

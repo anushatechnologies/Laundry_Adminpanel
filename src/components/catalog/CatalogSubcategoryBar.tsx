@@ -88,7 +88,7 @@ export const CatalogSubcategoryBar: React.FC<CatalogSubcategoryBarProps> = ({
                 className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all border shrink-0 cursor-pointer flex items-center gap-2 shadow-2xs ${
                   isSelected
                     ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-1 ring-blue-500/50'
-                    : 'bg-[var(--bg-secondary-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:text-[var(--heading-color)] hover:border-slate-300'
+                    : 'bg-[var(--bg-secondary-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:text-[var(--heading-color)] hover:border-[var(--primary)]'
                 }`}
               >
                 <div className="w-5 h-5 rounded-md overflow-hidden shrink-0 border border-white/20 bg-slate-100 dark:bg-slate-800">

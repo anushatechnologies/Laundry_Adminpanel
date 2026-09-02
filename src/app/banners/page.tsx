@@ -334,34 +334,29 @@ export default function AdminBannersPage() {
                   : 'border-slate-800/40 opacity-70'
               }`}
             >
-              {/* Visual Banner Preview Card */}
+              {/* Pure Banner Image Display (No Dark Scrim or Text Covering Image) */}
               <div className="relative h-48 w-full overflow-hidden bg-slate-900">
                 <img
                   src={banner.imageUrl}
                   alt={banner.title}
                   className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20" />
-
-                {/* Top Badge & Order Tag */}
-                <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-600 text-white shadow-md">
-                    {banner.badgeText || 'SPECIAL OFFER'}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-black/60 backdrop-blur-xs text-white/90 border border-white/10">
+                {/* Order Tag Badge */}
+                <div className="absolute top-3 right-3">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-black/75 backdrop-blur-xs text-white border border-white/10 shadow-sm">
                     Order #{banner.displayOrder}
                   </span>
                 </div>
-
-                {/* Bottom Overlay Info */}
-                <div className="absolute bottom-3 left-3 right-3 text-white">
-                  <h3 className="text-base font-black leading-tight drop-shadow-md">{banner.title}</h3>
-                  <p className="text-xs text-white/80 line-clamp-1 mt-0.5">{banner.subtitle}</p>
-                </div>
               </div>
 
-              {/* Card Meta & Control Footer */}
+              {/* Card Meta & Control Footer Below Image */}
               <div className="p-4 space-y-3">
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--text-primary)] leading-tight">{banner.title}</h3>
+                  {banner.subtitle && (
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5 line-clamp-1">{banner.subtitle}</p>
+                  )}
+                </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   {banner.couponCode && (
                     <span className="px-2 py-1 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1 border border-amber-500/20">
@@ -659,20 +654,12 @@ export default function AdminBannersPage() {
                 </label>
               </div>
 
-              {/* Live Preview */}
+              {/* Live Image Preview (Pure Image Without Overlay Text) */}
               {imageUrl && (
                 <div className="pt-2">
-                  <p className="font-bold text-[var(--text-secondary)] mb-1 text-[11px]">Live Preview:</p>
-                  <div className="relative h-28 w-full rounded-xl overflow-hidden bg-slate-900 border border-[var(--border-color)]">
+                  <p className="font-bold text-[var(--text-secondary)] mb-1 text-[11px]">Live Image Preview:</p>
+                  <div className="relative h-32 w-full rounded-xl overflow-hidden bg-slate-900 border border-[var(--border-color)]">
                     <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-purple-600 text-white">
-                      {badgeText || 'SPECIAL OFFER'}
-                    </span>
-                    <div className="absolute bottom-2 left-2 right-2 text-white">
-                      <p className="font-black text-xs">{title || 'Banner Title'}</p>
-                      <p className="text-[10px] text-white/80 truncate">{subtitle || 'Banner Subtitle'}</p>
-                    </div>
                   </div>
                 </div>
               )}

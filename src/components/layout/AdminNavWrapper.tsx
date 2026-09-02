@@ -428,7 +428,7 @@ export const AdminNavWrapper: React.FC<{ children: React.ReactNode }> = ({ child
                 >
                   <div className="px-4 py-2 border-b border-[var(--border-color)] flex items-center justify-between">
                     <span className="font-bold text-xs text-[var(--heading-color)]">Notifications</span>
-                    <span className="text-[10px] bg-[#DCFCE7] text-[#15803D] font-bold px-1.5 py-0.2 rounded">
+                    <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-bold px-1.5 py-0.2 rounded">
                       3 New
                     </span>
                   </div>

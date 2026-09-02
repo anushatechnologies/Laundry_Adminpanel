@@ -158,7 +158,7 @@ export default function AdminSlotsPage() {
       <div className="azea-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-[var(--heading-color)] font-poppins flex items-center gap-2">
-            <Clock className="w-6 h-6 text-emerald-600" />
+            <Clock className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
             <span>Pickup & Delivery Slot Capacity Engine</span>
           </h1>
           <p className="text-xs text-[var(--text-secondary)] mt-0.5">
@@ -180,7 +180,7 @@ export default function AdminSlotsPage() {
         <div className="azea-card p-5">
           <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">Configured Slots</span>
           <span className="text-2xl font-bold text-[var(--heading-color)] font-poppins mt-1 block">{slots.length} Windows</span>
-          <span className="text-[11px] text-emerald-600 font-bold">Managed by Admin & Express Backend</span>
+          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">Managed by Admin & Express Backend</span>
         </div>
 
         <div className="azea-card p-5">
@@ -201,10 +201,10 @@ export default function AdminSlotsPage() {
 
         <div className="azea-card p-5">
           <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">Slots Status</span>
-          <span className="text-2xl font-bold text-amber-600 font-poppins mt-1 block">
+          <span className="text-2xl font-bold text-amber-600 dark:text-amber-400 font-poppins mt-1 block">
             {slots.filter((s) => !s.isAvailable).length} Disabled / Locked
           </span>
-          <span className="text-[11px] text-emerald-600 font-bold">
+          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
             {slots.filter((s) => s.isAvailable).length} Active for Checkout
           </span>
         </div>
@@ -214,10 +214,10 @@ export default function AdminSlotsPage() {
       <div className="azea-card overflow-hidden">
         <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-secondary-card)]">
           <h3 className="font-bold text-sm text-[var(--heading-color)] flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-emerald-600" />
+            <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <span>Time Slots Schedule & Limits</span>
           </h3>
-          {isLoading && <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />}
+          {isLoading && <Loader2 className="w-4 h-4 animate-spin text-emerald-600 dark:text-emerald-400" />}
         </div>
 
         <div className="overflow-x-auto">
@@ -262,7 +262,7 @@ export default function AdminSlotsPage() {
                           <span>{orderPercent}% Orders</span>
                           <span>{kgPercent}% KG</span>
                         </div>
-                        <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden flex">
+                        <div className="w-full h-2 bg-[var(--bg-secondary-card)] rounded-full overflow-hidden flex">
                           <div
                             className={`h-full ${
                               isFull ? 'bg-red-500' : orderPercent > 70 ? 'bg-amber-500' : 'bg-emerald-600'
@@ -274,12 +274,12 @@ export default function AdminSlotsPage() {
                     </td>
                     <td>
                       {isFull ? (
-                        <span className="px-2.5 py-1 bg-red-100 text-red-700 text-[10px] font-bold rounded-full inline-flex items-center gap-1">
+                        <span className="px-2.5 py-1 bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 text-[10px] font-bold rounded-full inline-flex items-center gap-1">
                           <AlertTriangle className="w-3 h-3" />
                           <span>LOCKED / FULL</span>
                         </span>
                       ) : (
-                        <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full inline-flex items-center gap-1">
+                        <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 text-[10px] font-bold rounded-full inline-flex items-center gap-1">
                           <CheckCircle className="w-3 h-3" />
                           <span>AVAILABLE ({slot.maxOrders - slot.bookedOrders} left)</span>
                         </span>
@@ -291,8 +291,8 @@ export default function AdminSlotsPage() {
                           onClick={() => handleToggleSlot(slot)}
                           className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
                             slot.isAvailable
-                              ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
-                              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                              ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800 dark:hover:bg-amber-900/60'
+                              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800 dark:hover:bg-emerald-900/60'
                           }`}
                         >
                           {slot.isAvailable ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
@@ -302,13 +302,13 @@ export default function AdminSlotsPage() {
                           onClick={() => openEdit(slot)}
                           className="admin-btn-secondary h-8 px-2.5 text-[11px] cursor-pointer"
                         >
-                          <Edit2 className="w-3 h-3 text-emerald-600" />
+                          <Edit2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                           <span>Limits</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteSlot(slot)}
-                          className="inline-flex h-8 items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2.5 text-[11px] font-bold text-red-700 transition hover:bg-red-100"
+                          className="inline-flex h-8 items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2.5 text-[11px] font-bold text-red-700 transition hover:bg-red-100 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-900/60"
                         >
                           <Trash2 className="h-3 w-3" />
                           <span>Delete</span>
@@ -333,11 +333,11 @@ export default function AdminSlotsPage() {
             <div className="flex items-center justify-between pb-2 border-b border-[var(--border-color)]">
               <div>
                 <h3 className="font-bold text-sm text-[var(--heading-color)]">Edit Pickup Window</h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[var(--text-secondary)]">
                   {editingSlot.startTime} – {editingSlot.endTime} ({editingSlot.id})
                 </p>
               </div>
-              <button type="button" onClick={() => setEditingSlot(null)} className="text-slate-400 hover:text-slate-600 font-bold">
+              <button type="button" onClick={() => setEditingSlot(null)} className="text-[var(--text-secondary)] hover:text-[var(--heading-color)] font-bold">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -422,7 +422,7 @@ export default function AdminSlotsPage() {
           >
             <div className="flex items-center justify-between pb-2 border-b border-[var(--border-color)]">
               <h3 className="font-bold text-sm text-[var(--heading-color)]">Create New Time Slot</h3>
-              <button type="button" onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">
+              <button type="button" onClick={() => setShowAddModal(false)} className="text-[var(--text-secondary)] hover:text-[var(--heading-color)] font-bold">
                 <X className="w-4 h-4" />
               </button>
             </div>

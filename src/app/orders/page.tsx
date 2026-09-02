@@ -181,7 +181,7 @@ export default function AdminOrdersPage() {
       {/* Filter Bar (Search + Status, Payment, Hub Filters) */}
       <div className="azea-card p-4 flex flex-col sm:flex-row gap-3 justify-between items-center text-xs">
         {/* Search */}
-        <div className="flex items-center bg-[var(--input-bg)] border border-[var(--input-border)] px-3 py-1.5 rounded-[8px] text-xs gap-2 text-slate-600 w-full sm:w-80">
+        <div className="flex items-center bg-[var(--input-bg)] border border-[var(--input-border)] px-3 py-1.5 rounded-[8px] text-xs gap-2 text-[var(--text-secondary)] w-full sm:w-80">
           <Search className="w-3.5 h-3.5 text-slate-400" />
           <input
             type="text"
@@ -259,7 +259,7 @@ export default function AdminOrdersPage() {
                     <span className="text-[var(--text-secondary)] font-medium">
                       {o.items.length} Items • Pickup: {o.pickupSlot?.slot || 'Today 10 AM'}
                     </span>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-300 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                       {o.paymentStatus}
                     </span>
                   </div>
@@ -368,7 +368,7 @@ export default function AdminOrdersPage() {
                         isCurrent
                           ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow-xs'
                           : isPast
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
                           : 'bg-[var(--bg-secondary-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
                       }`}
                     >
@@ -419,13 +419,13 @@ export default function AdminOrdersPage() {
                 <div className="h-0.5 flex-1 bg-slate-300 dark:bg-slate-700 mx-1" />
 
                 <div className="flex flex-col items-center gap-1">
-                  <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 flex items-center justify-center text-xs">○</div>
+                  <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-300 flex items-center justify-center text-xs">○</div>
                   <span className="text-slate-400">QC</span>
                 </div>
                 <div className="h-0.5 flex-1 bg-slate-300 dark:bg-slate-700 mx-1" />
 
                 <div className="flex flex-col items-center gap-1">
-                  <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 flex items-center justify-center text-xs">○</div>
+                  <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-300 flex items-center justify-center text-xs">○</div>
                   <span className="text-slate-400">PACKED</span>
                 </div>
               </div>
@@ -463,7 +463,7 @@ export default function AdminOrdersPage() {
                   <span className="text-[10px] text-[var(--text-secondary)] uppercase block font-bold">Net</span>
                   <span className="text-sm font-bold text-[#16A34A]">6.2 KG</span>
                 </div>
-                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/60 rounded-[8px] border border-emerald-200">
+                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/60 rounded-[8px] border border-emerald-200 dark:border-emerald-800">
                   <span className="text-[10px] text-emerald-800 dark:text-emerald-300 uppercase block font-bold">Price Diff</span>
                   <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">₹0</span>
                 </div>
@@ -497,7 +497,7 @@ export default function AdminOrdersPage() {
                         <td>₹{item.unitPrice}</td>
                         <td className="font-bold text-[var(--heading-color)]">₹{item.subtotal}</td>
                         <td>
-                          <span className="text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 px-2 py-0.5 rounded-full">
+                          <span className="text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 px-2 py-0.5 rounded-full">
                             VERIFIED
                           </span>
                         </td>
@@ -521,7 +521,7 @@ export default function AdminOrdersPage() {
           <div className="bg-[var(--bg-card)] rounded-[14px] max-w-md w-full p-6 shadow-2xl border border-[var(--border-color)] space-y-4 animate-in fade-in">
             <div className="flex items-center justify-between pb-2 border-b border-[var(--border-color)]">
               <h3 className="font-bold text-sm text-[var(--heading-color)]">Scale Weighing & Reconciliation</h3>
-              <button onClick={() => setWeightModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setWeightModalOpen(false)} className="rounded-md p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary-card)] hover:text-[var(--heading-color)]">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -549,7 +549,7 @@ export default function AdminOrdersPage() {
                 />
               </div>
 
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 rounded-[8px] border border-emerald-200 text-xs space-y-1">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 rounded-[8px] border border-emerald-200 dark:border-emerald-800 text-xs space-y-1">
                 <div className="flex justify-between font-bold text-emerald-900 dark:text-emerald-300">
                   <span>Net Verified Weight:</span>
                   <span>{calculateNet()} KG</span>

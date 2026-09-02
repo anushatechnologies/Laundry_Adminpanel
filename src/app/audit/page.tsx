@@ -283,7 +283,7 @@ export default function AdminAuditPage() {
               className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
                 selectedRisk === risk
                   ? 'bg-slate-900 text-white shadow-md'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
               {risk.replace('_', ' ')}
@@ -360,19 +360,19 @@ export default function AdminAuditPage() {
 
                   <td>
                     {log.riskLevel === 'CRITICAL' && (
-                      <span className="text-[10px] font-black uppercase bg-rose-100 text-rose-900 border border-rose-300 px-2.5 py-0.5 rounded-full animate-pulse inline-flex items-center gap-1">
+                      <span className="text-[10px] font-black uppercase bg-rose-100 text-rose-900 border border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 px-2.5 py-0.5 rounded-full animate-pulse inline-flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3 text-rose-600" />
                         CRITICAL
                       </span>
                     )}
                     {log.riskLevel === 'HIGH_RISK' && (
-                      <span className="text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                      <span className="text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3 text-amber-600" />
                         HIGH RISK
                       </span>
                     )}
                     {(!log.riskLevel || log.riskLevel === 'INFO') && (
-                      <span className="text-[10px] font-black uppercase bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-black uppercase bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800 px-2 py-0.5 rounded-full">
                         INFO
                       </span>
                     )}
@@ -403,7 +403,7 @@ export default function AdminAuditPage() {
                 <FileCode className="w-4 h-4 text-indigo-600" />
                 <span>Audit Log Payload Inspector: {selectedLogForInspect.id}</span>
               </h3>
-              <button onClick={() => setSelectedLogForInspect(null)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setSelectedLogForInspect(null)} className="rounded-md p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary-card)] hover:text-[var(--heading-color)]">
                 <X className="w-4 h-4" />
               </button>
             </div>

@@ -1159,7 +1159,7 @@ export function UnifiedCatalogManager() {
               </div>
 
               {manualImageUrl && (
-                <div className="aspect-video w-full rounded-xl overflow-hidden bg-slate-100 border border-[var(--border-color)]">
+                <div className="aspect-video w-full rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-[var(--border-color)]">
                   <img
                     src={manualImageUrl}
                     alt="Preview"

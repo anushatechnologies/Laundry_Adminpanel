@@ -210,7 +210,7 @@ export default function AdminPincodesPage() {
           <span className="text-3xl font-black text-slate-800 dark:text-slate-200 font-poppins mt-1 block">
             {isMounted ? bengaluruCount : 0}
           </span>
-          <span className="text-[11px] text-slate-500 font-medium">Koramangala, Indiranagar, HSR</span>
+          <span className="text-[11px] text-[var(--text-secondary)] font-medium">Koramangala, Indiranagar, HSR</span>
         </div>
 
         <div className="azea-card p-5">
@@ -218,7 +218,7 @@ export default function AdminPincodesPage() {
           <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400 font-poppins mt-1 block">
             {isMounted ? activeCount : 0}
           </span>
-          <span className="text-[11px] text-emerald-600 font-bold">✓ Live for doorstep pickup</span>
+          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">✓ Live for doorstep pickup</span>
         </div>
       </div>
 
@@ -316,19 +316,19 @@ export default function AdminPincodesPage() {
                     </td>
                     <td className="font-semibold" suppressHydrationWarning>{(pin as any).distanceKm || 3.5} KM</td>
                     <td className="font-extrabold text-sm text-[var(--heading-color)]" suppressHydrationWarning>₹{pin.standardFee}</td>
-                    <td className="font-bold text-emerald-600" suppressHydrationWarning>₹{pin.minFreeOrderValue}</td>
+                    <td className="font-bold text-emerald-600 dark:text-emerald-400" suppressHydrationWarning>₹{pin.minFreeOrderValue}</td>
                     <td suppressHydrationWarning>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${pin.expressAvailable ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-500'}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${pin.expressAvailable ? 'bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300'}`}>
                         {pin.expressAvailable ? '⚡ 12h Express' : 'Standard 24h'}
                       </span>
                     </td>
                     <td className="text-center" suppressHydrationWarning>
                       {pin.isServiceable ? (
-                        <span className="text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 px-2.5 py-0.5 rounded-full">
+                        <span className="text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 px-2.5 py-0.5 rounded-full">
                           ACTIVE
                         </span>
                       ) : (
-                        <span className="text-[10px] font-extrabold bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 px-2.5 py-0.5 rounded-full">
+                        <span className="text-[10px] font-extrabold bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 px-2.5 py-0.5 rounded-full">
                           DISABLED
                         </span>
                       )}
@@ -365,7 +365,7 @@ export default function AdminPincodesPage() {
               <h3 className="font-extrabold text-sm text-[var(--heading-color)]">
                 {editingPincode ? `Edit Pincode ${editingPincode.pincode}` : 'Add Serviceable Pincode'}
               </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+              <button onClick={() => setShowAddModal(false)} className="rounded-md p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary-card)] hover:text-[var(--heading-color)] cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -405,7 +405,7 @@ export default function AdminPincodesPage() {
                           {c}
                         </option>
                       ))}
-                      <option value="__ADD_NEW__" className="font-extrabold text-[#1E40AF]">
+                      <option value="__ADD_NEW__" className="font-extrabold text-[#1E40AF] dark:text-blue-300">
                         + Add New City...
                       </option>
                     </select>
@@ -426,7 +426,7 @@ export default function AdminPincodesPage() {
                       <button
                         type="button"
                         onClick={() => setIsCustomCity(false)}
-                        className="text-[10px] font-bold text-[#1E40AF] hover:underline block"
+                        className="text-[10px] font-bold text-[#1E40AF] dark:text-blue-400 hover:underline block"
                       >
                         ← Choose existing city
                       </button>
@@ -476,7 +476,7 @@ export default function AdminPincodesPage() {
                     type="number"
                     value={form.minFreeOrderValue}
                     onChange={(e) => setForm({ ...form, minFreeOrderValue: parseFloat(e.target.value) || 0 })}
-                    className="admin-input w-full font-bold text-emerald-600"
+                    className="admin-input w-full font-bold text-emerald-600 dark:text-emerald-400"
                   />
                 </div>
               </div>
@@ -524,13 +524,13 @@ export default function AdminPincodesPage() {
           <div className="bg-[var(--bg-card)] rounded-[16px] p-6 max-w-md w-full border border-[var(--border-color)] shadow-2xl text-xs space-y-4 animate-in fade-in">
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
               <h3 className="font-extrabold text-sm text-[var(--heading-color)]">Bulk Pincode CSV Import</h3>
-              <button onClick={() => setShowCsvModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+              <button onClick={() => setShowCsvModal(false)} className="rounded-md p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary-card)] hover:text-[var(--heading-color)] cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-6 border-2 border-dashed border-[var(--border-color)] rounded-[12px] text-center space-y-2">
-              <Upload className="w-8 h-8 text-[#1E40AF] mx-auto" />
+              <Upload className="w-8 h-8 text-[#1E40AF] dark:text-blue-300 mx-auto" />
               <div className="font-bold text-[var(--heading-color)]">Drag & drop your CSV file here</div>
               <p className="text-[11px] text-[var(--text-secondary)]">Required columns: pincode, area_name, city, standard_fee, is_serviceable</p>
             </div>

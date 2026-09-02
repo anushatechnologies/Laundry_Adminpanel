@@ -426,7 +426,7 @@ function SubscriptionsContent() {
             <div className="azea-card p-5 relative overflow-hidden group hover:border-indigo-500/40 transition-all">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Active Subscription Plans</span>
-                <CreditCard className="w-5 h-5 text-indigo-500" />
+                <CreditCard className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
               </div>
               <span className="text-3xl font-black text-[var(--heading-color)] font-poppins mt-2 block">
                 {isMounted ? subscriptionPlans.length : 0}
@@ -437,34 +437,34 @@ function SubscriptionsContent() {
             <div className="azea-card p-5 relative overflow-hidden group hover:border-emerald-500/40 transition-all">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Active Subscribers</span>
-                <Users className="w-5 h-5 text-emerald-500" />
+                <Users className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
               </div>
               <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400 font-poppins mt-2 block">
                 {isMounted ? totalMembers.toLocaleString() : 0}
               </span>
-              <span className="text-[11px] text-emerald-600 font-bold">✓ Recurring monthly members</span>
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">✓ Recurring monthly members</span>
             </div>
 
             <div className="azea-card p-5 relative overflow-hidden group hover:border-blue-500/40 transition-all">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Monthly Allowance Pool</span>
-                <Scale className="w-5 h-5 text-blue-500" />
+                <Scale className="w-5 h-5 text-blue-500 dark:text-blue-400" />
               </div>
               <span className="text-3xl font-black text-blue-600 dark:text-blue-400 font-poppins mt-2 block">
                 {isMounted ? totalMonthlyKg : 0} KG / Mo
               </span>
-              <span className="text-[11px] text-blue-600 font-bold">Total monthly capacity</span>
+              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-bold">Total monthly capacity</span>
             </div>
 
             <div className="azea-card p-5 relative overflow-hidden group hover:border-amber-500/40 transition-all">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Estimated Monthly Revenue</span>
-                <DollarSign className="w-5 h-5 text-amber-500" />
+                <DollarSign className="w-5 h-5 text-amber-500 dark:text-amber-400" />
               </div>
               <span className="text-3xl font-black text-amber-600 dark:text-amber-400 font-poppins mt-2 block">
                 ₹3,45,000
               </span>
-              <span className="text-[11px] text-amber-600 font-bold">Predictable MRR</span>
+              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-bold">Predictable MRR</span>
             </div>
           </div>
 
@@ -582,8 +582,8 @@ function SubscriptionsContent() {
                         onClick={() => handleToggleStatus(plan)}
                         className={`px-3 py-1 rounded-full text-[10px] font-extrabold cursor-pointer transition-all flex items-center gap-1.5 ${
                           !isInactive
-                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300'
-                            : 'bg-rose-50 text-rose-800 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-300'
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-800'
+                            : 'bg-rose-50 text-rose-800 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800'
                         }`}
                       >
                         <span className={`w-2 h-2 rounded-full ${!isInactive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
@@ -607,7 +607,7 @@ function SubscriptionsContent() {
                         </button>
                         <button
                           onClick={() => handleDeletePlan(plan.id, plan.name)}
-                          className="p-1.5 border border-[var(--border-color)] rounded-[6px] hover:text-rose-600 hover:border-rose-300 cursor-pointer text-slate-600 dark:text-slate-400"
+                          className="p-1.5 border border-[var(--border-color)] rounded-[6px] hover:text-rose-600 hover:border-rose-300 cursor-pointer text-slate-600 dark:text-slate-400 dark:hover:text-rose-400 dark:hover:border-rose-800"
                           title="Delete Plan"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -651,25 +651,25 @@ function SubscriptionsContent() {
             <div className="azea-card p-5 border-l-4 border-l-amber-500">
               <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase">Total Loyalty Points Issued</span>
               <span className="text-3xl font-black text-[var(--heading-color)] font-poppins mt-1 block">45,200 Pts</span>
-              <span className="text-[10px] font-bold text-amber-600">≈ ₹4,520 Cash Value</span>
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">≈ ₹4,520 Cash Value</span>
             </div>
 
             <div className="azea-card p-5 border-l-4 border-l-emerald-500">
               <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase">Prepaid Wallet Pool</span>
               <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400 font-poppins mt-1 block">₹1,84,500</span>
-              <span className="text-[10px] font-bold text-emerald-600">Total Customer Cash Balance</span>
+              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">Total Customer Cash Balance</span>
             </div>
 
             <div className="azea-card p-5 border-l-4 border-l-indigo-500">
               <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase">Points Earning Rate</span>
               <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400 font-poppins mt-1 block">1 Pt / ₹10 Spent</span>
-              <span className="text-[10px] font-bold text-indigo-600">Standard Order Earn Rate</span>
+              <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">Standard Order Earn Rate</span>
             </div>
 
             <div className="azea-card p-5 border-l-4 border-l-purple-500">
               <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase">Redemption Conversion</span>
               <span className="text-2xl font-black text-purple-600 dark:text-purple-400 font-poppins mt-1 block">10 Pts = ₹1 INR</span>
-              <span className="text-[10px] font-bold text-purple-600">Checkout Discount Rate</span>
+              <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">Checkout Discount Rate</span>
             </div>
           </div>
 
@@ -686,7 +686,7 @@ function SubscriptionsContent() {
                   <span>🥈 Silver Member</span>
                   <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded">0-500 Pts</span>
                 </div>
-                <div className="text-xl font-black text-indigo-600">1.0x Points</div>
+                <div className="text-xl font-black text-indigo-600 dark:text-indigo-400">1.0x Points</div>
                 <p className="text-[10px] text-[var(--text-secondary)]">Standard earning rate (1 Pt / ₹10)</p>
               </div>
 
@@ -695,7 +695,7 @@ function SubscriptionsContent() {
                   <span>🥇 Gold Member</span>
                   <span className="text-[10px] bg-amber-200 dark:bg-amber-900 px-2 py-0.5 rounded">501-1,500 Pts</span>
                 </div>
-                <div className="text-xl font-black text-amber-600">1.5x Points</div>
+                <div className="text-xl font-black text-amber-600 dark:text-amber-400">1.5x Points</div>
                 <p className="text-[10px] text-[var(--text-secondary)]">+1 Free Express upgrade per month</p>
               </div>
 
@@ -704,7 +704,7 @@ function SubscriptionsContent() {
                   <span>💎 Platinum Member</span>
                   <span className="text-[10px] bg-purple-200 dark:bg-purple-900 px-2 py-0.5 rounded">1,501-3,000 Pts</span>
                 </div>
-                <div className="text-xl font-black text-purple-600">2.0x Points</div>
+                <div className="text-xl font-black text-purple-600 dark:text-purple-400">2.0x Points</div>
                 <p className="text-[10px] text-[var(--text-secondary)]">+1 Free Blazer/Saree dry clean per month</p>
               </div>
 
@@ -713,7 +713,7 @@ function SubscriptionsContent() {
                   <span>👑 VIP Diamond</span>
                   <span className="text-[10px] bg-emerald-200 dark:bg-emerald-900 px-2 py-0.5 rounded">3,000+ Pts</span>
                 </div>
-                <div className="text-xl font-black text-emerald-600">3.0x Points</div>
+                <div className="text-xl font-black text-emerald-600 dark:text-emerald-400">3.0x Points</div>
                 <p className="text-[10px] text-[var(--text-secondary)]">Dedicated household laundry concierge</p>
               </div>
             </div>
@@ -724,7 +724,7 @@ function SubscriptionsContent() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="font-extrabold text-base text-[var(--heading-color)] font-poppins flex items-center gap-2">
-                  <Users className="w-5 h-5 text-indigo-600" />
+                  <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                   <span>Customer Loyalty & Wallet Account Ledgers</span>
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)]">Manage customer wallet cash and award manual bonus points.</p>
@@ -750,12 +750,12 @@ function SubscriptionsContent() {
                       <td className="pl-4 font-bold text-[var(--heading-color)]">{usr.name}</td>
                       <td className="text-[var(--text-secondary)]">{usr.phone}</td>
                       <td>
-                        <span className="text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 px-2.5 py-0.5 rounded-full">
+                        <span className="text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800 px-2.5 py-0.5 rounded-full">
                           {usr.tier}
                         </span>
                       </td>
-                      <td className="font-black text-amber-600">{usr.points} Pts</td>
-                      <td className="font-black text-emerald-600">₹{usr.walletBalance.toLocaleString()}</td>
+                      <td className="font-black text-amber-600 dark:text-amber-400">{usr.points} Pts</td>
+                      <td className="font-black text-emerald-600 dark:text-emerald-400">₹{usr.walletBalance.toLocaleString()}</td>
                       <td className="font-semibold text-[var(--text-primary)]">{usr.totalOrders} Orders</td>
                       <td className="text-right pr-4">
                         <div className="flex items-center justify-end gap-1.5">
@@ -766,7 +766,7 @@ function SubscriptionsContent() {
                               setRewardAmount(100);
                               setShowRewardModal(true);
                             }}
-                            className="px-2.5 py-1 text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 rounded-lg cursor-pointer"
+                            className="px-2.5 py-1 text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 rounded-lg cursor-pointer dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800 dark:hover:bg-amber-900/70"
                           >
                             + Grant Points
                           </button>
@@ -777,7 +777,7 @@ function SubscriptionsContent() {
                               setRewardAmount(250);
                               setShowRewardModal(true);
                             }}
-                            className="px-2.5 py-1 text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 rounded-lg cursor-pointer"
+                            className="px-2.5 py-1 text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 rounded-lg cursor-pointer dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 dark:hover:bg-emerald-900/70"
                           >
                             + Top Up Wallet
                           </button>
@@ -798,7 +798,7 @@ function SubscriptionsContent() {
           <div className="bg-[var(--bg-card)] rounded-[20px] shadow-2xl max-w-2xl w-full p-6 border border-[var(--border-color)] text-xs animate-in fade-in space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-3 border-b border-[var(--border-color)]">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-indigo-50 dark:bg-indigo-950/60 rounded-xl text-indigo-600">
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-950/60 rounded-xl text-indigo-600 dark:text-indigo-300">
                   <CreditCard className="w-5 h-5" />
                 </div>
                 <div>
@@ -811,7 +811,7 @@ function SubscriptionsContent() {
                 </div>
               </div>
 
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -875,7 +875,7 @@ function SubscriptionsContent() {
                     required
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                    className="admin-input w-full font-bold text-indigo-600"
+                    className="admin-input w-full font-bold text-indigo-600 dark:text-indigo-400"
                   />
                 </div>
 
@@ -941,9 +941,9 @@ function SubscriptionsContent() {
                     <p className="text-[11px] text-[var(--text-secondary)] italic">No features added yet.</p>
                   ) : (
                     formData.features.map((feat: string, idx: number) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg border border-[var(--border-color)] text-xs">
+                      <div key={idx} className="flex items-center justify-between p-2 bg-[var(--bg-card)] rounded-lg border border-[var(--border-color)] text-xs">
                         <span className="font-medium text-[var(--text-primary)]">{feat}</span>
-                        <button type="button" onClick={() => handleRemoveFeature(idx)} className="text-rose-500 hover:text-rose-700">
+                        <button type="button" onClick={() => handleRemoveFeature(idx)} className="text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300">
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -997,7 +997,7 @@ function SubscriptionsContent() {
               <h3 className="font-extrabold text-sm text-[var(--heading-color)]">
                 {rewardType === 'POINTS' ? 'Grant Bonus Loyalty Points' : 'Top Up Customer Wallet'}
               </h3>
-              <button onClick={() => setShowRewardModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowRewardModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1005,7 +1005,7 @@ function SubscriptionsContent() {
             <form onSubmit={handleApplyReward} className="space-y-4">
               <div>
                 <label className="font-bold text-[var(--heading-color)] block mb-1">Customer Account</label>
-                <div className="p-3 bg-[var(--bg-secondary-card)] rounded-xl font-bold text-indigo-600">
+                <div className="p-3 bg-[var(--bg-secondary-card)] rounded-xl font-bold text-indigo-600 dark:text-indigo-400">
                   {selectedUser.name} ({selectedUser.phone})
                 </div>
               </div>
@@ -1020,7 +1020,7 @@ function SubscriptionsContent() {
                   min={1}
                   value={rewardAmount}
                   onChange={(e) => setRewardAmount(parseInt(e.target.value) || 0)}
-                  className="admin-input w-full font-bold text-emerald-600"
+                  className="admin-input w-full font-bold text-emerald-600 dark:text-emerald-400"
                 />
               </div>
 
@@ -1047,4 +1047,3 @@ export default function AdminSubscriptionsPage() {
     </Suspense>
   );
 }
-

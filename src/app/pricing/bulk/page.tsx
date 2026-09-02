@@ -425,7 +425,7 @@ export default function AdminBulkPricingPage() {
                 </h3>
                 <p className="text-[11px] text-[var(--text-secondary)]">Configure dedicated bulk pricing rule.</p>
               </div>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-[var(--heading-color)] hover:bg-[var(--bg-secondary-card)] rounded-lg font-bold">
                 <X className="w-4 h-4" />
               </button>
             </div>

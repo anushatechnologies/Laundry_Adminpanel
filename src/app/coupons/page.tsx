@@ -330,7 +330,7 @@ export default function AdminCouponsPage() {
         <div className="azea-card p-5 relative overflow-hidden group hover:border-[#1E40AF]/40 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Configured Vouchers</span>
-            <Tag className="w-5 h-5 text-slate-400 group-hover:text-[#1E40AF] transition-colors" />
+            <Tag className="w-5 h-5 text-slate-400 group-hover:text-[#1E40AF] dark:group-hover:text-blue-400 transition-colors" />
           </div>
           <span className="text-3xl font-black text-[var(--heading-color)] font-poppins mt-2 block">
             {isMounted ? coupons.length : 0}
@@ -557,7 +557,7 @@ export default function AdminCouponsPage() {
           <div className="bg-[var(--bg-card)] rounded-[20px] shadow-2xl max-w-3xl w-full p-6 border border-[var(--border-color)] text-xs animate-in fade-in space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-[var(--border-color)]">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-blue-50 dark:bg-blue-950/60 rounded-xl text-[#1E40AF]">
+                <div className="p-2 bg-blue-50 dark:bg-blue-950/60 rounded-xl text-[#1E40AF] dark:text-blue-400">
                   <Tag className="w-5 h-5" />
                 </div>
                 <div>
@@ -570,7 +570,7 @@ export default function AdminCouponsPage() {
                 </div>
               </div>
 
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-[var(--heading-color)] hover:bg-[var(--bg-secondary-card)] rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -782,4 +782,3 @@ export default function AdminCouponsPage() {
     </div>
   );
 }
-

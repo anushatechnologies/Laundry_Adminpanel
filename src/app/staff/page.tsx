@@ -480,20 +480,20 @@ function StaffAndAdminManagementContent() {
                           </span>
                         )}
                         {stf.role === 'HUB_MANAGER' && (
-                          <span className="text-[10px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
-                            <Building2 className="w-3 h-3 text-blue-600" />
+                          <span className="text-[10px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-800">
+                            <Building2 className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                             Hub Manager
                           </span>
                         )}
                         {stf.role === 'QUALITY_INSPECTOR' && (
-                          <span className="text-[10px] font-black uppercase bg-purple-100 text-purple-900 border border-purple-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
-                            <ShieldCheck className="w-3 h-3 text-purple-600" />
+                          <span className="text-[10px] font-black uppercase bg-purple-100 text-purple-900 border border-purple-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 dark:bg-purple-950/70 dark:text-purple-300 dark:border-purple-800">
+                            <ShieldCheck className="w-3 h-3 text-purple-600 dark:text-purple-400" />
                             QC Inspector
                           </span>
                         )}
                         {stf.role === 'PICKUP_AGENT' && (
-                          <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
-                            <Truck className="w-3 h-3 text-emerald-600" />
+                          <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800">
+                            <Truck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                             Pickup Agent
                           </span>
                         )}
@@ -501,7 +501,7 @@ function StaffAndAdminManagementContent() {
 
                       <td>
                         <span className="font-bold text-[var(--heading-color)] flex items-center gap-1">
-                          <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+                          <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                           <span>{stf.assignedFacility}</span>
                         </span>
                       </td>
@@ -526,8 +526,8 @@ function StaffAndAdminManagementContent() {
                         <span
                           className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
                             stf.isActive
-                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                              : 'bg-rose-50 text-rose-800 border border-rose-200'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800'
+                              : 'bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800'
                           }`}
                         >
                           {stf.isActive ? 'ACTIVE' : 'REVOKED'}
@@ -550,7 +550,7 @@ function StaffAndAdminManagementContent() {
                               });
                               setShowAddStaffModal(true);
                             }}
-                            className="p-1.5 border border-slate-200 dark:border-slate-800 hover:border-indigo-300 hover:text-indigo-600 rounded-lg text-slate-600 cursor-pointer"
+                            className="p-1.5 border border-[var(--border-color)] hover:border-indigo-300 dark:hover:border-indigo-800 hover:text-indigo-600 dark:text-slate-300 rounded-lg text-slate-600 cursor-pointer"
                             title="Edit Permissions & Assigned Shop"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -561,8 +561,8 @@ function StaffAndAdminManagementContent() {
                               onClick={() => handleToggleStaffStatus(stf.id, stf.name)}
                               className={`p-1.5 border rounded-lg text-xs font-bold cursor-pointer ${
                                 stf.isActive
-                                  ? 'border-rose-200 hover:bg-rose-50 text-rose-600'
-                                  : 'border-emerald-200 hover:bg-emerald-50 text-emerald-600'
+                                  ? 'border-rose-200 hover:bg-rose-50 text-rose-600 dark:border-rose-800 dark:hover:bg-rose-950/60 dark:text-rose-400'
+                                  : 'border-emerald-200 hover:bg-emerald-50 text-emerald-600 dark:border-emerald-800 dark:hover:bg-emerald-950/60 dark:text-emerald-400'
                               }`}
                               title={stf.isActive ? 'Revoke Access' : 'Enable Access'}
                             >
@@ -597,9 +597,9 @@ function StaffAndAdminManagementContent() {
               />
             </div>
 
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+            <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-secondary)]">
               <span>Total Registered:</span>
-              <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
+              <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200 dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-800">
                 {customers.length} Accounts
               </span>
             </div>
@@ -641,7 +641,7 @@ function StaffAndAdminManagementContent() {
                           <div className="text-[11px] text-slate-400">{c.email}</div>
                         </td>
                         <td>
-                          <span className="text-[10px] font-black uppercase bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                          <span className="text-[10px] font-black uppercase bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-full dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-800">
                             {c.customerType || 'REGULAR'}
                           </span>
                         </td>
@@ -650,7 +650,7 @@ function StaffAndAdminManagementContent() {
                             {c.totalOrders || 0} Orders
                           </span>
                         </td>
-                        <td className="font-bold text-emerald-600">₹{c.walletBalance || 0}</td>
+                        <td className="font-bold text-emerald-600 dark:text-emerald-400">₹{c.walletBalance || 0}</td>
                         <td className="text-right pr-4 font-black">₹{(c.totalSpent || 0).toLocaleString()}</td>
                       </tr>
                     ))}
@@ -670,10 +670,10 @@ function StaffAndAdminManagementContent() {
             <div key={member.id} className="azea-card p-5 space-y-4 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between pb-2 border-b border-[var(--border-color)] mb-3">
-                  <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200">
+                  <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200 dark:bg-indigo-950/70 dark:text-indigo-300 dark:border-indigo-800">
                     {member.role.replace(/_/g, ' ')}
                   </span>
-                  <span className="text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800">
                     Active
                   </span>
                 </div>
@@ -687,7 +687,7 @@ function StaffAndAdminManagementContent() {
                 <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs space-y-1 border border-[var(--border-color)]">
                   <div className="flex justify-between text-[var(--text-secondary)]">
                     <span>Assigned Hub Branch:</span>
-                    <span className="font-bold text-indigo-600">{member.assignedFacility}</span>
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">{member.assignedFacility}</span>
                   </div>
                 </div>
               </div>
@@ -723,9 +723,9 @@ function StaffAndAdminManagementContent() {
                   <tr key={r.id}>
                     <td className="pl-4 font-bold">{r.riderName}</td>
                     <td>{r.date}</td>
-                    <td className="font-bold text-emerald-600">₹{r.totalCollected}</td>
+                    <td className="font-bold text-emerald-600 dark:text-emerald-400">₹{r.totalCollected}</td>
                     <td>₹{r.depositedAmount}</td>
-                    <td className="text-right pr-4 font-bold text-emerald-600">{r.status}</td>
+                    <td className="text-right pr-4 font-bold text-emerald-600 dark:text-emerald-400">{r.status}</td>
                   </tr>
                 ))}
               </tbody>
@@ -745,7 +745,7 @@ function StaffAndAdminManagementContent() {
                 <Crown className="w-4 h-4 text-amber-500" />
                 <span>{editingStaff ? `Edit Permissions: ${editingStaff.name}` : 'Create New Admin / Staff User'}</span>
               </h3>
-              <button onClick={() => setShowAddStaffModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowAddStaffModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -784,7 +784,7 @@ function StaffAndAdminManagementContent() {
                     placeholder="e.g. Venkat@9948"
                     value={staffForm.password}
                     onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
-                    className="admin-input w-full font-bold font-mono text-amber-600"
+                    className="admin-input w-full font-bold font-mono text-amber-600 dark:text-amber-400"
                   />
                 </div>
               </div>
@@ -829,7 +829,7 @@ function StaffAndAdminManagementContent() {
                         type="checkbox"
                         checked={staffForm.permissions.includes(perm)}
                         onChange={() => togglePermission(perm)}
-                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        className="rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500"
                       />
                       <span>{perm}</span>
                     </label>
@@ -856,7 +856,7 @@ function StaffAndAdminManagementContent() {
           <div className="bg-[var(--bg-card)] rounded-[20px] shadow-2xl max-w-md w-full p-6 border border-[var(--border-color)] text-xs space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-[var(--border-color)]">
               <h3 className="font-extrabold text-sm text-[var(--heading-color)]">Rider Cash Settlement Desk</h3>
-              <button onClick={() => setDepositModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setDepositModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -879,7 +879,7 @@ function StaffAndAdminManagementContent() {
                   type="number"
                   value={depositedAmount}
                   onChange={(e) => setDepositedAmount(parseFloat(e.target.value) || 0)}
-                  className="admin-input w-full font-bold text-emerald-600 text-lg"
+                  className="admin-input w-full font-bold text-emerald-600 dark:text-emerald-400 text-lg"
                 />
               </div>
 

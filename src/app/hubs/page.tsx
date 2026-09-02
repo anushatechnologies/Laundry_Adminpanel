@@ -323,12 +323,12 @@ export default function AdminHubsPage() {
           <span className="text-2xl font-black text-[var(--heading-color)] font-poppins mt-1 block">
             {hubs.filter((h) => h.isActive).length} Active Stores
           </span>
-          <span className="text-[11px] text-emerald-600 font-bold mt-1 block">100% On-Time Processing</span>
+          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 block">100% On-Time Processing</span>
         </div>
 
         <div className="azea-card p-5">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Daily Wash Capacity</span>
-          <span className="text-2xl font-black text-blue-600 font-poppins mt-1 block">
+          <span className="text-2xl font-black text-blue-600 dark:text-blue-400 font-poppins mt-1 block">
             {hubs.reduce((sum, h) => sum + (h.capacityKgPerDay || 500), 0)} KG / Day
           </span>
           <span className="text-[11px] text-slate-400 font-medium mt-1 block">Heavy Washers & Hydro Steam</span>
@@ -336,7 +336,7 @@ export default function AdminHubsPage() {
 
         <div className="azea-card p-5">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Covered Pincodes</span>
-          <span className="text-2xl font-black text-purple-600 font-poppins mt-1 block">
+          <span className="text-2xl font-black text-purple-600 dark:text-purple-400 font-poppins mt-1 block">
             {new Set(hubs.flatMap((h) => h.pincodes || [])).size} Pincode Zones
           </span>
           <span className="text-[11px] text-purple-500 font-bold mt-1 block">AP & Telangana Hub Network</span>
@@ -344,7 +344,7 @@ export default function AdminHubsPage() {
 
         <div className="azea-card p-5">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">In-House Electric Fleet</span>
-          <span className="text-2xl font-black text-amber-600 font-poppins mt-1 block">
+          <span className="text-2xl font-black text-amber-600 dark:text-amber-400 font-poppins mt-1 block">
             {hubs.reduce((sum, h) => sum + (h.inHouseVehicles?.length || 0), 0)} EV Vans & Bikes
           </span>
           <span className="text-[11px] text-amber-500 font-bold mt-1 block">Zero Emission Delivery</span>
@@ -380,14 +380,14 @@ export default function AdminHubsPage() {
                   className={`azea-card p-4 transition-all cursor-pointer border-2 ${
                     isSelected
                       ? 'border-blue-500 shadow-md bg-blue-50/20 dark:bg-blue-950/20'
-                      : 'border-transparent hover:border-slate-300'
+                      : 'border-transparent hover:border-[var(--border-hover)]'
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-sm text-[var(--heading-color)]">{hub.name}</span>
-                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200 dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-800">
                           {hub.code || 'HUB'}
                         </span>
                       </div>
@@ -402,8 +402,8 @@ export default function AdminHubsPage() {
                       title={hub.isActive ? 'Click to Deactivate — removes from routing' : 'Click to Activate — adds to routing'}
                       className={`text-[10px] font-black px-2 py-0.5 rounded-full cursor-pointer transition-all hover:scale-105 active:scale-95 ${
                         hub.isActive
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300'
-                          : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-emerald-100 hover:text-emerald-700 hover:border-emerald-300'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800 dark:hover:bg-rose-950/60 dark:hover:text-rose-300 dark:hover:border-rose-800'
+                          : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-emerald-100 hover:text-emerald-700 hover:border-emerald-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-300 dark:hover:border-emerald-800'
                       }`}
                     >
                       {hub.isActive ? '● ACTIVE' : '○ INACTIVE'}
@@ -417,11 +417,11 @@ export default function AdminHubsPage() {
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-bold">Radius</span>
-                      <span className="font-bold text-indigo-600">{hub.maxServiceRadiusKm || 30} KM</span>
+                      <span className="font-bold text-indigo-600 dark:text-indigo-400">{hub.maxServiceRadiusKm || 30} KM</span>
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-bold">Base Fare</span>
-                      <span className="font-bold text-emerald-600">₹{hub.baseDeliveryFare || 30}</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">₹{hub.baseDeliveryFare || 30}</span>
                     </div>
                   </div>
                 </div>
@@ -441,12 +441,12 @@ export default function AdminHubsPage() {
                     <h2 className="text-xl font-bold text-[var(--heading-color)] font-poppins">
                       {selectedHub.name}
                     </h2>
-                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300">
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-800">
                       {selectedHub.code}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                    <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     <span>{selectedHub.address}</span>
                   </p>
                 </div>
@@ -457,8 +457,8 @@ export default function AdminHubsPage() {
                     onClick={(e) => handleToggleActive(selectedHub, e)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
                       selectedHub.isActive
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
-                        : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 dark:hover:bg-rose-950/60 dark:hover:text-rose-300 dark:hover:border-rose-800'
+                        : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-300 dark:hover:border-emerald-800'
                     }`}
                   >
                     <span className="text-base leading-none">{selectedHub.isActive ? '●' : '○'}</span>
@@ -466,14 +466,14 @@ export default function AdminHubsPage() {
                   </button>
                   <button
                     onClick={() => openEditModal(selectedHub)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors flex items-center gap-1.5 cursor-pointer dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-900/70"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                     <span>Edit Hub</span>
                   </button>
                   <button
                     onClick={() => setDeleteConfirmId(selectedHub.id)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center gap-1.5 cursor-pointer dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 dark:hover:bg-rose-900/70"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Delete</span>
@@ -497,7 +497,7 @@ export default function AdminHubsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Max Service Radius:</span>
-                    <span className="font-bold text-indigo-600">{selectedHub.maxServiceRadiusKm || 30} KM</span>
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">{selectedHub.maxServiceRadiusKm || 30} KM</span>
                   </div>
                 </div>
 
@@ -513,7 +513,7 @@ export default function AdminHubsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Daily Wash Load:</span>
-                    <span className="font-bold text-emerald-600">{selectedHub.capacityKgPerDay || 500} KG / Day</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">{selectedHub.capacityKgPerDay || 500} KG / Day</span>
                   </div>
                 </div>
               </div>
@@ -522,10 +522,10 @@ export default function AdminHubsPage() {
               <div className="p-5 bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800/40 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-xs uppercase tracking-wider text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-                    <Truck className="w-4 h-4 text-emerald-600" />
+                    <Truck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     <span>Distance Fare Calculation Rules</span>
                   </h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/60 text-emerald-900">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/60 text-emerald-900 dark:bg-emerald-950/80 dark:text-emerald-300">
                     Live Engine
                   </span>
                 </div>
@@ -533,7 +533,7 @@ export default function AdminHubsPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                   <div className="p-3 bg-white dark:bg-slate-900 rounded-lg shadow-2xs border border-emerald-100 dark:border-slate-800">
                     <span className="text-[10px] text-slate-400 font-bold block">Base Radius</span>
-                    <span className="text-sm font-black text-emerald-600 mt-0.5 block">
+                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
                       0 – {selectedHub.baseDistanceKm || 3} KM
                     </span>
                     <span className="text-[10px] text-slate-500">Flat ₹{selectedHub.baseDeliveryFare || 30}</span>
@@ -541,7 +541,7 @@ export default function AdminHubsPage() {
 
                   <div className="p-3 bg-white dark:bg-slate-900 rounded-lg shadow-2xs border border-emerald-100 dark:border-slate-800">
                     <span className="text-[10px] text-slate-400 font-bold block">Per-KM Rate</span>
-                    <span className="text-sm font-black text-blue-600 mt-0.5 block">
+                    <span className="text-sm font-black text-blue-600 dark:text-blue-400 mt-0.5 block">
                       ₹{selectedHub.perKmFare || 10} / KM
                     </span>
                     <span className="text-[10px] text-slate-500">Beyond base radius</span>
@@ -549,7 +549,7 @@ export default function AdminHubsPage() {
 
                   <div className="p-3 bg-white dark:bg-slate-900 rounded-lg shadow-2xs border border-emerald-100 dark:border-slate-800">
                     <span className="text-[10px] text-slate-400 font-bold block">Free Delivery</span>
-                    <span className="text-sm font-black text-purple-600 mt-0.5 block">
+                    <span className="text-sm font-black text-purple-600 dark:text-purple-400 mt-0.5 block">
                       Orders ≥ ₹{selectedHub.freeDeliveryAbove || 399}
                     </span>
                     <span className="text-[10px] text-slate-500">Within 7 KM</span>
@@ -557,7 +557,7 @@ export default function AdminHubsPage() {
 
                   <div className="p-3 bg-white dark:bg-slate-900 rounded-lg shadow-2xs border border-emerald-100 dark:border-slate-800">
                     <span className="text-[10px] text-slate-400 font-bold block">Max Radius</span>
-                    <span className="text-sm font-black text-amber-600 mt-0.5 block">
+                    <span className="text-sm font-black text-amber-600 dark:text-amber-400 mt-0.5 block">
                       {selectedHub.maxServiceRadiusKm || 35} KM
                     </span>
                     <span className="text-[10px] text-slate-500">Outer boundary</span>
@@ -604,7 +604,7 @@ export default function AdminHubsPage() {
                           {veh.driverName} • {veh.driverPhone}
                         </div>
                       </div>
-                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800">
                         {veh.status}
                       </span>
                     </div>
@@ -627,10 +627,10 @@ export default function AdminHubsPage() {
       <div className="azea-card p-6 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
           <h3 className="font-bold text-sm text-[var(--heading-color)] font-poppins flex items-center gap-2">
-            <Calculator className="w-5 h-5 text-blue-600" />
+            <Calculator className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             <span>Interactive Live Distance & Fare Calculation Simulator</span>
           </h3>
-          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-full border border-blue-200">
+          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-full border border-blue-200 dark:text-blue-300 dark:border-blue-800">
             Real-Time Haversine Engine
           </span>
         </div>
@@ -700,7 +700,7 @@ export default function AdminHubsPage() {
           <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50/70 via-indigo-50/70 to-purple-50/70 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-purple-950/30 border border-blue-200 dark:border-blue-800/40 mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
             <div className="space-y-1">
               <div className="font-bold text-sm text-[var(--heading-color)] flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>Assigned Hub: {calcResult.assignedHub?.name || 'Rajahmundry Central Hub'}</span>
               </div>
               <div className="text-slate-500">
@@ -712,13 +712,13 @@ export default function AdminHubsPage() {
             <div className="flex items-center gap-4 text-right">
               <div>
                 <span className="text-[10px] text-slate-400 uppercase font-bold block">Delivery Fee</span>
-                <span className="text-lg font-black text-emerald-600 font-poppins">
+                <span className="text-lg font-black text-emerald-600 dark:text-emerald-400 font-poppins">
                   {calcResult.deliveryFee === 0 ? 'FREE (₹0)' : `₹${calcResult.deliveryFee}`}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] text-slate-400 uppercase font-bold block">Turnaround ETA</span>
-                <span className="text-xs font-bold text-indigo-600">
+                <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
                   {calcResult.estimatedTurnaroundHours} Hours
                 </span>
               </div>
@@ -735,7 +735,7 @@ export default function AdminHubsPage() {
           <div className="azea-card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-5 shadow-2xl">
             <div className="flex items-center justify-between pb-4 border-b border-[var(--border-color)]">
               <div className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-blue-600" />
+                <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 <h3 className="text-lg font-bold text-[var(--heading-color)] font-poppins">
                   {isEditing ? 'Edit Regional Hub / Store' : 'Add New Regional Hub'}
                 </h3>
@@ -886,7 +886,7 @@ export default function AdminHubsPage() {
                       type="number"
                       value={formBaseFare}
                       onChange={(e) => setFormBaseFare(Number(e.target.value))}
-                      className="admin-input w-full font-bold text-emerald-600"
+                      className="admin-input w-full font-bold text-emerald-600 dark:text-emerald-400"
                     />
                   </div>
                   <div>
@@ -895,7 +895,7 @@ export default function AdminHubsPage() {
                       type="number"
                       value={formPerKm}
                       onChange={(e) => setFormPerKm(Number(e.target.value))}
-                      className="admin-input w-full font-bold text-blue-600"
+                      className="admin-input w-full font-bold text-blue-600 dark:text-blue-400"
                     />
                   </div>
                   <div>
@@ -904,7 +904,7 @@ export default function AdminHubsPage() {
                       type="number"
                       value={formFreeAbove}
                       onChange={(e) => setFormFreeAbove(Number(e.target.value))}
-                      className="admin-input w-full font-bold text-purple-600"
+                      className="admin-input w-full font-bold text-purple-600 dark:text-purple-400"
                     />
                   </div>
                 </div>
@@ -938,7 +938,7 @@ export default function AdminHubsPage() {
                   <button
                     type="button"
                     onClick={() => setModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -964,7 +964,7 @@ export default function AdminHubsPage() {
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
                 onClick={() => setDeleteConfirmId(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
               >
                 Cancel
               </button>
