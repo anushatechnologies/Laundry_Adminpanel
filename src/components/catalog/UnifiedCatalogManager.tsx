@@ -2,12 +2,12 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
+import { db } from '@/lib/db';
 import { ClothType, ServicePriceItem } from '@/types';
 import { 
   Search, Plus, Camera, Edit2, X, 
-  RefreshCw, ShieldCheck 
+  RefreshCw, ShieldCheck, Link2, ExternalLink
 } from 'lucide-react';
-import { adminApi } from '@/lib/api';
 
 const MASTER_CATEGORIES = [
   { id: 'MENS', name: "Men's Wear", icon: '👔' },
@@ -32,6 +32,43 @@ const KEY_SERVICES = [
   { id: 'srv-m-wash-fold', name: 'Wash & Fold', icon: '🧺' },
 ];
 
+// Helper: Compress image in browser before sending to server/S3
+function compressImage(file: File, maxWidth = 1200, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(event.target?.result as string);
+
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressedBase64);
+        } catch {
+          resolve(event.target?.result as string);
+        }
+      };
+      img.onerror = () => resolve(event.target?.result as string);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+}
+
 export function UnifiedCatalogManager() {
   const { 
     clothTypes, 
@@ -50,6 +87,9 @@ export function UnifiedCatalogManager() {
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [editingImageUrlCloth, setEditingImageUrlCloth] = useState<ClothType | null>(null);
+  const [manualImageUrl, setManualImageUrl] = useState<string>('');
+
   const [editingPriceData, setEditingPriceData] = useState<{
     cloth: ClothType;
     serviceId: string;
@@ -112,7 +152,7 @@ export function UnifiedCatalogManager() {
     return counts;
   }, [clothTypes]);
 
-  // Handle Photo Upload
+  // Handle Photo Upload directly to AWS S3
   const handleTriggerUpload = (cloth: ClothType) => {
     setTargetClothForUpload(cloth);
     if (fileInputRef.current) {
@@ -129,53 +169,61 @@ export function UnifiedCatalogManager() {
     setUploadingClothId(cloth.id);
 
     try {
-      showToast(`Uploading photo for ${cloth.name} directly to AWS S3...`, 'info');
+      showToast(`Compressing & uploading ${cloth.name} to AWS S3...`, 'info');
 
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
-        try {
-          const base64Data = reader.result as string;
+      // 1. Compress image to max 1200px / 85% quality (~150-250KB)
+      const compressedBase64 = await compressImage(file, 1200, 0.85);
 
-          // Call direct S3 upload API in Next.js
-          const res = await fetch('/api/upload-s3', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imageBase64: base64Data,
-              fileName: `${cloth.id}-${Date.now()}.jpg`,
-            }),
-          });
+      // 2. Immediate optimistic preview
+      updateClothType(cloth.id, { imageUrl: compressedBase64 });
 
-          const json = await res.json();
-          const s3Url = json?.data?.s3Url;
+      // 3. Upload to AWS S3 via Next.js endpoint
+      const res = await fetch('/api/upload-s3', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: compressedBase64,
+          fileName: `${cloth.id}-${Date.now()}.jpg`,
+        }),
+      });
 
-          if (!res.ok || !s3Url) {
-            throw new Error(json?.message || 'Failed to upload to S3');
-          }
+      const json = await res.json();
+      const s3Url = json?.data?.s3Url;
 
-          console.log('✅ Direct S3 URL received:', s3Url);
+      if (!res.ok || !s3Url) {
+        throw new Error(json?.message || 'Failed to upload image to S3');
+      }
 
-          // 1. Immediately update AppContext (which syncs to catalog-overrides in S3)
-          updateClothType(cloth.id, { imageUrl: s3Url });
+      console.log('✅ AWS S3 Image URL:', s3Url);
 
-          showToast(`✅ Successfully uploaded ${cloth.name} to AWS S3!`, 'success');
-        } catch (err: any) {
-          console.error('S3 Upload Error:', err);
-          showToast('S3 Upload failed: ' + err.message, 'error');
-        } finally {
-          setUploadingClothId(null);
-          setTargetClothForUpload(null);
-        }
-      };
+      // 4. Update state with real permanent S3 URL
+      updateClothType(cloth.id, { imageUrl: s3Url });
+      db.updateClothType(cloth.id, { imageUrl: s3Url });
+
+      showToast(`✅ Photo for ${cloth.name} uploaded to AWS S3!`, 'success');
     } catch (err: any) {
-      showToast('File read failed: ' + err.message, 'error');
+      console.error('S3 Upload Error:', err);
+      showToast('S3 Upload failed: ' + err.message, 'error');
+    } finally {
       setUploadingClothId(null);
       setTargetClothForUpload(null);
     }
   };
 
-    // Toggle Active Status
+  // Manual URL Save
+  const handleSaveManualUrl = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingImageUrlCloth || !manualImageUrl.trim()) return;
+
+    updateClothType(editingImageUrlCloth.id, { imageUrl: manualImageUrl.trim() });
+    db.updateClothType(editingImageUrlCloth.id, { imageUrl: manualImageUrl.trim() });
+
+    showToast(`Updated image URL for ${editingImageUrlCloth.name}!`, 'success');
+    setEditingImageUrlCloth(null);
+    setManualImageUrl('');
+  };
+
+  // Toggle Active Status
   const handleToggleActive = (cloth: ClothType) => {
     const newStatus = cloth.isActive === false ? true : false;
     updateClothType(cloth.id, { isActive: newStatus });
@@ -248,7 +296,7 @@ export function UnifiedCatalogManager() {
             </span>
           </div>
           <p className="text-xs text-[var(--text-secondary)] mt-1">
-            Manage your clean commercial laundry catalog, upload high-res product photos, and configure real-time rates.
+            Manage your clean commercial laundry catalog, upload high-res product photos to AWS S3, and configure real-time rates.
           </p>
         </div>
 
@@ -406,6 +454,7 @@ export function UnifiedCatalogManager() {
             (p) => p.clothTypeId === cloth.id && p.serviceId === activeServiceFilter
           );
           const focusedPriceVal = focusedPrice?.price || (activeServiceFilter === 'srv-m-dry-clean' ? 80 : 25);
+          const isS3Live = cloth.imageUrl?.includes('s3.ap-south-1.amazonaws.com');
 
           return (
             <div
@@ -413,23 +462,33 @@ export function UnifiedCatalogManager() {
               className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col group"
             >
               {/* Card Photo Header */}
-              <div className="relative aspect-4/3 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <img
-                  key={cloth.imageUrl}
-                  src={cloth.imageUrl || `https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/${cloth.id}.jpg`}
-                  alt={cloth.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=400&q=80';
-                  }}
-                />
+              <div className="relative aspect-4/3 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center">
+                {cloth.imageUrl ? (
+                  <img
+                    key={cloth.imageUrl}
+                    src={cloth.imageUrl}
+                    alt={cloth.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    onError={(e) => {
+                      console.warn('Image load error for', cloth.name, cloth.imageUrl);
+                      // Do not replace with blue dotted shirt! Just keep natural or hide broken
+                      (e.target as HTMLImageElement).style.opacity = '0.5';
+                    }}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-4 text-slate-400">
+                    <span className="text-4xl">{cloth.icon}</span>
+                    <span className="text-xs mt-1 font-bold">{cloth.name}</span>
+                  </div>
+                )}
 
                 {/* S3 Cloud Tag */}
-                <div className="absolute top-2 left-2 flex items-center gap-1 bg-emerald-600/90 backdrop-blur-xs text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs">
-                  <ShieldCheck className="w-3 h-3" />
-                  <span>S3 Cloud</span>
-                </div>
+                {isS3Live && (
+                  <div className="absolute top-2 left-2 flex items-center gap-1 bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-md">
+                    <ShieldCheck className="w-3 h-3" />
+                    <span>AWS S3 Live</span>
+                  </div>
+                )}
 
                 {/* Active / Hidden Status */}
                 <button
@@ -445,20 +504,34 @@ export function UnifiedCatalogManager() {
                   {cloth.isActive !== false ? 'Active' : 'Hidden'}
                 </button>
 
-                {/* Direct Photo Upload Overlay Button */}
-                <button
-                  type="button"
-                  onClick={() => handleTriggerUpload(cloth)}
-                  disabled={uploadingClothId === cloth.id}
-                  className="absolute bottom-2 right-2 bg-black/75 hover:bg-black text-white text-[11px] font-bold px-2.5 py-1.5 rounded-xl shadow-md backdrop-blur-xs flex items-center gap-1.5 transition-all cursor-pointer hover:scale-105"
-                >
-                  {uploadingClothId === cloth.id ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Camera className="w-3.5 h-3.5" />
-                  )}
-                  <span>{uploadingClothId === cloth.id ? 'Uploading...' : 'Upload Photo'}</span>
-                </button>
+                {/* Upload & Link Buttons Overlay */}
+                <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingImageUrlCloth(cloth);
+                      setManualImageUrl(cloth.imageUrl || '');
+                    }}
+                    className="bg-black/75 hover:bg-black text-white p-1.5 rounded-xl shadow-md backdrop-blur-xs transition-all cursor-pointer hover:scale-105"
+                    title="Paste direct Image URL"
+                  >
+                    <Link2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleTriggerUpload(cloth)}
+                    disabled={uploadingClothId === cloth.id}
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-xl shadow-md backdrop-blur-xs flex items-center gap-1.5 transition-all cursor-pointer hover:scale-105"
+                  >
+                    {uploadingClothId === cloth.id ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Camera className="w-3.5 h-3.5" />
+                    )}
+                    <span>{uploadingClothId === cloth.id ? 'Uploading...' : 'Upload Photo'}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Card Body */}
@@ -480,7 +553,7 @@ export function UnifiedCatalogManager() {
                   )}
                 </div>
 
-                {/* Focused Service Banner (e.g. Dry Cleaning) */}
+                {/* Focused Service Banner (e.g. Dry Cleaning or Iron Only) */}
                 {activeServiceFilter !== 'ALL' && (
                   <div
                     onClick={() => handleOpenPriceModal(cloth, activeServiceFilter)}
@@ -545,6 +618,76 @@ export function UnifiedCatalogManager() {
           );
         })}
       </div>
+
+      {/* Manual Image URL Modal */}
+      {editingImageUrlCloth && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-[var(--border-color)] max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+              <div>
+                <h3 className="text-base font-black text-[var(--heading-color)]">
+                  Edit Garment Photo URL
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                  {editingImageUrlCloth.icon} {editingImageUrlCloth.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingImageUrlCloth(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveManualUrl} className="mt-4 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                  Image URL (AWS S3 or Web Link)
+                </label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/..."
+                  value={manualImageUrl}
+                  onChange={(e) => setManualImageUrl(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-medium text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {manualImageUrl && (
+                <div className="aspect-video w-full rounded-xl overflow-hidden bg-slate-100 border border-[var(--border-color)]">
+                  <img
+                    src={manualImageUrl}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-color)]">
+                <button
+                  type="button"
+                  onClick={() => setEditingImageUrlCloth(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[var(--text-secondary)] hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs"
+                >
+                  Save Photo URL
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Quick Price Inspector Modal */}
       {editingPriceData && (
@@ -671,9 +814,9 @@ export function UnifiedCatalogManager() {
                 const icon = (form.elements.namedItem('icon') as HTMLInputElement).value || '👔';
                 const cat = (form.elements.namedItem('categoryTag') as HTMLSelectElement).value;
                 const sub = (form.elements.namedItem('subCategory') as HTMLInputElement).value || 'General';
+                const si = Number((form.elements.namedItem('siPrice') as HTMLInputElement).value) || 20;
                 const dc = Number((form.elements.namedItem('dcPrice') as HTMLInputElement).value) || 80;
                 const wi = Number((form.elements.namedItem('wiPrice') as HTMLInputElement).value) || 49;
-                const si = Number((form.elements.namedItem('siPrice') as HTMLInputElement).value) || 20;
                 const wf = Number((form.elements.namedItem('wfPrice') as HTMLInputElement).value) || 35;
 
                 const newId = `cloth-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`;
@@ -693,9 +836,9 @@ export function UnifiedCatalogManager() {
                 addClothType(newCloth);
 
                 const newPriceItems: ServicePriceItem[] = [
+                  { id: `pr-${newId}-si`, clothTypeId: newId, clothName: name, clothIcon: icon, categoryTag: cat, serviceId: 'srv-m-steam-iron', serviceName: 'Iron Only (Steam Press)', price: si, expressPrice: Math.round(si * 1.5), turnaroundHours: 18, isActive: true },
                   { id: `pr-${newId}-dc`, clothTypeId: newId, clothName: name, clothIcon: icon, categoryTag: cat, serviceId: 'srv-m-dry-clean', serviceName: 'Dry Cleaning', price: dc, expressPrice: Math.round(dc * 1.5), turnaroundHours: 48, isActive: true },
                   { id: `pr-${newId}-wi`, clothTypeId: newId, clothName: name, clothIcon: icon, categoryTag: cat, serviceId: 'srv-m-wash-iron', serviceName: 'Wash & Steam Iron', price: wi, expressPrice: Math.round(wi * 1.5), turnaroundHours: 36, isActive: true },
-                  { id: `pr-${newId}-si`, clothTypeId: newId, clothName: name, clothIcon: icon, categoryTag: cat, serviceId: 'srv-m-steam-iron', serviceName: 'Steam Pressing Only', price: si, expressPrice: Math.round(si * 1.5), turnaroundHours: 18, isActive: true },
                   { id: `pr-${newId}-wf`, clothTypeId: newId, clothName: name, clothIcon: icon, categoryTag: cat, serviceId: 'srv-m-wash-fold', serviceName: 'Wash & Fold', price: wf, expressPrice: Math.round(wf * 1.5), turnaroundHours: 24, isActive: true },
                 ];
 
@@ -763,6 +906,15 @@ export function UnifiedCatalogManager() {
                 </label>
                 <div className="grid grid-cols-4 gap-2">
                   <div>
+                    <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">🔥 Iron Only</span>
+                    <input
+                      type="number"
+                      name="siPrice"
+                      defaultValue={20}
+                      className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-center"
+                    />
+                  </div>
+                  <div>
                     <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">👔 Dry Clean</span>
                     <input
                       type="number"
@@ -777,15 +929,6 @@ export function UnifiedCatalogManager() {
                       type="number"
                       name="wiPrice"
                       defaultValue={49}
-                      className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-center"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">🔥 Steam Press</span>
-                    <input
-                      type="number"
-                      name="siPrice"
-                      defaultValue={20}
                       className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-center"
                     />
                   </div>
