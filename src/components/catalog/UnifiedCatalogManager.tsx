@@ -1,0 +1,810 @@
+'use client';
+
+import React, { useState, useMemo, useRef } from 'react';
+import { useApp } from '@/context/AppContext';
+import { ClothType, ServicePriceItem } from '@/types';
+import { 
+  Search, Plus, Camera, Edit2, X, 
+  RefreshCw, ShieldCheck 
+} from 'lucide-react';
+import { adminApi } from '@/lib/api';
+
+const MASTER_CATEGORIES = [
+  { id: 'MENS', name: "Men's Wear", icon: '👔' },
+  { id: 'WOMENS', name: "Women's Wear", icon: '👗' },
+  { id: 'KIDS', name: 'Kids & Baby', icon: '👶' },
+  { id: 'HOME_TEXTILES', name: 'Home Textiles', icon: '🏠' },
+  { id: 'ALL', name: 'All Garments', icon: '✨' },
+];
+
+const SERVICE_FOCUS_OPTIONS = [
+  { id: 'ALL', name: 'All Services', icon: '✨', badge: null },
+  { id: 'srv-m-dry-clean', name: 'Dry Cleaning', icon: '👔', badge: 'POPULAR' },
+  { id: 'srv-m-wash-iron', name: 'Wash & Steam Iron', icon: '👕', badge: null },
+  { id: 'srv-m-steam-iron', name: 'Steam Pressing', icon: '🔥', badge: null },
+  { id: 'srv-m-wash-fold', name: 'Wash & Fold', icon: '🧺', badge: null },
+];
+
+const KEY_SERVICES = [
+  { id: 'srv-m-steam-iron', name: 'Steam Press', icon: '🔥' },
+  { id: 'srv-m-wash-iron', name: 'Wash & Iron', icon: '👕' },
+  { id: 'srv-m-dry-clean', name: 'Dry Clean', icon: '👔' },
+  { id: 'srv-m-wash-fold', name: 'Wash & Fold', icon: '🧺' },
+];
+
+export function UnifiedCatalogManager() {
+  const { 
+    clothTypes, 
+    serviceMasters, 
+    priceMatrix,
+    addClothType,
+    updateClothType,
+    upsertPriceItem,
+    showToast 
+  } = useApp();
+
+  const [activeCategory, setActiveCategory] = useState<string>('MENS');
+  const [activeSubcategory, setActiveSubcategory] = useState<string>('ALL');
+  const [activeServiceFilter, setActiveServiceFilter] = useState<string>('srv-m-dry-clean');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Modals state
+  const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [editingPriceData, setEditingPriceData] = useState<{
+    cloth: ClothType;
+    serviceId: string;
+    serviceName: string;
+    currentPrice: number;
+    expressPrice: number;
+    turnaround: number;
+  } | null>(null);
+
+  const [uploadingClothId, setUploadingClothId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [targetClothForUpload, setTargetClothForUpload] = useState<ClothType | null>(null);
+
+  // Filtered Garments
+  const filteredClothes = useMemo(() => {
+    return clothTypes.filter((c) => {
+      // 1. Category filter
+      if (activeCategory !== 'ALL' && c.categoryTag !== activeCategory) {
+        return false;
+      }
+
+      // 2. Subcategory filter
+      if (activeSubcategory !== 'ALL') {
+        const sub = c.subCategory || (c as any).subcategory;
+        if (sub !== activeSubcategory) return false;
+      }
+
+      // 3. Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesName = c.name.toLowerCase().includes(q);
+        const matchesSub = (c.subCategory || '').toLowerCase().includes(q);
+        const matchesDesc = (c.description || '').toLowerCase().includes(q);
+        if (!matchesName && !matchesSub && !matchesDesc) return false;
+      }
+
+      return true;
+    });
+  }, [clothTypes, activeCategory, activeSubcategory, searchQuery]);
+
+  // Subcategories with live counts
+  const subcategoriesWithCounts = useMemo(() => {
+    const list = clothTypes.filter((c) => activeCategory === 'ALL' || c.categoryTag === activeCategory);
+    const map = new Map<string, number>();
+    list.forEach((c) => {
+      const sub = c.subCategory || 'General';
+      map.set(sub, (map.get(sub) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  }, [clothTypes, activeCategory]);
+
+  // Category counts
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: clothTypes.length };
+    MASTER_CATEGORIES.forEach((cat) => {
+      if (cat.id !== 'ALL') {
+        counts[cat.id] = clothTypes.filter((c) => c.categoryTag === cat.id).length;
+      }
+    });
+    return counts;
+  }, [clothTypes]);
+
+  // Handle Photo Upload
+  const handleTriggerUpload = (cloth: ClothType) => {
+    setTargetClothForUpload(cloth);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !targetClothForUpload) return;
+
+    setUploadingClothId(targetClothForUpload.id);
+
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const base64Data = reader.result as string;
+
+        // Optimistically update image in AppContext
+        updateClothType(targetClothForUpload.id, { imageUrl: base64Data });
+
+        // Upload to S3 if backend API is reachable
+        try {
+          const res = await adminApi<{ s3Url: string }>('/services/upload-s3', {
+            method: 'POST',
+            body: JSON.stringify({
+              imageBase64: base64Data,
+              fileName: `${targetClothForUpload.id}.jpg`,
+            }),
+          });
+          if (res?.s3Url) {
+            updateClothType(targetClothForUpload.id, { imageUrl: res.s3Url });
+          }
+        } catch {}
+
+        showToast(`Photo for ${targetClothForUpload.name} updated successfully!`, 'success');
+        setUploadingClothId(null);
+        setTargetClothForUpload(null);
+      };
+    } catch (err: any) {
+      showToast('Failed to upload image: ' + err.message, 'error');
+      setUploadingClothId(null);
+      setTargetClothForUpload(null);
+    }
+  };
+
+  // Toggle Active Status
+  const handleToggleActive = (cloth: ClothType) => {
+    const newStatus = cloth.isActive === false ? true : false;
+    updateClothType(cloth.id, { isActive: newStatus });
+    showToast(`${cloth.name} marked as ${newStatus ? 'Active' : 'Hidden'}`, 'info');
+  };
+
+  // Open Quick Price Inspector
+  const handleOpenPriceModal = (cloth: ClothType, serviceId: string) => {
+    const srv = serviceMasters.find((s) => s.id === serviceId) || { name: 'Dry Cleaning' };
+    const priceItem = priceMatrix.find((p) => p.clothTypeId === cloth.id && p.serviceId === serviceId);
+
+    setEditingPriceData({
+      cloth,
+      serviceId,
+      serviceName: srv.name.replace(' Only', ''),
+      currentPrice: priceItem?.price || 80,
+      expressPrice: priceItem?.expressPrice || Math.round((priceItem?.price || 80) * 1.5),
+      turnaround: priceItem?.turnaroundHours || 48,
+    });
+  };
+
+  // Save Price
+  const handleSavePrice = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPriceData) return;
+
+    const { cloth, serviceId, currentPrice, expressPrice, turnaround } = editingPriceData;
+
+    const updatedItem: ServicePriceItem = {
+      id: `pr-${cloth.id}-${serviceId}`,
+      clothTypeId: cloth.id,
+      clothName: cloth.name,
+      clothIcon: cloth.icon,
+      categoryTag: cloth.categoryTag,
+      serviceId,
+      serviceName: editingPriceData.serviceName,
+      price: currentPrice,
+      expressPrice,
+      turnaroundHours: turnaround,
+      isActive: true,
+      isAvailable: true,
+    };
+
+    upsertPriceItem(updatedItem);
+
+    showToast(`${cloth.name} ${editingPriceData.serviceName} price set to ₹${currentPrice}!`, 'success');
+    setEditingPriceData(null);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Hidden Global File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {/* Header Toolbar */}
+      <div className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-black text-[var(--heading-color)]">
+              Garments & Services Catalog
+            </h2>
+            <span className="text-xs font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 px-2.5 py-0.5 rounded-full border border-blue-300">
+              {filteredClothes.length} of {clothTypes.length} Core Items
+            </span>
+          </div>
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
+            Manage your clean commercial laundry catalog, upload high-res product photos, and configure real-time rates.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search garments (e.g. Shirt, Jeans)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl text-xs font-medium text-[var(--heading-color)] w-64 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Garment</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Tier 1: Master Category Tabs */}
+      <div className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-3 shadow-xs">
+        <label className="text-[10px] font-black uppercase text-[var(--text-secondary)] tracking-wider block mb-2 px-1">
+          1. Select Master Category
+        </label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+          {MASTER_CATEGORIES.map((cat) => {
+            const isSelected = activeCategory === cat.id;
+            const count = categoryCounts[cat.id] || 0;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => {
+                  setActiveCategory(cat.id);
+                  setActiveSubcategory('ALL');
+                }}
+                className={`p-3 rounded-xl text-left font-bold transition-all flex items-center justify-between border cursor-pointer ${
+                  isSelected
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-102'
+                    : 'bg-slate-50 dark:bg-slate-800/80 text-[var(--heading-color)] border-[var(--border-color)] hover:border-blue-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{cat.icon}</span>
+                  <span className="text-xs">{cat.name}</span>
+                </div>
+                <span
+                  className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tier 2: Subcategory Pills Filter */}
+      <div className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-3 shadow-xs">
+        <label className="text-[10px] font-black uppercase text-[var(--text-secondary)] tracking-wider block mb-2 px-1">
+          2. Filter by Subcategory
+        </label>
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          <button
+            type="button"
+            onClick={() => setActiveSubcategory('ALL')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+              activeSubcategory === 'ALL'
+                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent shadow-xs'
+                : 'bg-slate-50 dark:bg-slate-800 text-[var(--text-secondary)] border-[var(--border-color)] hover:text-[var(--heading-color)]'
+            }`}
+          >
+            All Subcategories ({filteredClothes.length})
+          </button>
+          {subcategoriesWithCounts.map((sub) => (
+            <button
+              key={sub.name}
+              type="button"
+              onClick={() => setActiveSubcategory(sub.name)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                activeSubcategory === sub.name
+                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent shadow-xs'
+                  : 'bg-slate-50 dark:bg-slate-800 text-[var(--text-secondary)] border-[var(--border-color)] hover:text-[var(--heading-color)]'
+              }`}
+            >
+              {sub.name} ({sub.count})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tier 3: Service Focus Filter */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-2xl p-4 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+          <div>
+            <label className="text-[11px] font-black uppercase text-blue-900 dark:text-blue-300 tracking-wider block">
+              3. Service Focus Mode
+            </label>
+            <p className="text-[11px] text-blue-700 dark:text-blue-400">
+              Select a service to highlight its rates and enable 1-click price edits across all garments
+            </p>
+          </div>
+          {activeServiceFilter !== 'ALL' && (
+            <span className="text-[11px] font-extrabold text-blue-800 dark:text-blue-200 bg-white/80 dark:bg-blue-900/60 px-3 py-1 rounded-full border border-blue-300 dark:border-blue-700 shadow-xs">
+              Active Focus: {SERVICE_FOCUS_OPTIONS.find((s) => s.id === activeServiceFilter)?.name}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {SERVICE_FOCUS_OPTIONS.map((s) => {
+            const isSelected = activeServiceFilter === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setActiveServiceFilter(s.id)}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border shadow-xs ${
+                  isSelected
+                    ? 'bg-blue-600 text-white border-blue-600 ring-2 ring-blue-400/40 scale-102'
+                    : 'bg-white dark:bg-slate-800 text-[var(--text-secondary)] hover:text-[var(--heading-color)] border-[var(--border-color)] hover:border-blue-400'
+                }`}
+              >
+                <span className="text-base">{s.icon}</span>
+                <span>{s.name}</span>
+                {s.badge && (
+                  <span
+                    className={`text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase ${
+                      isSelected ? 'bg-white text-blue-700' : 'bg-orange-100 text-orange-700'
+                    }`}
+                  >
+                    {s.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Garments Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {filteredClothes.map((cloth) => {
+          // Focus rate
+          const focusedPrice = priceMatrix.find(
+            (p) => p.clothTypeId === cloth.id && p.serviceId === activeServiceFilter
+          );
+          const focusedPriceVal = focusedPrice?.price || (activeServiceFilter === 'srv-m-dry-clean' ? 80 : 25);
+
+          return (
+            <div
+              key={cloth.id}
+              className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col group"
+            >
+              {/* Card Photo Header */}
+              <div className="relative aspect-4/3 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <img
+                  src={cloth.imageUrl || `https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/${cloth.id}.jpg`}
+                  alt={cloth.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=400&q=80';
+                  }}
+                />
+
+                {/* S3 Cloud Tag */}
+                <div className="absolute top-2 left-2 flex items-center gap-1 bg-emerald-600/90 backdrop-blur-xs text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs">
+                  <ShieldCheck className="w-3 h-3" />
+                  <span>S3 Cloud</span>
+                </div>
+
+                {/* Active / Hidden Status */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleActive(cloth)}
+                  className={`absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs transition-colors cursor-pointer ${
+                    cloth.isActive !== false
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-rose-500 text-white'
+                  }`}
+                  title="Click to toggle Active status"
+                >
+                  {cloth.isActive !== false ? 'Active' : 'Hidden'}
+                </button>
+
+                {/* Direct Photo Upload Overlay Button */}
+                <button
+                  type="button"
+                  onClick={() => handleTriggerUpload(cloth)}
+                  disabled={uploadingClothId === cloth.id}
+                  className="absolute bottom-2 right-2 bg-black/75 hover:bg-black text-white text-[11px] font-bold px-2.5 py-1.5 rounded-xl shadow-md backdrop-blur-xs flex items-center gap-1.5 transition-all cursor-pointer hover:scale-105"
+                >
+                  {uploadingClothId === cloth.id ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Camera className="w-3.5 h-3.5" />
+                  )}
+                  <span>{uploadingClothId === cloth.id ? 'Uploading...' : 'Upload Photo'}</span>
+                </button>
+              </div>
+
+              {/* Card Body */}
+              <div className="p-4 flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-start justify-between gap-1 mb-1">
+                    <h3 className="text-sm font-black text-[var(--heading-color)] flex items-center gap-1.5">
+                      <span>{cloth.icon}</span>
+                      <span>{cloth.name}</span>
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-md">
+                    {cloth.subCategory || 'General'}
+                  </span>
+                  {cloth.description && (
+                    <p className="text-[11px] text-[var(--text-secondary)] mt-1 line-clamp-1">
+                      {cloth.description}
+                    </p>
+                  )}
+                </div>
+
+                {/* Focused Service Banner (e.g. Dry Cleaning) */}
+                {activeServiceFilter !== 'ALL' && (
+                  <div
+                    onClick={() => handleOpenPriceModal(cloth, activeServiceFilter)}
+                    className="mt-3 p-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-between cursor-pointer transition-all shadow-xs group/banner"
+                    title="Click to edit this price"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">
+                        {SERVICE_FOCUS_OPTIONS.find((s) => s.id === activeServiceFilter)?.icon}
+                      </span>
+                      <div>
+                        <span className="text-[9px] font-black uppercase text-blue-200 block tracking-wider">
+                          {SERVICE_FOCUS_OPTIONS.find((s) => s.id === activeServiceFilter)?.name} Rate
+                        </span>
+                        <span className="text-xs font-black text-white">Active Price</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base font-black text-white">₹{focusedPriceVal}</span>
+                      <Edit2 className="w-3 h-3 text-blue-200 group-hover/banner:text-white" />
+                    </div>
+                  </div>
+                )}
+
+                {/* 4-Service Quick Price Rows */}
+                <div className="mt-3 pt-2 border-t border-[var(--border-color)] space-y-1">
+                  {KEY_SERVICES.map((srv) => {
+                    const priceItem = priceMatrix.find(
+                      (p) => p.clothTypeId === cloth.id && p.serviceId === srv.id
+                    );
+                    const isAvailable = priceItem ? priceItem.isAvailable !== false && priceItem.price > 0 : false;
+                    const isFocused = activeServiceFilter === srv.id;
+
+                    return (
+                      <button
+                        key={srv.id}
+                        type="button"
+                        onClick={() => handleOpenPriceModal(cloth, srv.id)}
+                        className={`w-full flex items-center justify-between text-[11px] py-1 px-1.5 rounded-md transition-all cursor-pointer text-left group/price ${
+                          isFocused
+                            ? 'bg-blue-50 dark:bg-blue-950/60 font-bold text-blue-700 dark:text-blue-300'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800/80 text-[var(--text-secondary)]'
+                        }`}
+                        title={`Click to edit ${srv.name} price`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span>{srv.icon}</span>
+                          <span>{srv.name}</span>
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="font-bold text-[var(--heading-color)] group-hover/price:text-blue-600 transition-colors">
+                            {isAvailable && priceItem ? `₹${priceItem.price}` : '—'}
+                          </span>
+                          <Edit2 className="w-2.5 h-2.5 opacity-0 group-hover/price:opacity-100 text-blue-600 transition-opacity" />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Quick Price Inspector Modal */}
+      {editingPriceData && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-[var(--border-color)] max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+              <div>
+                <h3 className="text-base font-black text-[var(--heading-color)]">
+                  Edit {editingPriceData.serviceName} Rate
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                  {editingPriceData.cloth.icon} {editingPriceData.cloth.name} ({editingPriceData.cloth.categoryLabel || editingPriceData.cloth.categoryTag})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingPriceData(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePrice} className="mt-4 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                  Base Price (₹)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={editingPriceData.currentPrice}
+                  onChange={(e) =>
+                    setEditingPriceData({
+                      ...editingPriceData,
+                      currentPrice: Number(e.target.value),
+                      expressPrice: Math.round(Number(e.target.value) * 1.5),
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-sm font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                  Express Delivery Price (₹)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={editingPriceData.expressPrice}
+                  onChange={(e) =>
+                    setEditingPriceData({ ...editingPriceData, expressPrice: Number(e.target.value) })
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-sm font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                  Turnaround Hours
+                </label>
+                <input
+                  type="number"
+                  min="6"
+                  required
+                  value={editingPriceData.turnaround}
+                  onChange={(e) =>
+                    setEditingPriceData({ ...editingPriceData, turnaround: Number(e.target.value) })
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-sm font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-color)]">
+                <button
+                  type="button"
+                  onClick={() => setEditingPriceData(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[var(--text-secondary)] hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Garment Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-[var(--border-color)] max-w-lg w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+              <div>
+                <h3 className="text-base font-black text-[var(--heading-color)]">
+                  Add New Garment to Catalog
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                  Configure garment details and default prices across services
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.target as HTMLFormElement;
+                const name = (form.elements.namedItem('name') as HTMLInputElement).value;
+                const icon = (form.elements.namedItem('icon') as HTMLInputElement).value || '👔';
+                const cat = (form.elements.namedItem('categoryTag') as HTMLSelectElement).value;
+                const sub = (form.elements.namedItem('subCategory') as HTMLInputElement).value || 'General';
+                const dc = Number((form.elements.namedItem('dcPrice') as HTMLInputElement).value) || 80;
+                const wi = Number((form.elements.namedItem('wiPrice') as HTMLInputElement).value) || 49;
+                const si = Number((form.elements.namedItem('siPrice') as HTMLInputElement).value) || 20;
+                const wf = Number((form.elements.namedItem('wfPrice') as HTMLInputElement).value) || 35;
+
+                const newId = `cloth-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`;
+                const newCloth: ClothType = {
+                  id: newId,
+                  name,
+                  icon,
+                  categoryTag: cat,
+                  categoryLabel: cat === 'MENS' ? "Men's Clothing" : cat === 'WOMENS' ? "Women's Clothing" : cat === 'KIDS' ? "Kids & Baby" : "Home Textiles",
+                  subCategory: sub,
+                  description: `${name} laundry care & finishing.`,
+                  imageUrl: `https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/${newId}.jpg`,
+                  isActive: true,
+                  sortOrder: 99,
+                };
+
+                addClothType(newCloth);
+
+                const newPriceItems: ServicePriceItem[] = [
+                  { id: `pr-${newId}-dc`, clothTypeId: newId, clothName: name, clothIcon: icon, categoryTag: cat, serviceId: 'srv-m-dry-clean', serviceName: 'Dry Cleaning', price: dc, expressPrice: Math.round(dc * 1.5), turnaroundHours: 48, isActive: true },
+                  { id: `pr-${newId}-wi`, clothTypeId: newId, clothName: name, clothIcon: icon, categoryTag: cat, serviceId: 'srv-m-wash-iron', serviceName: 'Wash & Steam Iron', price: wi, expressPrice: Math.round(wi * 1.5), turnaroundHours: 36, isActive: true },
+                  { id: `pr-${newId}-si`, clothTypeId: newId, clothName: name, clothIcon: icon, categoryTag: cat, serviceId: 'srv-m-steam-iron', serviceName: 'Steam Pressing Only', price: si, expressPrice: Math.round(si * 1.5), turnaroundHours: 18, isActive: true },
+                  { id: `pr-${newId}-wf`, clothTypeId: newId, clothName: name, clothIcon: icon, categoryTag: cat, serviceId: 'srv-m-wash-fold', serviceName: 'Wash & Fold', price: wf, expressPrice: Math.round(wf * 1.5), turnaroundHours: 24, isActive: true },
+                ];
+
+                newPriceItems.forEach((p) => upsertPriceItem(p));
+
+                showToast(`Added ${name} to catalog!`, 'success');
+                setShowAddModal(false);
+              }}
+              className="mt-4 space-y-3"
+            >
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                    Garment Name
+                  </label>
+                  <input
+                    name="name"
+                    required
+                    placeholder="e.g. Linen Kurta"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                    Icon Emoji
+                  </label>
+                  <input
+                    name="icon"
+                    defaultValue="👔"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-center text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                    Category
+                  </label>
+                  <select
+                    name="categoryTag"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="MENS">Men's Wear</option>
+                    <option value="WOMENS">Women's Wear</option>
+                    <option value="KIDS">Kids & Baby</option>
+                    <option value="HOME_TEXTILES">Home Textiles</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                    Subcategory
+                  </label>
+                  <input
+                    name="subCategory"
+                    defaultValue="Shirts"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                  Default Service Prices (₹)
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">👔 Dry Clean</span>
+                    <input
+                      type="number"
+                      name="dcPrice"
+                      defaultValue={80}
+                      className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-center"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">👕 Wash & Iron</span>
+                    <input
+                      type="number"
+                      name="wiPrice"
+                      defaultValue={49}
+                      className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-center"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">🔥 Steam Press</span>
+                    <input
+                      type="number"
+                      name="siPrice"
+                      defaultValue={20}
+                      className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-center"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">🧺 Wash & Fold</span>
+                    <input
+                      type="number"
+                      name="wfPrice"
+                      defaultValue={35}
+                      className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-center"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-color)]">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[var(--text-secondary)] hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs"
+                >
+                  Create Garment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
