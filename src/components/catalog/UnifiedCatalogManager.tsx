@@ -125,43 +125,57 @@ export function UnifiedCatalogManager() {
     const file = e.target.files?.[0];
     if (!file || !targetClothForUpload) return;
 
-    setUploadingClothId(targetClothForUpload.id);
+    const cloth = targetClothForUpload;
+    setUploadingClothId(cloth.id);
 
     try {
+      showToast(`Uploading photo for ${cloth.name} directly to AWS S3...`, 'info');
+
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = async () => {
-        const base64Data = reader.result as string;
-
-        // Optimistically update image in AppContext
-        updateClothType(targetClothForUpload.id, { imageUrl: base64Data });
-
-        // Upload to S3 if backend API is reachable
         try {
-          const res = await adminApi<{ s3Url: string }>('/services/upload-s3', {
+          const base64Data = reader.result as string;
+
+          // Call direct S3 upload API in Next.js
+          const res = await fetch('/api/upload-s3', {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               imageBase64: base64Data,
-              fileName: `${targetClothForUpload.id}.jpg`,
+              fileName: `${cloth.id}-${Date.now()}.jpg`,
             }),
           });
-          if (res?.s3Url) {
-            updateClothType(targetClothForUpload.id, { imageUrl: res.s3Url });
-          }
-        } catch {}
 
-        showToast(`Photo for ${targetClothForUpload.name} updated successfully!`, 'success');
-        setUploadingClothId(null);
-        setTargetClothForUpload(null);
+          const json = await res.json();
+          const s3Url = json?.data?.s3Url;
+
+          if (!res.ok || !s3Url) {
+            throw new Error(json?.message || 'Failed to upload to S3');
+          }
+
+          console.log('✅ Direct S3 URL received:', s3Url);
+
+          // 1. Immediately update AppContext (which syncs to catalog-overrides in S3)
+          updateClothType(cloth.id, { imageUrl: s3Url });
+
+          showToast(`✅ Successfully uploaded ${cloth.name} to AWS S3!`, 'success');
+        } catch (err: any) {
+          console.error('S3 Upload Error:', err);
+          showToast('S3 Upload failed: ' + err.message, 'error');
+        } finally {
+          setUploadingClothId(null);
+          setTargetClothForUpload(null);
+        }
       };
     } catch (err: any) {
-      showToast('Failed to upload image: ' + err.message, 'error');
+      showToast('File read failed: ' + err.message, 'error');
       setUploadingClothId(null);
       setTargetClothForUpload(null);
     }
   };
 
-  // Toggle Active Status
+    // Toggle Active Status
   const handleToggleActive = (cloth: ClothType) => {
     const newStatus = cloth.isActive === false ? true : false;
     updateClothType(cloth.id, { isActive: newStatus });
@@ -401,6 +415,7 @@ export function UnifiedCatalogManager() {
               {/* Card Photo Header */}
               <div className="relative aspect-4/3 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                 <img
+                  key={cloth.imageUrl}
                   src={cloth.imageUrl || `https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/${cloth.id}.jpg`}
                   alt={cloth.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
