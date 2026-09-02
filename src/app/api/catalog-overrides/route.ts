@@ -56,6 +56,7 @@ async function fetchOverridesFromS3() {
   return {
     clothOverrides: {},
     categoryOverrides: {},
+    serviceOverrides: {},
     subcategoryOverrides: {},
     deletedClothIds: [],
     updatedAt: new Date().toISOString(),
@@ -76,6 +77,8 @@ export async function POST(req: NextRequest) {
       isDeleted,
       categoryTag,
       categoryImageUrl,
+      serviceId,
+      serviceImageUrl,
       subcategoryName,
       subcategoryImageUrl,
     } = body;
@@ -83,11 +86,16 @@ export async function POST(req: NextRequest) {
     const current = await fetchOverridesFromS3();
     const clothOverrides = current.clothOverrides || {};
     const categoryOverrides = current.categoryOverrides || {};
+    const serviceOverrides = current.serviceOverrides || {};
     const subcategoryOverrides = current.subcategoryOverrides || {};
     const deletedClothIds = Array.isArray(current.deletedClothIds) ? current.deletedClothIds : [];
 
     if (categoryTag && categoryImageUrl) {
       categoryOverrides[categoryTag.toUpperCase()] = categoryImageUrl;
+    }
+
+    if (serviceId && serviceImageUrl) {
+      serviceOverrides[serviceId] = serviceImageUrl;
     }
 
     if (subcategoryName && subcategoryImageUrl) {
@@ -127,6 +135,7 @@ export async function POST(req: NextRequest) {
     const payload = {
       clothOverrides: cleanOverrides,
       categoryOverrides,
+      serviceOverrides,
       subcategoryOverrides,
       deletedClothIds,
       updatedAt: new Date().toISOString(),
