@@ -346,11 +346,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Sync global cloud overrides from S3 so changes made by ANY user/device appear immediately
       try {
         const ovRes = await fetch(
-          'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/config/catalog-overrides.json?t=' + Date.now(),
+          '/api/catalog-overrides?t=' + Date.now(),
           { cache: 'no-store' }
         );
         if (ovRes.ok) {
-          const ovData = await ovRes.json();
+          const ovJson = await ovRes.json();
+          // /api/catalog-overrides returns { success, data: { clothOverrides, ... } }
+          // Direct S3 fetch returns the object itself — handle both
+          const ovData = ovJson?.data || ovJson;
           const { clothOverrides, deletedClothIds } = ovData;
           if (deletedClothIds && Array.isArray(deletedClothIds) && deletedClothIds.length > 0) {
             const delSet = new Set(deletedClothIds);

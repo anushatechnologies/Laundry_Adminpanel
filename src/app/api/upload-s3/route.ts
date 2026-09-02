@@ -39,7 +39,9 @@ export async function POST(req: NextRequest) {
     }
 
     const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
-    const cleanName = (fileName || `media-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '');
+    // Strip any existing extension BEFORE sanitizing so we don't get "cloth-shirt-123jpg.png"
+    const baseFileName = (fileName || `media-${Date.now()}`).replace(/\.[^.]+$/, '');
+    const cleanName = baseFileName.replace(/[^a-zA-Z0-9_-]/g, '') || `media-${Date.now()}`;
     const key = `services/${Date.now()}-${cleanName}.${ext}`;
 
     await s3Client.send(
