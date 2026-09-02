@@ -24320,14 +24320,12 @@ class LaundryDatabase {
         if (savedServices) {
           try {
             const parsedSrv = JSON.parse(savedServices);
-            if (Array.isArray(parsedSrv) && parsedSrv.length > 7) {
-              // Purge old 32 dummy sample services
+            // If cached services is missing Men's Dry Cleaning or has less than 12 items, reset to INITIAL_SERVICES!
+            if (!Array.isArray(parsedSrv) || parsedSrv.length < 12 || !parsedSrv.some((s: any) => s.id === 'srv-dc-shirt')) {
               this.services = [...INITIAL_SERVICES];
               this.safeSetItem('laundry_services', JSON.stringify(this.services));
-            } else if (Array.isArray(parsedSrv) && parsedSrv.length > 0) {
-              this.services = parsedSrv;
             } else {
-              this.services = [...INITIAL_SERVICES];
+              this.services = parsedSrv;
             }
           } catch {
             this.services = [...INITIAL_SERVICES];

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { INITIAL_CATEGORIES, db } from '@/lib/db';
+import { INITIAL_CATEGORIES, INITIAL_SERVICES, db } from '@/lib/db';
 import { useApp } from '@/context/AppContext';
 import { Layers, Plus, Search, Edit2, Check, X, Clock, Scale, Trash2, Image as ImageIcon, Upload, Link as LinkIcon, FileImage } from 'lucide-react';
 import { Service, PricingModel } from '@/types';
@@ -19,20 +19,25 @@ export default function AdminServicesPage() {
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
   React.useEffect(() => {
-    // 1. Always load instantly from persistent local storage
-    const local = db.getServices().map((s: any) => ({
+    // 1. Always ensure Men's Dry Cleaning services are present
+    let local = db.getServices().map((s: any) => ({
       ...s,
       imageUrl: s.imageUrl || s.image || '/images/service_wash_fold.jpg',
       image: s.image || s.imageUrl || '/images/service_wash_fold.jpg',
     }));
-    if (local.length > 0) {
-      setServices(local);
-    }
 
-    // 2. Fetch remote services if available, merging custom image updates
+    if (!local.some((s: any) => s.id === 'srv-dc-shirt')) {
+      local = [...INITIAL_SERVICES];
+      try {
+        localStorage.setItem('laundry_services', JSON.stringify(local));
+      } catch {}
+    }
+    setServices(local);
+
+    // 2. Fetch remote services if available, merging them without removing Men's items
     adminApi<{ services: Service[] }>('/services')
       .then((catalog) => {
-        if (catalog?.services && Array.isArray(catalog.services) && catalog.services.length > 0) {
+        if (catalog?.services && Array.isArray(catalog.services) && catalog.services.length >= 10) {
           const remoteMap = new Map(catalog.services.map((s) => [s.id, s]));
           setServices((current) => {
             return current.map((item) => {
