@@ -165,7 +165,8 @@ export function UnifiedCatalogManager() {
     const file = e.target.files?.[0];
     if (!file || !targetClothForUpload) return;
 
-    if (!file.type.startsWith('image/')) {
+    const isImageExt = /\.(jpe?g|png|webp|gif|jfif|bmp|svg)$/i.test(file.name);
+    if (!file.type.startsWith('image/') && !isImageExt) {
       showToast('Please select a valid image file (JPG, PNG, WebP).', 'error');
       return;
     }
