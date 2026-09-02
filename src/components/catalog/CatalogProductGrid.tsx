@@ -15,6 +15,7 @@ interface CatalogProductGridProps {
   onOpenPriceInspector: (cloth: ClothType, service: ServiceMaster) => void;
   onToggleActive: (cloth: ClothType) => void;
   onUpdateClothImage?: (clothId: string, imageUrl: string) => void;
+  selectedServiceFilter?: string;
 }
 
 // Lightweight client-side image compressor: produces crisp ~60-100KB JPEG
@@ -68,6 +69,7 @@ export const CatalogProductGrid: React.FC<CatalogProductGridProps> = ({
   onOpenPriceInspector,
   onToggleActive,
   onUpdateClothImage,
+  selectedServiceFilter = 'ALL',
 }) => {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const activeInputRef = useRef<HTMLInputElement>(null);
@@ -249,12 +251,17 @@ export const CatalogProductGrid: React.FC<CatalogProductGridProps> = ({
                     );
                     const isAvailable = priceItem ? priceItem.isAvailable !== false && priceItem.price > 0 : false;
 
+                    const isHighlighted = selectedServiceFilter === srvId;
                     return (
                       <button
                         key={srvId}
                         type="button"
                         onClick={() => onOpenPriceInspector(cloth, srv)}
-                        className="w-full flex items-center justify-between text-[11px] py-1 px-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer text-left group/price"
+                        className={`w-full flex items-center justify-between text-[11px] py-1 px-1.5 rounded-md transition-all cursor-pointer text-left group/price ${
+                          isHighlighted
+                            ? 'bg-blue-50 dark:bg-blue-950/60 border border-blue-400 dark:border-blue-700 font-bold text-blue-700 dark:text-blue-300'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                        }`}
                         title={`Click to edit ${srv.name} price`}
                       >
                         <span className="text-[var(--text-secondary)] truncate flex items-center gap-1">

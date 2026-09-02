@@ -40,6 +40,7 @@ export default function AdminPricingEnginePage() {
   const [isMounted, setIsMounted] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('MENS');
   const [activeSubcategory, setActiveSubcategory] = useState<string>('ALL');
+  const [activeServiceFilter, setActiveServiceFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'GRID' | 'TABLE'>('GRID');
 
@@ -456,6 +457,7 @@ export default function AdminPricingEnginePage() {
               onOpenPriceInspector={handleOpenPriceInspector}
               onToggleActive={handleToggleActive}
               onUpdateClothImage={handleUpdateClothImage}
+              selectedServiceFilter={activeServiceFilter}
             />
           ) : (
             <CatalogProductTable
