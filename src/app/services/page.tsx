@@ -11,6 +11,8 @@ export default function AdminServicesPage() {
   const { showToast } = useApp();
   const [services, setServices] = useState<Service[]>(() => db.getServices());
   const [search, setSearch] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<'ALL' | 'MENS' | 'WOMENS' | 'HOME'>('ALL');
+  const [selectedServiceType, setSelectedServiceType] = useState<'ALL' | 'DRY_CLEAN' | 'WASH_IRON' | 'PRESS' | 'BULK'>('ALL');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [imageInputMode, setImageInputMode] = useState<'FILE' | 'URL'>('FILE');
@@ -64,11 +66,44 @@ export default function AdminServicesPage() {
     imageUrl: '/images/service_wash_fold.jpg',
   });
 
-  const filteredServices = services.filter(
-    (s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.description.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredServices = services.filter((s) => {
+    const nameLower = s.name.toLowerCase();
+    const descLower = s.description.toLowerCase();
+    const qLower = search.toLowerCase();
+
+    const matchesSearch = !search.trim() || nameLower.includes(qLower) || descLower.includes(qLower);
+    if (!matchesSearch) return false;
+
+    // Category filter
+    if (selectedCategoryFilter === 'MENS') {
+      const isMens = nameLower.includes('men') || nameLower.includes('shirt') || nameLower.includes('jean') || 
+                     nameLower.includes('blazer') || nameLower.includes('jacket') || nameLower.includes('suit') || 
+                     nameLower.includes('trouser') || nameLower.includes('kurta') || nameLower.includes('short') ||
+                     s.categoryId === 'cat-1';
+      if (!isMens) return false;
+    } else if (selectedCategoryFilter === 'WOMENS') {
+      const isWomens = nameLower.includes('women') || nameLower.includes('saree') || nameLower.includes('lehenga') || 
+                       nameLower.includes('gown') || s.categoryId === 'cat-2' || s.categoryId === 'cat-4';
+      if (!isWomens) return false;
+    } else if (selectedCategoryFilter === 'HOME') {
+      const isHome = nameLower.includes('blanket') || nameLower.includes('comforter') || nameLower.includes('curtain') || 
+                     nameLower.includes('quilt') || s.categoryId === 'cat-3' || s.categoryId === 'cat-5';
+      if (!isHome) return false;
+    }
+
+    // Service Type filter
+    if (selectedServiceType === 'DRY_CLEAN') {
+      if (!nameLower.includes('dry clean')) return false;
+    } else if (selectedServiceType === 'WASH_IRON') {
+      if (!nameLower.includes('wash & steam') && !nameLower.includes('wash & fold')) return false;
+    } else if (selectedServiceType === 'PRESS') {
+      if (!nameLower.includes('steam iron') && !nameLower.includes('press')) return false;
+    } else if (selectedServiceType === 'BULK') {
+      if (s.pricingModel !== 'PER_KG') return false;
+    }
+
+    return true;
+  });
 
   const compressImageFile = (file: File, maxWidth = 800, quality = 0.8): Promise<string> => {
     return new Promise((resolve) => {
@@ -304,6 +339,67 @@ export default function AdminServicesPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="admin-input pl-9 w-full"
         />
+      </div>
+
+      {/* Filter by Category & Service Type */}
+      <div className="space-y-3 bg-[var(--bg-secondary-card)] border border-[var(--border-color)] p-4 rounded-2xl">
+        {/* Category Tabs */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            <span className="text-[11px] font-bold text-[var(--text-secondary)] mr-1">Category:</span>
+            {[
+              { id: 'ALL', label: 'All Categories' },
+              { id: 'MENS', label: '👔 Men\'s Wear' },
+              { id: 'WOMENS', label: '👗 Women\'s Wear' },
+              { id: 'HOME', label: '🏠 Home Linen' },
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategoryFilter(cat.id as any)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  selectedCategoryFilter === cat.id
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-white dark:bg-slate-800 text-[var(--text-secondary)] hover:text-[var(--heading-color)] border-[var(--border-color)]'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          <a 
+            href="/pricing?tab=cloths"
+            className="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1"
+          >
+            <span>Open Full 540-Garment Engine →</span>
+          </a>
+        </div>
+
+        {/* Service Type Filter */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-[var(--border-color)]">
+          <span className="text-[11px] font-bold text-[var(--text-secondary)] mr-1">Service:</span>
+          {[
+            { id: 'ALL', label: 'All Services' },
+            { id: 'DRY_CLEAN', label: '👔 Dry Cleaning Only' },
+            { id: 'WASH_IRON', label: '👕 Wash & Iron' },
+            { id: 'PRESS', label: '🔥 Steam Press' },
+            { id: 'BULK', label: '🧺 Bulk / KG' },
+          ].map((srv) => (
+            <button
+              key={srv.id}
+              type="button"
+              onClick={() => setSelectedServiceType(srv.id as any)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                selectedServiceType === srv.id
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                  : 'bg-white dark:bg-slate-800 text-[var(--text-secondary)] hover:text-[var(--heading-color)] border-[var(--border-color)]'
+              }`}
+            >
+              {srv.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Services Table */}

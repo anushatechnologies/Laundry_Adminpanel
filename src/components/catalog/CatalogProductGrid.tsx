@@ -242,30 +242,36 @@ export const CatalogProductGrid: React.FC<CatalogProductGridProps> = ({
 
                 {/* Service Prices Display */}
                 <div className="space-y-1 pt-2 border-t border-[var(--border-color)]">
-                  {/* If a specific service filter is active, highlight its rate banner prominently */}
+                                    {/* PROMINENT DRY CLEANING / SERVICE FOCUS BANNER */}
                   {selectedServiceFilter !== 'ALL' && (() => {
                     const focusedSrv = serviceMasters.find((s) => s.id === selectedServiceFilter);
                     const focusedPrice = priceMatrix.find(
                       (p) => p.clothTypeId === cloth.id && p.serviceId === selectedServiceFilter
                     );
                     if (!focusedSrv) return null;
+                    const priceVal = focusedPrice && focusedPrice.price > 0 ? focusedPrice.price : (selectedServiceFilter === 'srv-m-dry-clean' ? 89 : 25);
                     return (
                       <div 
                         onClick={() => onOpenPriceInspector(cloth, focusedSrv)}
-                        className="mb-2 p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-300 dark:border-blue-700 flex items-center justify-between cursor-pointer hover:bg-blue-100 transition-colors"
+                        className="mb-2 p-2.5 rounded-xl bg-blue-600 text-white flex items-center justify-between cursor-pointer hover:bg-blue-700 transition-all shadow-sm group/banner"
                         title="Click to edit this price"
                       >
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm">{focusedSrv.icon}</span>
-                          <span className="text-[11px] font-extrabold text-blue-800 dark:text-blue-300">
-                            {focusedSrv.name.replace(' Only', '')}
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{focusedSrv.icon}</span>
+                          <div>
+                            <span className="text-[9px] font-black uppercase text-blue-200 block tracking-wider">
+                              {focusedSrv.name.replace(' Only', '')}
+                            </span>
+                            <span className="text-xs font-extrabold text-white">
+                              Active Rate
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-sm font-black text-blue-700 dark:text-blue-300">
-                            {focusedPrice && focusedPrice.price > 0 ? `₹${focusedPrice.price}` : '₹80'}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-base font-black text-white tracking-tight">
+                            ₹{priceVal}
                           </span>
-                          <Edit2 className="w-2.5 h-2.5 text-blue-500" />
+                          <Edit2 className="w-3 h-3 text-blue-200 group-hover/banner:text-white" />
                         </div>
                       </div>
                     );
