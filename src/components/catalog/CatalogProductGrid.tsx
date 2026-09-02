@@ -241,8 +241,41 @@ export const CatalogProductGrid: React.FC<CatalogProductGridProps> = ({
                 </div>
 
                 {/* Service Prices Display */}
-                <div className="space-y-1 pt-1 border-t border-[var(--border-color)]">
-                  {keyServiceIds.map((srvId) => {
+                <div className="space-y-1 pt-2 border-t border-[var(--border-color)]">
+                  {/* If a specific service filter is active, highlight its rate banner prominently */}
+                  {selectedServiceFilter !== 'ALL' && (() => {
+                    const focusedSrv = serviceMasters.find((s) => s.id === selectedServiceFilter);
+                    const focusedPrice = priceMatrix.find(
+                      (p) => p.clothTypeId === cloth.id && p.serviceId === selectedServiceFilter
+                    );
+                    if (!focusedSrv) return null;
+                    return (
+                      <div 
+                        onClick={() => onOpenPriceInspector(cloth, focusedSrv)}
+                        className="mb-2 p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-300 dark:border-blue-700 flex items-center justify-between cursor-pointer hover:bg-blue-100 transition-colors"
+                        title="Click to edit this price"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm">{focusedSrv.icon}</span>
+                          <span className="text-[11px] font-extrabold text-blue-800 dark:text-blue-300">
+                            {focusedSrv.name.replace(' Only', '')}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm font-black text-blue-700 dark:text-blue-300">
+                            {focusedPrice && focusedPrice.price > 0 ? `₹${focusedPrice.price}` : '₹80'}
+                          </span>
+                          <Edit2 className="w-2.5 h-2.5 text-blue-500" />
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* All 3 Service Rows (Reordered so active service is first) */}
+                  {(selectedServiceFilter !== 'ALL' 
+                    ? [selectedServiceFilter, ...keyServiceIds.filter(id => id !== selectedServiceFilter)]
+                    : keyServiceIds
+                  ).map((srvId) => {
                     const srv = serviceMasters.find((s) => s.id === srvId);
                     if (!srv) return null;
 

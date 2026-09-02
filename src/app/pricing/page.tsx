@@ -445,6 +445,54 @@ export default function AdminPricingEnginePage() {
           />
         </div>
 
+        {/* Tier 2.5: Filter & Manage By Service (Dry Cleaning, Wash & Iron, Steam Press) */}
+        <div className="pt-3 pb-2 border-t border-[var(--border-color)] bg-slate-50/70 dark:bg-slate-900/50 p-3 rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+            <div>
+              <label className="text-[11px] font-extrabold text-[var(--heading-color)] uppercase tracking-wider block">
+                3. Filter by Service & Pricing Mode
+              </label>
+              <p className="text-[11px] text-[var(--text-secondary)]">
+                Click a service to view & edit that service rate across all garments
+              </p>
+            </div>
+            {activeServiceFilter !== 'ALL' && (
+              <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/80 px-3 py-1 rounded-full border border-blue-300 dark:border-blue-700 shadow-xs">
+                Focusing on: {activeServiceFilter === 'srv-m-dry-clean' ? '👔 Dry Cleaning Rates' : activeServiceFilter === 'srv-m-wash-iron' ? '👕 Wash & Steam Iron Rates' : '🔥 Steam Pressing Rates'}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            {[
+              { id: 'ALL', name: 'All Services (View All)', badge: null },
+              { id: 'srv-m-dry-clean', name: '👔 Dry Cleaning', badge: 'POPULAR' },
+              { id: 'srv-m-wash-iron', name: '👕 Wash & Steam Iron', badge: null },
+              { id: 'srv-m-steam-iron', name: '🔥 Steam Pressing', badge: null },
+            ].map((s) => {
+              const isSelected = activeServiceFilter === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setActiveServiceFilter(s.id)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border shadow-xs ${
+                    isSelected
+                      ? 'bg-blue-600 text-white border-blue-600 ring-2 ring-blue-400/40 scale-102'
+                      : 'bg-white dark:bg-slate-800 text-[var(--text-secondary)] hover:text-[var(--heading-color)] border-[var(--border-color)] hover:border-blue-400'
+                  }`}
+                >
+                  <span>{s.name}</span>
+                  {s.badge && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase ${isSelected ? 'bg-white text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                      {s.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Tier 3: Products / Garments Explorer (Grid Cards vs Table) */}
         <div className="pt-2 border-t border-[var(--border-color)]">
           {viewMode === 'GRID' ? (
