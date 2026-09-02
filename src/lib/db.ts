@@ -3544,7 +3544,7 @@ class LaundryDatabase {
           }
         }
 
-        const CATALOG_CACHE_VERSION = 'v6_clean_commercial_34';
+        const CATALOG_CACHE_VERSION = 'v7_clean_s3_live';
         const currentVersion = localStorage.getItem('laundry_catalog_version');
 
         const savedOrders = localStorage.getItem('laundry_orders');
@@ -3593,6 +3593,10 @@ class LaundryDatabase {
           this.safeSetItem('laundry_service_masters', JSON.stringify(this.serviceMasters));
           this.safeSetItem('laundry_price_matrix', JSON.stringify(this.priceMatrix));
           this.safeSetItem('laundry_catalog_version', CATALOG_CACHE_VERSION);
+          try {
+            localStorage.removeItem('laundry_cloth_overrides');
+            localStorage.removeItem('laundry_deleted_cloth_ids');
+          } catch {}
         } else {
           try {
             const parsedCloth = JSON.parse(savedClothTypes);
@@ -4088,8 +4092,17 @@ class LaundryDatabase {
     const overrides = this.getClothOverrides();
     for (const [id, data] of Object.entries(overrides)) {
       const item = this.clothTypes.find((c) => c.id === id);
-      if (item) {
-        Object.assign(item, data);
+      if (item && data) {
+        // Guard against corrupted or invalid URLs stored in legacy cache
+        const safeData = { ...data };
+        if (safeData.imageUrl && (
+          safeData.imageUrl.includes('jpg.png') ||
+          safeData.imageUrl.includes('Invalid signature') ||
+          (safeData.imageUrl.startsWith('data:') && safeData.imageUrl.length < 500)
+        )) {
+          delete safeData.imageUrl;
+        }
+        Object.assign(item, safeData);
       }
     }
   }

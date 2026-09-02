@@ -109,20 +109,42 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Strip base64 from clothOverrides before writing (prevents massive JSON / 500)
+    const cleanOverrides: Record<string, any> = {};
+    for (const [k, v] of Object.entries(clothOverrides)) {
+      const entry = v as any;
+      if (entry && typeof entry === 'object') {
+        const cleaned = { ...entry };
+        if (cleaned.imageUrl && !String(cleaned.imageUrl).startsWith('http')) {
+          delete cleaned.imageUrl;
+        }
+        cleanOverrides[k] = cleaned;
+      } else {
+        cleanOverrides[k] = v;
+      }
+    }
+
     const payload = {
-      clothOverrides,
+      clothOverrides: cleanOverrides,
       categoryOverrides,
       subcategoryOverrides,
       deletedClothIds,
       updatedAt: new Date().toISOString(),
     };
 
+    // Guard: refuse payloads > 500KB
+    const payloadStr = JSON.stringify(payload, null, 2);
+    if (payloadStr.length > 500_000) {
+      console.error('catalog-overrides payload too large:', payloadStr.length, 'bytes');
+      return NextResponse.json({ success: false, error: 'Payload too large' }, { status: 413 });
+    }
+
     const s3 = getS3Client();
     await s3.send(
       new PutObjectCommand({
         Bucket: BUCKET,
         Key: S3_KEY,
-        Body: JSON.stringify(payload, null, 2),
+        Body: payloadStr,
         ContentType: 'application/json',
       })
     );

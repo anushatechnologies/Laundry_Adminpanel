@@ -732,15 +732,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateClothType = async (id: string, data: Partial<ClothType>) => {
-    // 1. Sync to Global S3 Cloud Overrides immediately
-    try {
-      await fetch('/api/catalog-overrides', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clothId: id, data }),
-      });
-    } catch (e) {
-      console.warn('Could not sync to cloud overrides', e);
+    // 1. Sync to Global S3 Cloud Overrides - skip base64 to avoid huge payload 500
+    const persistData: Partial<ClothType> = { ...data };
+    if (persistData.imageUrl && !persistData.imageUrl.startsWith('http')) {
+      delete (persistData as any).imageUrl; // base64 blobs cause 500
+    }
+    if (Object.keys(persistData).length > 0) {
+      try {
+        await fetch('/api/catalog-overrides', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clothId: id, data: persistData }),
+        });
+      } catch (e) {
+        console.warn('Could not sync to cloud overrides', e);
+      }
     }
 
     // 2. Also try backend API

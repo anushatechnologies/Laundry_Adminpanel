@@ -63,7 +63,7 @@ function compressImage(file: File, maxWidth = 1200, quality = 0.85): Promise<str
           resolve(event.target?.result as string);
         }
       };
-      img.onerror = () => resolve(event.target?.result as string);
+      img.onerror = () => reject(new Error("The selected file is not a valid image format or is corrupted. Please choose a real JPG, PNG, or WebP photo."));
     };
     reader.onerror = (err) => reject(err);
   });
@@ -164,6 +164,11 @@ export function UnifiedCatalogManager() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !targetClothForUpload) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (JPG, PNG, WebP).', 'error');
+      return;
+    }
 
     const cloth = targetClothForUpload;
     setUploadingClothId(cloth.id);
@@ -463,7 +468,7 @@ export function UnifiedCatalogManager() {
             >
               {/* Card Photo Header */}
               <div className="relative aspect-4/3 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center">
-                {cloth.imageUrl ? (
+                {cloth.imageUrl && !cloth.imageUrl.includes('Invalid signature') ? (
                   <img
                     key={cloth.imageUrl}
                     src={cloth.imageUrl}

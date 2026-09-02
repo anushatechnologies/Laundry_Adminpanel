@@ -38,6 +38,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Empty image buffer' }, { status: 400 });
     }
 
+    // Validate that buffer is actually an image (prevent corrupt files, HTML/JSON error text)
+    const isJpeg = buffer.length > 3 && buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF;
+    const isPng = buffer.length > 4 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47;
+    const isWebp = buffer.length > 12 && buffer.slice(0, 4).toString('ascii') === 'RIFF' && buffer.slice(8, 12).toString('ascii') === 'WEBP';
+    const isGif = buffer.length > 3 && buffer.slice(0, 3).toString('ascii') === 'GIF';
+
+    if (!isJpeg && !isPng && !isWebp && !isGif) {
+      return NextResponse.json({
+        success: false,
+        message: 'The selected file is not a valid image format (JPG, PNG, WebP). Please select a genuine photo file.'
+      }, { status: 400 });
+    }
+
     const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
     // Strip any existing extension BEFORE sanitizing so we don't get "cloth-shirt-123jpg.png"
     const baseFileName = (fileName || `media-${Date.now()}`).replace(/\.[^.]+$/, '');
