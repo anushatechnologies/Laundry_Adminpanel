@@ -236,6 +236,7 @@ export const AdminNavWrapper: React.FC<{ children: React.ReactNode }> = ({ child
     {
       group: 'SYSTEM',
       items: [
+        { name: 'Live Chat', href: '/chat', icon: MessageSquare },
         { name: 'Notifications', href: '/notifications', icon: MessageSquare },
         { name: 'Audit Logs', href: '/audit', icon: ShieldAlert },
         { name: 'Settings', href: '/settings', icon: Settings },
