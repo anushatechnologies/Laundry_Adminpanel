@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ADMIN_SESSION_COOKIE, hasValidAdminSession } from '@/lib/admin-session';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -6,6 +7,10 @@ export const dynamic = 'force-dynamic';
 type RouteContext = { params: Promise<{ path: string[] }> };
 
 async function proxy(request: NextRequest, context: RouteContext) {
+  if (!hasValidAdminSession(request.cookies.get(ADMIN_SESSION_COOKIE)?.value)) {
+    return NextResponse.json({ success: false, message: 'Administrator sign-in is required.' }, { status: 401 });
+  }
+
   const { path } = await context.params;
   if (!path.length || path.some((segment) => !segment || segment === '.' || segment === '..')) {
     return NextResponse.json({ success: false, message: 'Invalid API path.' }, { status: 400 });

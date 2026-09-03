@@ -45,10 +45,17 @@ interface EmailTemplateMeta {
   text?: string;
 }
 
+interface PushRecipient {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+}
+
 export default function AdminNotificationsPage() {
   const { notificationTemplates, updateNotificationTemplate, showToast } = useApp();
 
-  const [activeChannel, setActiveChannel] = useState<'EMAIL' | 'WHATSAPP'>('EMAIL');
+  const [activeChannel, setActiveChannel] = useState<'EMAIL' | 'WHATSAPP' | 'PUSH'>('EMAIL');
 
   // WhatsApp State
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
@@ -86,6 +93,17 @@ export default function AdminNotificationsPage() {
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [testStatusMessage, setTestStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [smtpStatus, setSmtpStatus] = useState<{ isConnected: boolean; message: string; smtpHost?: string } | null>(null);
+
+  // Firebase Cloud Messaging composer state
+  const [pushRecipients, setPushRecipients] = useState<PushRecipient[]>([]);
+  const [loadingPushRecipients, setLoadingPushRecipients] = useState(false);
+  const [pushCustomerId, setPushCustomerId] = useState('');
+  const [pushTitle, setPushTitle] = useState('LaundryFresh update');
+  const [pushBody, setPushBody] = useState('');
+  const [pushOrderId, setPushOrderId] = useState('');
+  const [pushChannel, setPushChannel] = useState<'orders' | 'promotions'>('orders');
+  const [isSendingPush, setIsSendingPush] = useState(false);
+  const [pushStatusMessage, setPushStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Fetch readymade email templates from backend
   const fetchEmailTemplates = async () => {
@@ -139,9 +157,27 @@ export default function AdminNotificationsPage() {
     }
   };
 
+  const fetchPushRecipients = async () => {
+    setLoadingPushRecipients(true);
+    try {
+      const res = await fetch('/api/backend/customers');
+      const json = await res.json();
+      if (res.ok && json.success && Array.isArray(json.data)) {
+        const recipients = json.data as PushRecipient[];
+        setPushRecipients(recipients);
+        setPushCustomerId((current) => (recipients.some((recipient) => recipient.id === current) ? current : ''));
+      }
+    } catch (err) {
+      console.error('Error fetching Firebase push recipients:', err);
+    } finally {
+      setLoadingPushRecipients(false);
+    }
+  };
+
   useEffect(() => {
     fetchEmailTemplates();
     fetchSmtpStatus();
+    fetchPushRecipients();
   }, []);
 
   const handleSelectEmailTemplate = (template: EmailTemplateMeta) => {
@@ -323,6 +359,50 @@ export default function AdminNotificationsPage() {
     }
   };
 
+  const handleSendFirebasePush = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pushCustomerId || !pushTitle.trim() || !pushBody.trim()) {
+      showToast('Choose a customer and enter a title and message.', 'error');
+      return;
+    }
+
+    const recipient = pushRecipients.find((customer) => customer.id === pushCustomerId);
+    if (!confirm(`Send this Firebase push notification to ${recipient?.name || 'the selected customer'}?`)) return;
+
+    setIsSendingPush(true);
+    setPushStatusMessage(null);
+    try {
+      const res = await fetch('/api/backend/notifications/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: pushCustomerId,
+          title: pushTitle.trim(),
+          body: pushBody.trim(),
+          channel: pushChannel,
+          ...(pushOrderId.trim() ? { orderId: pushOrderId.trim() } : {}),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success) {
+        const delivered = json.data?.successCount ?? 0;
+        const text = `Firebase Cloud Messaging delivered to ${delivered} device(s).`;
+        setPushStatusMessage({ type: 'success', text });
+        showToast(text, 'success');
+      } else {
+        const text = json.message || 'Firebase Cloud Messaging could not send this notification.';
+        setPushStatusMessage({ type: 'error', text });
+        showToast(text, 'error');
+      }
+    } catch (err: any) {
+      const text = err.message || 'Network error while contacting Firebase push delivery.';
+      setPushStatusMessage({ type: 'error', text });
+      showToast(text, 'error');
+    } finally {
+      setIsSendingPush(false);
+    }
+  };
+
   const currentEmailTemplate = emailTemplates.find((t) => t.id === selectedEmailId) || emailTemplates[0];
 
   const availablePlaceholders = [
@@ -347,16 +427,16 @@ export default function AdminNotificationsPage() {
           </span>
           <h1 className="text-2xl font-bold text-[var(--heading-color)] font-poppins mt-1 flex items-center gap-2">
             <Mail className="w-6 h-6 text-[#16A34A]" />
-            <span>Automated Customer Notifications & Email Studio</span>
+            <span>Automated Customer Notifications</span>
           </h1>
           <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-            Manage lifecycle emails (Pickup, Washing, Out for Delivery, Invoices), customize template content, and toggle Active/Deactivated triggers end-to-end.
+            Manage lifecycle emails, WhatsApp/SMS templates, and direct Firebase Cloud Messaging delivery from one operations console.
           </p>
         </div>
 
         {/* Channel Switcher */}
         <div className="flex items-center gap-2">
-          <div className="bg-[var(--bg-secondary-card)] border border-[var(--border-color)] p-1 rounded-[10px] flex items-center gap-1">
+          <div className="bg-[var(--bg-secondary-card)] border border-[var(--border-color)] p-1 rounded-[10px] flex flex-wrap items-center gap-1">
             <button
               onClick={() => setActiveChannel('EMAIL')}
               className={`px-3.5 py-1.5 rounded-[8px] transition-all flex items-center gap-1.5 text-xs font-bold ${
@@ -378,6 +458,17 @@ export default function AdminNotificationsPage() {
             >
               <MessageSquare className="w-4 h-4" />
               <span>WhatsApp / SMS CMS</span>
+            </button>
+            <button
+              onClick={() => setActiveChannel('PUSH')}
+              className={`px-3.5 py-1.5 rounded-[8px] transition-all flex items-center gap-1.5 text-xs font-bold ${
+                activeChannel === 'PUSH'
+                  ? 'bg-[#2563EB] text-white shadow-xs'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
+              }`}
+            >
+              <Zap className="w-4 h-4" />
+              <span>Firebase Push (FCM)</span>
             </button>
           </div>
         </div>
@@ -825,7 +916,168 @@ export default function AdminNotificationsPage() {
         </div>
       )}
 
-      {/* 2. WHATSAPP & SMS CMS */}
+      {/* 2. FIREBASE CLOUD MESSAGING */}
+      {activeChannel === 'PUSH' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <form onSubmit={handleSendFirebasePush} className="lg:col-span-2 azea-card p-5 sm:p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-4 border-b border-[var(--border-color)]">
+              <div>
+                <h2 className="font-bold text-base text-[var(--heading-color)] flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-blue-600" />
+                  Send Firebase Push Notification
+                </h2>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                  Sends directly through Firebase Cloud Messaging to the selected customer&apos;s registered Android device.
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 px-2.5 py-1 rounded-full">
+                <Server className="w-3.5 h-3.5" /> Firebase Admin only
+              </span>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-1.5">
+                <label htmlFor="push-customer" className="font-bold text-xs text-[var(--heading-color)]">Customer *</label>
+                <button
+                  type="button"
+                  onClick={fetchPushRecipients}
+                  disabled={loadingPushRecipients}
+                  className="text-[11px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-300 inline-flex items-center gap-1 disabled:opacity-60"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingPushRecipients ? 'animate-spin' : ''}`} />
+                  Refresh customers
+                </button>
+              </div>
+              <select
+                id="push-customer"
+                required
+                value={pushCustomerId}
+                onChange={(event) => setPushCustomerId(event.target.value)}
+                className="admin-input w-full text-xs"
+                disabled={loadingPushRecipients}
+              >
+                <option value="">{loadingPushRecipients ? 'Loading customers…' : 'Select a customer'}</option>
+                {pushRecipients.map((customer) => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.name || 'Customer'}{customer.phone ? ` · ${customer.phone}` : ''}
+                  </option>
+                ))}
+              </select>
+              {!loadingPushRecipients && pushRecipients.length === 0 && (
+                <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1.5">
+                  No customers are available yet. A customer appears after they sign in or place an order.
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="push-channel" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">Notification channel</label>
+                <select
+                  id="push-channel"
+                  value={pushChannel}
+                  onChange={(event) => setPushChannel(event.target.value as 'orders' | 'promotions')}
+                  className="admin-input w-full text-xs"
+                >
+                  <option value="orders">Order updates</option>
+                  <option value="promotions">Offers &amp; discounts</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="push-order-id" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">Order ID (optional)</label>
+                <input
+                  id="push-order-id"
+                  type="text"
+                  value={pushOrderId}
+                  onChange={(event) => setPushOrderId(event.target.value)}
+                  placeholder="e.g. ORD-1042"
+                  className="admin-input w-full text-xs"
+                />
+                <p className="text-[10px] text-[var(--text-secondary)] mt-1">When provided, tapping the push opens that order.</p>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="push-title" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">Push title *</label>
+              <input
+                id="push-title"
+                required
+                maxLength={120}
+                value={pushTitle}
+                onChange={(event) => setPushTitle(event.target.value)}
+                placeholder="e.g. Your pickup partner is on the way"
+                className="admin-input w-full text-xs font-semibold"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="push-body" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">Message *</label>
+              <textarea
+                id="push-body"
+                required
+                rows={4}
+                maxLength={500}
+                value={pushBody}
+                onChange={(event) => setPushBody(event.target.value)}
+                placeholder="Write the message shown in the customer&apos;s notification tray."
+                className="admin-input w-full h-auto text-xs leading-relaxed"
+              />
+            </div>
+
+            {pushStatusMessage && (
+              <div className={`rounded-xl border px-3 py-2.5 text-xs font-medium flex items-start gap-2 ${
+                pushStatusMessage.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-200 dark:border-emerald-900'
+                  : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/30 dark:text-rose-200 dark:border-rose-900'
+              }`}>
+                {pushStatusMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+                <span>{pushStatusMessage.text}</span>
+              </div>
+            )}
+
+            <div className="pt-1 flex justify-end">
+              <button
+                type="submit"
+                disabled={isSendingPush || !pushRecipients.length}
+                className="admin-btn-primary bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 px-5 py-2.5 flex items-center gap-2 text-xs font-bold disabled:opacity-60"
+              >
+                {isSendingPush ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                <span>{isSendingPush ? 'Sending through Firebase…' : 'Send Firebase Push'}</span>
+              </button>
+            </div>
+          </form>
+
+          <aside className="space-y-4">
+            <div className="azea-card p-5 space-y-3 bg-gradient-to-br from-blue-50 to-indigo-50/60 dark:from-blue-950/30 dark:to-indigo-950/20 border border-blue-200/80 dark:border-blue-900/60">
+              <div className="flex items-center gap-2 text-[var(--heading-color)]">
+                <div className="w-9 h-9 rounded-xl bg-blue-600/10 dark:bg-blue-400/10 text-blue-600 dark:text-blue-300 flex items-center justify-center">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm">FCM delivery path</h3>
+                  <p className="text-[10px] text-[var(--text-secondary)]">No Expo Push Service</p>
+                </div>
+              </div>
+              <div className="space-y-2 text-xs text-[var(--text-secondary)]">
+                <p><strong className="text-[var(--heading-color)]">1.</strong> Customer opens the app and allows the native notification prompt.</p>
+                <p><strong className="text-[var(--heading-color)]">2.</strong> The app registers its native FCM token after sign-in.</p>
+                <p><strong className="text-[var(--heading-color)]">3.</strong> This composer calls the backend, which uses Firebase Admin to send the message.</p>
+              </div>
+            </div>
+
+            <div className="azea-card p-4 text-xs text-[var(--text-secondary)] space-y-2">
+              <div className="font-bold text-[var(--heading-color)] flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                Before first delivery
+              </div>
+              <p>Set the same private <code>ADMIN_API_TOKEN</code> on the backend and the Admin server. Firebase service-account credentials must exist on the backend only.</p>
+              <p>If a customer has not reopened the app after this update, they may still have an old token and need to open it once to register FCM.</p>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* 3. WHATSAPP & SMS CMS */}
       {activeChannel === 'WHATSAPP' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Template Selector & Editor */}
