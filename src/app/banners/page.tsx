@@ -337,8 +337,9 @@ export default function AdminBannersPage() {
               {/* Pure Banner Image Display (No Dark Scrim or Text Covering Image) */}
               <div className="relative h-48 w-full overflow-hidden bg-slate-900">
                 <img
-                  src={banner.imageUrl}
+                  src={banner.imageUrl && !banner.imageUrl.includes("laundry-storage-2026") ? banner.imageUrl : PRESET_IMAGES[index % PRESET_IMAGES.length].url}
                   alt={banner.title}
+                  onError={(e) => { e.currentTarget.src = PRESET_IMAGES[index % PRESET_IMAGES.length].url; }}
                   className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
                 />
                 {/* Order Tag Badge */}
