@@ -49,6 +49,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
     const responseBody = await backendResponse.arrayBuffer();
     const responseHeaders = new Headers();
     responseHeaders.set('content-type', backendResponse.headers.get('content-type') || 'application/json; charset=utf-8');
+    responseHeaders.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     return new NextResponse(responseBody, { status: backendResponse.status, headers: responseHeaders });
   } catch (err: any) {
     console.error(`[Admin Proxy Error] Failed to proxy to ${target.toString()}:`, err.message);

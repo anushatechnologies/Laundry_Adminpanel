@@ -60,7 +60,7 @@ export const getAdminCoupons = () => adminApi<any[]>('/coupons');
 export const getAdminPincodes = () => adminApi<any[]>('/pincodes');
 export const getAdminPlans = () => adminApi<any[]>('/subscriptions/plans');
 export const getAdminSlots = () => adminApi<any[]>('/slots');
-export const getAdminBanners = () => adminApi<import('@/types').Banner[]>('/banners/all');
+export const getAdminBanners = () => adminApi<import('@/types').Banner[]>(`/banners/all?_t=${Date.now()}`);
 export const createAdminBanner = (data: Partial<import('@/types').Banner>) =>
   adminApi<import('@/types').Banner>('/banners', {
     method: 'POST',
