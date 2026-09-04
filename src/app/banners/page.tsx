@@ -165,17 +165,32 @@ export default function AdminBannersPage() {
         const compressedDataUrl = await compressImageFile(file);
         setImageUrl(compressedDataUrl);
 
+        console.log('[Banner] Uploading to S3:', file.name);
         const res = await fetch('/api/upload-s3', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageBase64: compressedDataUrl, fileName: `banner-${Date.now()}-${file.name}` }),
         });
-        const uploadData = await res.json();
-        if (uploadData.success && uploadData.data?.s3Url) {
-          setImageUrl(uploadData.data.s3Url);
+        
+        if (!res.ok) {
+          console.error('[Banner] S3 upload failed:', res.status, res.statusText);
+          throw new Error(`Upload failed: ${res.statusText}`);
         }
-      } catch {
-        // keep preview
+        
+        const uploadData = await res.json();
+        console.log('[Banner] S3 upload response:', uploadData);
+        
+        if (uploadData.success && uploadData.data?.s3Url) {
+          console.log('[Banner] S3 URL received:', uploadData.data.s3Url);
+          setImageUrl(uploadData.data.s3Url);
+          alert(`Image uploaded successfully!\nURL: ${uploadData.data.s3Url.substring(0, 50)}...`);
+        } else {
+          console.error('[Banner] No S3 URL in response:', uploadData);
+          alert('Upload succeeded but no S3 URL received. Using preview instead.');
+        }
+      } catch (err: any) {
+        console.error('[Banner] Upload error:', err);
+        alert(`Upload failed: ${err.message}\nUsing preview image instead.`);
       } finally {
         setUploadingS3(false);
       }
@@ -188,6 +203,8 @@ export default function AdminBannersPage() {
       alert('Title and Image URL are required.');
       return;
     }
+
+    console.log('[Banner] Saving banner with imageUrl:', imageUrl);
 
     setSaving(true);
     try {
@@ -204,15 +221,22 @@ export default function AdminBannersPage() {
         isActive,
       };
 
+      console.log('[Banner] Payload:', payload);
+
       if (editingBanner) {
+        console.log('[Banner] Updating banner:', editingBanner.id);
         await updateAdminBanner(editingBanner.id, payload);
+        alert('Banner updated successfully!');
       } else {
+        console.log('[Banner] Creating new banner');
         await createAdminBanner(payload);
+        alert('Banner created successfully!');
       }
 
       setIsModalOpen(false);
       fetchBanners();
     } catch (err: any) {
+      console.error('[Banner] Save error:', err);
       alert(err.message || 'Could not save banner.');
     } finally {
       setSaving(false);
