@@ -4,8 +4,8 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
-const region = process.env.AWS_REGION || 'ap-south-2';
-const bucketName = process.env.AWS_S3_BUCKET || 'anjanilaundry';
+const region = 'ap-south-2';
+const bucketName = process.env.S3_BUCKET_NAME || 'anjanilaundry';
 
 const k1 = 'AKIA2IOKXY';
 const k2 = '74KWIXSH7V';
