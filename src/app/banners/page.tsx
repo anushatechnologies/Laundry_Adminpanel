@@ -570,7 +570,7 @@ export default function AdminBannersPage() {
                     required
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/banners/..."
+                    placeholder="https://anjanilaundry.s3.ap-south-2.amazonaws.com/banners/..."
                     className="w-full px-3 py-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-page)] text-[var(--text-primary)] font-mono text-[11px]"
                   />
                 )}

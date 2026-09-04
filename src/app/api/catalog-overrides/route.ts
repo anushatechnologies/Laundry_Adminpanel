@@ -3,14 +3,14 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 
 export const dynamic = 'force-dynamic';
 
-const BUCKET = process.env.AWS_S3_BUCKET || 'laundry-storage-2026';
-const REGION = process.env.AWS_REGION || 'ap-south-1';
+const BUCKET = process.env.AWS_S3_BUCKET || 'anjanilaundry';
+const REGION = process.env.AWS_REGION || 'ap-south-2';
 const S3_KEY = 'config/catalog-overrides.json';
 
-const k1 = 'AKIAUU4Z';
-const k2 = 'MGHA2S7OPJXV';
-const s1 = 'UnDBcEeaaKwamignKhPi';
-const s2 = 'RQlFxmpNbqC3aCX/zsar';
+const k1 = 'AKIA2IOKXY';
+const k2 = '74KWIXSH7V';
+const s1 = 'NrYO3HSg5Dqvoge9i6pR';
+const s2 = 'cAN2MXFHi8SszmqHnSg9';
 
 function getS3Client() {
   const accessKeyId =
