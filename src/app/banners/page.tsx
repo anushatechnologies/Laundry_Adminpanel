@@ -183,14 +183,12 @@ export default function AdminBannersPage() {
         if (uploadData.success && uploadData.data?.s3Url) {
           console.log('[Banner] S3 URL received:', uploadData.data.s3Url);
           setImageUrl(uploadData.data.s3Url);
-          alert(`Image uploaded successfully!\nURL: ${uploadData.data.s3Url.substring(0, 50)}...`);
         } else {
-          console.error('[Banner] No S3 URL in response:', uploadData);
-          alert('Upload succeeded but no S3 URL received. Using preview instead.');
+          console.warn('[Banner] No S3 URL in response, using preview');
         }
       } catch (err: any) {
         console.error('[Banner] Upload error:', err);
-        alert(`Upload failed: ${err.message}\nUsing preview image instead.`);
+        alert(`Upload failed: ${err.message}\nThe image preview will be used instead.`);
       } finally {
         setUploadingS3(false);
       }
@@ -226,11 +224,9 @@ export default function AdminBannersPage() {
       if (editingBanner) {
         console.log('[Banner] Updating banner:', editingBanner.id);
         await updateAdminBanner(editingBanner.id, payload);
-        alert('Banner updated successfully!');
       } else {
         console.log('[Banner] Creating new banner');
         await createAdminBanner(payload);
-        alert('Banner created successfully!');
       }
 
       setIsModalOpen(false);
