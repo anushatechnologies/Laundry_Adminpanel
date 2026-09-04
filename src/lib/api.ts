@@ -94,3 +94,50 @@ export const createBackendSlot = (data: Record<string, unknown>) =>
     method: 'POST',
     body: JSON.stringify(data),
   }).catch(() => null);
+
+// Categories CRUD
+export const getAdminCategories = () => adminApi<any[]>('/services/categories');
+export const createAdminCategory = (data: Record<string, unknown>) =>
+  adminApi<any>('/services/categories', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+export const updateAdminCategory = (id: string, data: Record<string, unknown>) =>
+  adminApi<any>(`/services/categories/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+export const deleteAdminCategory = (id: string) =>
+  adminApi<any>(`/services/categories/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+
+// Service Masters CRUD
+export const getAdminServiceMasters = () => adminApi<any[]>('/services/masters');
+export const updateAdminServiceMaster = (id: string, data: Record<string, unknown>) =>
+  adminApi<any>(`/services/masters/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+export const deleteAdminServiceMaster = (id: string) =>
+  adminApi<any>(`/services/masters/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+
+// Subcategories CRUD
+export const getAdminSubcategories = (categoryTag?: string) =>
+  adminApi<any[]>(categoryTag ? `/services/subcategories?categoryTag=${encodeURIComponent(categoryTag)}` : '/services/subcategories');
+export const createAdminSubcategory = (data: Record<string, unknown>) =>
+  adminApi<any>('/services/subcategories', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+export const updateAdminSubcategory = (id: string, data: Record<string, unknown>) =>
+  adminApi<any>(`/services/subcategories/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+export const deleteAdminSubcategory = (id: string) =>
+  adminApi<any>(`/services/subcategories/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });

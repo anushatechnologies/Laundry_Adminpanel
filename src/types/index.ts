@@ -318,12 +318,22 @@ export interface ServiceMaster {
   name: string;
   slug: string;
   icon?: string;
+  imageUrl?: string;
   pricingType: 'PER_KG' | 'PER_ITEM' | 'FIXED_PACKAGE';
   baseKgPrice?: number;
   minOrderKg?: number;
   turnaroundHours: number;
   description: string;
   isActive: boolean;
+}
+
+export interface Subcategory {
+  id: string;
+  categoryTag: string;
+  name: string;
+  imageUrl?: string;
+  isActive: boolean;
+  sortOrder: number;
 }
 
 export interface ServicePriceItem {

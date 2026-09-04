@@ -1,13 +1,20 @@
 'use client';
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { db } from '@/lib/db';
 import { ClothType, ServicePriceItem } from '@/types';
 import { 
   Search, Plus, Camera, Edit2, X, 
-  RefreshCw, ShieldCheck, Link2, ExternalLink, Layers, Sparkles, Tag, Clock, ArrowRight
+  RefreshCw, ShieldCheck, Link2, ExternalLink, Layers, Sparkles, Tag, Clock, ArrowRight, Settings
 } from 'lucide-react';
+import { 
+  getAdminCategories, 
+  updateAdminCategory, 
+  updateAdminServiceMaster, 
+  getAdminCatalog 
+} from '@/lib/api';
+import { CategorySubcategoryModal } from './CategorySubcategoryModal';
 
 const INITIAL_MASTER_CATEGORIES = [
   { 
@@ -204,6 +211,65 @@ export function UnifiedCatalogManager() {
   // Services State (with live photo overrides)
   const [servicesList, setServicesList] = useState(INITIAL_SERVICES_MASTERS);
 
+  // Category & Subcategory Management Modal
+  const [showCatSubModal, setShowCatSubModal] = useState(false);
+
+  // Load live categories and service masters from API & S3
+  const loadLiveCatalog = async () => {
+    try {
+      const [catsRes, catalogRes] = await Promise.allSettled([
+        getAdminCategories(),
+        getAdminCatalog(),
+      ]);
+
+      if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value) && catsRes.value.length > 0) {
+        const remoteCats = catsRes.value;
+        const mapped = remoteCats.map((rc: any) => {
+          const localMatch = INITIAL_MASTER_CATEGORIES.find(
+            (c) =>
+              c.id === rc.id ||
+              c.id.toLowerCase().replace(/_/g, '-') === rc.slug ||
+              (c.id === 'MENS' && rc.slug === 'mens-wear') ||
+              (c.id === 'WOMENS' && rc.slug === 'womens-wear') ||
+              (c.id === 'KIDS' && rc.slug === 'kids-wear') ||
+              (c.id === 'HOME_TEXTILES' && rc.slug === 'home-textiles') ||
+              (c.id === 'BRIDAL' && rc.slug === 'bridal-wear') ||
+              (c.id === 'SPECIAL' && rc.slug === 'special-cleaning')
+          );
+          return {
+            id: localMatch?.id || rc.id,
+            name: rc.name || localMatch?.name || 'Category',
+            icon: rc.icon || localMatch?.icon || '🧺',
+            imageUrl: rc.imageUrl || rc.image || localMatch?.imageUrl || '',
+            description: rc.description || localMatch?.description || '',
+          };
+        });
+        setCategories(mapped);
+      }
+
+      if (catalogRes.status === 'fulfilled' && catalogRes.value) {
+        const catData = catalogRes.value;
+        if (Array.isArray(catData.serviceMasters) && catData.serviceMasters.length > 0) {
+          setServicesList((prev) => {
+            return prev.map((localSrv) => {
+              const found = catData.serviceMasters.find((sm: any) => sm.id === localSrv.id);
+              if (found && (found.imageUrl || found.image)) {
+                return { ...localSrv, imageUrl: found.imageUrl || found.image };
+              }
+              return localSrv;
+            });
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Could not load live catalog updates', err);
+    }
+  };
+
+  useEffect(() => {
+    loadLiveCatalog();
+  }, []);
+
   // Filter States for Garments View
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [activeSubcategory, setActiveSubcategory] = useState<string>('ALL');
@@ -338,6 +404,11 @@ export function UnifiedCatalogManager() {
       } else if (type === 'CATEGORY') {
         setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, imageUrl: s3Url } : c)));
         try {
+          await updateAdminCategory(id, { imageUrl: s3Url });
+        } catch (err) {
+          console.warn('Could not sync category update to MySQL API', err);
+        }
+        try {
           await fetch('/api/catalog-overrides', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -348,6 +419,11 @@ export function UnifiedCatalogManager() {
         }
       } else if (type === 'SERVICE') {
         setServicesList((prev) => prev.map((s) => (s.id === id ? { ...s, imageUrl: s3Url } : s)));
+        try {
+          await updateAdminServiceMaster(id, { imageUrl: s3Url });
+        } catch (err) {
+          console.warn('Could not sync service master update to MySQL API', err);
+        }
         try {
           await fetch('/api/catalog-overrides', {
             method: 'POST',
@@ -384,6 +460,9 @@ export function UnifiedCatalogManager() {
     } else if (type === 'CATEGORY') {
       setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, imageUrl: url } : c)));
       try {
+        await updateAdminCategory(id, { imageUrl: url });
+      } catch (err) {}
+      try {
         await fetch('/api/catalog-overrides', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -392,6 +471,9 @@ export function UnifiedCatalogManager() {
       } catch (err) {}
     } else if (type === 'SERVICE') {
       setServicesList((prev) => prev.map((s) => (s.id === id ? { ...s, imageUrl: url } : s)));
+      try {
+        await updateAdminServiceMaster(id, { imageUrl: url });
+      } catch (err) {}
       try {
         await fetch('/api/catalog-overrides', {
           method: 'POST',
@@ -482,7 +564,16 @@ export function UnifiedCatalogManager() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowCatSubModal(true)}
+            className="px-3.5 py-2 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0 border border-slate-700"
+          >
+            <Layers className="w-3.5 h-3.5 text-amber-400" />
+            <span>Manage Categories & Subcategories</span>
+          </button>
+
           {viewMode === 'GARMENTS' && (
             <>
               <div className="relative">
@@ -1471,6 +1562,12 @@ export function UnifiedCatalogManager() {
           </div>
         </div>
       )}
+      {/* Category & Subcategory Management Modal */}
+      <CategorySubcategoryModal
+        isOpen={showCatSubModal}
+        onClose={() => setShowCatSubModal(false)}
+        onRefreshCatalog={loadLiveCatalog}
+      />
     </div>
   );
 }

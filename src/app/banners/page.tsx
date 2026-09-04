@@ -325,7 +325,7 @@ export default function AdminBannersPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {banners.map((banner) => (
+          {banners.map((banner, index) => (
             <div
               key={banner.id}
               className={`group relative rounded-2xl border transition-all duration-300 overflow-hidden bg-[var(--bg-card)] ${
