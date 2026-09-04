@@ -41,7 +41,7 @@ export const CatalogCategoryTabs: React.FC<CatalogCategoryTabsProps> = ({
         const isActive = activeCategory === cat.tag;
         const photoUrl =
           cat.tag === 'ALL'
-            ? 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/home-textiles.jpg'
+            ? 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bedsheet-king.jpg'
             : getCategoryImageUrl(cat.tag);
 
         return (

@@ -15,48 +15,49 @@ import {
   getAdminCatalog 
 } from '@/lib/api';
 import { CategorySubcategoryModal } from './CategorySubcategoryModal';
+import { getLocalFallbackPhoto } from '@/components/common/GarmentImage';
 
 const INITIAL_MASTER_CATEGORIES = [
   { 
     id: 'MENS', 
     name: "Men's Wear", 
     icon: '👔', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/mens-wear.jpg', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-suit-2p.jpg', 
     description: 'Shirts, T-Shirts, Trousers, Suits, Blazers & Jackets.' 
   },
   { 
     id: 'WOMENS', 
     name: "Women's Wear", 
     icon: '👗', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/womens-wear.jpg', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-kurti.jpg', 
     description: 'Sarees, Kurtis, Suits, Dresses, Gowns & Tops.' 
   },
   { 
     id: 'KIDS', 
     name: 'Kids & Baby', 
     icon: '👦', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/kids-baby.jpg', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-school-uniforms.jpg', 
     description: 'School Uniforms, Frocks, Baby Rompers & Daily Wear.' 
   },
   { 
     id: 'HOME_TEXTILES', 
     name: 'Home Textiles', 
     icon: '🏡', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/home-textiles.jpg', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bedsheet-king.jpg', 
     description: 'Bedsheets, Mink Blankets, Razais, Comforters, Curtains & Towels.' 
   },
   { 
     id: 'BRIDAL', 
     name: 'Premium & Bridal', 
     icon: '🥻', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/wedding-silk.jpg', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-wedding-silk.jpg', 
     description: 'Bridal Lehengas, Heavy Zari Sarees, Gowns & Sherwanis.' 
   },
   { 
     id: 'SPECIAL', 
     name: 'Deep Treatment', 
     icon: '✨', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/winter-wear.jpg', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-special-treatments.jpg', 
     description: 'Mattress, Carpet, Rug & Sofa Cover Deep Extraction.' 
   },
 ];
@@ -69,7 +70,7 @@ const INITIAL_SERVICES_MASTERS = [
     pricingType: 'PER_ITEM', 
     turnaroundHours: 18, 
     description: 'High-pressure wrinkle removal, sharp crease setting & crisp hanger finish.', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/steam-iron.jpg' 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg' 
   },
   { 
     id: 'srv-m-wash-fold', 
@@ -79,7 +80,7 @@ const INITIAL_SERVICES_MASTERS = [
     baseKgPrice: 60, 
     turnaroundHours: 24, 
     description: 'Hygienic wash, tumble dry, and neat compact fold for daily garments.', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/wash-and-fold.jpg' 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg' 
   },
   { 
     id: 'srv-m-wash-iron', 
@@ -89,7 +90,7 @@ const INITIAL_SERVICES_MASTERS = [
     baseKgPrice: 85, 
     turnaroundHours: 36, 
     description: 'Eco-wash + industrial steam pressing on custom hangers.', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/wash-and-iron.jpg' 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg' 
   },
   { 
     id: 'srv-m-dry-clean', 
@@ -98,7 +99,7 @@ const INITIAL_SERVICES_MASTERS = [
     pricingType: 'PER_ITEM', 
     turnaroundHours: 48, 
     description: 'Hydrocarbon solvent treatment with breathable garment cover & shape retention.', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/dry-cleaning.jpg' 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg' 
   },
   { 
     id: 'srv-m-charak', 
@@ -107,7 +108,7 @@ const INITIAL_SERVICES_MASTERS = [
     pricingType: 'PER_ITEM', 
     turnaroundHours: 48, 
     description: 'Traditional starching, roll pressing & zari shine revival for silk sarees.', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/saree-charak.jpg' 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-saree-silk.jpg' 
   },
   { 
     id: 'srv-m-starch', 
@@ -116,7 +117,7 @@ const INITIAL_SERVICES_MASTERS = [
     pricingType: 'PER_ITEM', 
     turnaroundHours: 24, 
     description: 'Stiff starching for crisp cotton shirts, dhotis & school uniforms.', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/starch-finish.jpg' 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-shirt.jpg' 
   },
   { 
     id: 'srv-m-spa', 
@@ -125,7 +126,7 @@ const INITIAL_SERVICES_MASTERS = [
     pricingType: 'PER_ITEM', 
     turnaroundHours: 48, 
     description: 'Ultrasonic stain treatment and antibacterial ozone sanitization for footwear.', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/shoe-spa.jpg' 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg' 
   },
   { 
     id: 'srv-m-express', 
@@ -135,7 +136,7 @@ const INITIAL_SERVICES_MASTERS = [
     baseKgPrice: 120, 
     turnaroundHours: 12, 
     description: 'Dedicated machine slot with guaranteed same-day 12-hour turnaround.', 
-    imageUrl: 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/express-emergency.jpg' 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/delivery_van_driver.jpg' 
   },
 ];
 
@@ -687,7 +688,7 @@ export function UnifiedCatalogManager() {
                       alt={cat.name}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/mens-wear.jpg';
+                        (e.target as HTMLImageElement).src = 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg';
                       }}
                     />
                   ) : (
@@ -789,7 +790,7 @@ export function UnifiedCatalogManager() {
                       alt={srv.name}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/services/dry-cleaning.jpg';
+                        (e.target as HTMLImageElement).src = 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg';
                       }}
                     />
                   ) : (
@@ -1042,7 +1043,7 @@ export function UnifiedCatalogManager() {
                           alt={cloth.name}
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/cloth-shirt.jpg';
+                            (e.target as HTMLImageElement).src = getLocalFallbackPhoto(cloth.name, cloth.categoryTag);
                           }}
                         />
                       ) : (
@@ -1242,7 +1243,7 @@ export function UnifiedCatalogManager() {
                 <input
                   type="url"
                   required
-                  placeholder="https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/..."
+                  placeholder="https://anjanilaundry.s3.ap-south-2.amazonaws.com/..."
                   value={manualImageUrl}
                   onChange={(e) => setManualImageUrl(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-medium text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1425,7 +1426,7 @@ export function UnifiedCatalogManager() {
                   categoryLabel: cat === 'MENS' ? "Men's Clothing" : cat === 'WOMENS' ? "Women's Clothing" : cat === 'KIDS' ? "Kids & Baby" : "Home Textiles",
                   subCategory: sub,
                   description: `${name} laundry care & finishing.`,
-                  imageUrl: `https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/garments/${newId}.jpg`,
+                  imageUrl: getLocalFallbackPhoto(name, cat),
                   isActive: true,
                   sortOrder: 99,
                 };

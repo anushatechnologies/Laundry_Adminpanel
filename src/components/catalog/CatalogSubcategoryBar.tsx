@@ -67,7 +67,7 @@ export const CatalogSubcategoryBar: React.FC<CatalogSubcategoryBarProps> = ({
           >
             <div className="w-5 h-5 rounded-md overflow-hidden shrink-0 border border-white/20 bg-slate-200 dark:bg-slate-700">
               <img
-                src="https://laundry-storage-2026.s3.ap-south-1.amazonaws.com/categories/home-textiles.jpg"
+                src="https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bedsheet-king.jpg"
                 alt="All"
                 className="w-full h-full object-cover"
               />
