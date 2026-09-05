@@ -141,3 +141,11 @@ export const deleteAdminSubcategory = (id: string) =>
   adminApi<any>(`/services/subcategories/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
+
+// Operational & Financial Settings
+export const getAdminSettings = () => adminApi<any>('/services/settings');
+export const updateAdminSettings = (data: Record<string, unknown>) =>
+  adminApi<any>('/services/settings', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
