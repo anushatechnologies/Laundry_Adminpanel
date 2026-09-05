@@ -23,6 +23,7 @@ import {
   Activity,
   X,
   Key,
+  RefreshCw,
 } from 'lucide-react';
 import { AuditLogEntry } from '@/types';
 
@@ -39,6 +40,8 @@ export default function AdminAuditPage() {
   const [selectedModule, setSelectedModule] = useState<string>('ALL');
   const [selectedRisk, setSelectedRisk] = useState<string>('ALL');
   const [selectedLogForInspect, setSelectedLogForInspect] = useState<ExtendedAuditEntry | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [auditStats, setAuditStats] = useState<{ total: number; critical: number; highRisk: number; mediumRisk: number; info: number } | null>(null);
 
   const initialLogs: ExtendedAuditEntry[] = [
     {
@@ -155,27 +158,48 @@ export default function AdminAuditPage() {
 
   const [liveServerLogs, setLiveServerLogs] = useState<ExtendedAuditEntry[]>([]);
 
-  React.useEffect(() => {
-    async function fetchLiveAudit() {
-      try {
+  const fetchLiveAudit = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      let res = await fetch('/api/backend/audit?limit=200');
+      if (!res.ok) {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://laundry.anushatechnologies.com/api';
-        const res = await fetch(`${apiUrl}/audit`);
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          setLiveServerLogs(json.data);
-        }
-      } catch (err) {
-        console.warn('Failed to fetch live audit logs:', err);
+        res = await fetch(`${apiUrl}/audit?limit=200`);
       }
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        setLiveServerLogs(json.data);
+      }
+
+      let statsRes = await fetch('/api/backend/audit/stats');
+      if (!statsRes.ok) {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://laundry.anushatechnologies.com/api';
+        statsRes = await fetch(`${apiUrl}/audit/stats`);
+      }
+      const statsJson = await statsRes.json();
+      if (statsJson.success && statsJson.data) {
+        setAuditStats(statsJson.data);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch live audit logs:', err);
+    } finally {
+      setIsLoading(false);
     }
-    fetchLiveAudit();
   }, []);
 
-  const allLogs: ExtendedAuditEntry[] = [
-    ...liveServerLogs,
-    ...initialLogs.filter((init) => !liveServerLogs.some((l) => l.id === init.id)),
-    ...(auditLogs as ExtendedAuditEntry[]),
-  ];
+  React.useEffect(() => {
+    fetchLiveAudit();
+  }, [fetchLiveAudit]);
+
+  const allLogs: ExtendedAuditEntry[] = liveServerLogs.length > 0
+    ? [
+        ...liveServerLogs,
+        ...initialLogs.filter((init) => !liveServerLogs.some((l) => l.id === init.id)),
+      ]
+    : [
+        ...initialLogs,
+        ...(auditLogs as ExtendedAuditEntry[]),
+      ];
 
   const filteredLogs = allLogs.filter((log) => {
     const matchesSearch =
@@ -213,7 +237,11 @@ export default function AdminAuditPage() {
     showToast('Exported audit trail ledger to CSV!', 'success');
   };
 
-  const highRiskCount = allLogs.filter((l) => l.riskLevel === 'HIGH_RISK' || l.riskLevel === 'CRITICAL').length;
+  const totalEventsCount = auditStats?.total ?? allLogs.length;
+  const highRiskCount = auditStats
+    ? (auditStats.highRisk + auditStats.critical)
+    : allLogs.filter((l) => l.riskLevel === 'HIGH_RISK' || l.riskLevel === 'CRITICAL').length;
+  const criticalCount = auditStats?.critical ?? allLogs.filter((l) => l.riskLevel === 'CRITICAL').length;
 
   return (
     <div className="space-y-6">
@@ -237,6 +265,14 @@ export default function AdminAuditPage() {
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => fetchLiveAudit()}
+              disabled={isLoading}
+              className="px-3 py-2 bg-slate-800/90 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-600/60 shadow transition-all cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-indigo-400' : ''}`} />
+              <span>{isLoading ? 'Syncing...' : 'Refresh Ledger'}</span>
+            </button>
             <button onClick={handleExportCSV} className="admin-btn-primary bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700">
               <Download className="w-4 h-4" />
               <span>Export Audit Ledger (CSV)</span>
@@ -249,14 +285,14 @@ export default function AdminAuditPage() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="azea-card p-5">
           <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">Total Logged Events</span>
-          <span className="text-2xl font-black text-[var(--heading-color)] font-poppins mt-1 block">{allLogs.length} Events</span>
-          <span className="text-[11px] text-emerald-600 font-bold">100% Real-time sync</span>
+          <span className="text-2xl font-black text-[var(--heading-color)] font-poppins mt-1 block">{totalEventsCount} Events</span>
+          <span className="text-[11px] text-emerald-600 font-bold">100% Real-time MySQL RDS</span>
         </div>
 
         <div className="azea-card p-5">
           <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">High Risk / Flagged</span>
           <span className="text-2xl font-black text-amber-600 dark:text-amber-400 font-poppins mt-1 block">{highRiskCount} Flagged</span>
-          <span className="text-[11px] text-amber-600 font-bold">Requires Admin Audit</span>
+          <span className="text-[11px] text-amber-600 font-bold">{criticalCount > 0 ? `${criticalCount} Critical Events` : 'Requires Admin Audit'}</span>
         </div>
 
         <div className="azea-card p-5">

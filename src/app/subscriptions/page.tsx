@@ -30,19 +30,19 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { SubscriptionPlan } from '@/types';
+import { PurchasedSubscriptions } from './PurchasedSubscriptions';
 
 function SubscriptionsContent() {
   const searchParams = useSearchParams();
-  const initialTab = searchParams ? (searchParams.get('tab') === 'loyalty' ? 'loyalty' : 'plans') : 'plans';
+  const initialTab = searchParams?.get('tab') === 'loyalty' ? 'loyalty' : searchParams?.get('tab') === 'purchases' ? 'purchases' : 'plans';
 
   const { subscriptionPlans, addSubscriptionPlan, updateSubscriptionPlan, deleteSubscriptionPlan, showToast } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'plans' | 'loyalty'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'plans' | 'loyalty' | 'purchases'>(initialTab);
 
   useEffect(() => {
-    if (searchParams && searchParams.get('tab') === 'loyalty') {
-      setActiveTab('loyalty');
-    }
+    const tab = searchParams?.get('tab');
+    if (tab === 'loyalty' || tab === 'purchases' || tab === 'plans') setActiveTab(tab);
   }, [searchParams]);
 
   const [isMounted, setIsMounted] = useState(false);
@@ -370,6 +370,11 @@ function SubscriptionsContent() {
           <span>💳 Subscription Plans & Packages</span>
         </button>
 
+        <button onClick={() => setActiveTab('purchases')}
+          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black ${activeTab === 'purchases' ? 'bg-indigo-600 text-white' : 'bg-white/10 text-slate-300'}`}>
+          Purchased Subscriptions
+        </button>
+
         <button
           onClick={() => setActiveTab('loyalty')}
           className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-2 ${
@@ -386,6 +391,7 @@ function SubscriptionsContent() {
       {/* ─────────────────────────────────────────────────────────────
           TAB 1: SUBSCRIPTION PLANS
       ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'purchases' && <PurchasedSubscriptions />}
       {activeTab === 'plans' && (
         <div className="space-y-6">
           {/* Header Banner */}

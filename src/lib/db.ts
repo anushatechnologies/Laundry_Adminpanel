@@ -485,16 +485,6 @@ export const INITIAL_OFFERS: Offer[] = [
     validTill: 'Limited Period',
     color: 'blue',
   },
-  {
-    id: 'of-4',
-    title: 'Refer a Friend & Earn',
-    badge: 'REFERRAL',
-    description: 'Give ₹100 to your friend, get ₹100 wallet credit on their first delivery.',
-    code: 'SHARE CODE',
-    discount: '₹100 CREDIT',
-    validTill: 'Unlimited',
-    color: 'purple',
-  },
 ];
 
 export const INITIAL_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
@@ -705,15 +695,6 @@ export const INITIAL_WALLET: Wallet = {
   balance: 350,
   rewardPoints: 240,
   transactions: [
-    {
-      id: 'tx-1',
-      customerId: 'cust-1',
-      type: 'CREDIT',
-      amount: 100,
-      description: 'Signup Referral Bonus Credited',
-      date: '2026-08-15 10:00 AM',
-      balanceAfter: 100,
-    },
     {
       id: 'tx-2',
       customerId: 'cust-1',

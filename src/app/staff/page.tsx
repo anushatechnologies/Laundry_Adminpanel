@@ -185,8 +185,11 @@ function StaffAndAdminManagementContent() {
   useEffect(() => {
     async function fetchLiveCustomers() {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://laundry.anushatechnologies.com/api';
-        const res = await fetch(`${apiUrl}/customers`);
+        let res = await fetch('/api/backend/customers');
+        if (!res.ok) {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://laundry.anushatechnologies.com/api';
+          res = await fetch(`${apiUrl}/customers`);
+        }
         const json = await res.json();
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           const liveRecords: CustomerRecord[] = json.data.map((c: any) => ({
