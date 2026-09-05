@@ -16,6 +16,11 @@ import {
   Edit3,
   Eye,
   AlertTriangle,
+  Smartphone,
+  Users,
+  Radio,
+  Tag,
+  BellRing,
 } from 'lucide-react';
 import { NotificationTemplate } from '@/types';
 
@@ -95,13 +100,23 @@ export default function AdminNotificationsPage() {
   const [smtpStatus, setSmtpStatus] = useState<{ isConnected: boolean; message: string; smtpHost?: string } | null>(null);
 
   // Firebase Cloud Messaging composer state
+  const [pushTargetMode, setPushTargetMode] = useState<'SINGLE' | 'BROADCAST'>('SINGLE');
   const [pushRecipients, setPushRecipients] = useState<PushRecipient[]>([]);
   const [loadingPushRecipients, setLoadingPushRecipients] = useState(false);
   const [pushCustomerId, setPushCustomerId] = useState('');
-  const [pushTitle, setPushTitle] = useState('LaundryFresh update');
+  const [pushTitle, setPushTitle] = useState('🧺 LaundryFresh update');
   const [pushBody, setPushBody] = useState('');
   const [pushOrderId, setPushOrderId] = useState('');
   const [pushChannel, setPushChannel] = useState<'orders' | 'promotions'>('orders');
+  const [pushScreen, setPushScreen] = useState<'HOME' | 'ORDER_DETAIL' | 'OFFERS' | 'LIVE_CHAT' | 'NOTIFICATIONS'>('HOME');
+  const [pushCouponCode, setPushCouponCode] = useState('');
+  const [deviceStats, setDeviceStats] = useState<{
+    totalDevices: number;
+    androidDevices: number;
+    iosDevices: number;
+    activePast7Days: number;
+  } | null>(null);
+  const [loadingDeviceStats, setLoadingDeviceStats] = useState(false);
   const [isSendingPush, setIsSendingPush] = useState(false);
   const [pushStatusMessage, setPushStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -174,10 +189,26 @@ export default function AdminNotificationsPage() {
     }
   };
 
+  const fetchDeviceStats = async () => {
+    setLoadingDeviceStats(true);
+    try {
+      const res = await fetch('/api/backend/notifications/device-stats');
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success && json.data) {
+        setDeviceStats(json.data);
+      }
+    } catch (err) {
+      console.error('Error fetching device fleet stats:', err);
+    } finally {
+      setLoadingDeviceStats(false);
+    }
+  };
+
   useEffect(() => {
     fetchEmailTemplates();
     fetchSmtpStatus();
     fetchPushRecipients();
+    fetchDeviceStats();
   }, []);
 
   const handleSelectEmailTemplate = (template: EmailTemplateMeta) => {
@@ -380,15 +411,18 @@ export default function AdminNotificationsPage() {
           title: pushTitle.trim(),
           body: pushBody.trim(),
           channel: pushChannel,
+          screen: pushScreen,
           ...(pushOrderId.trim() ? { orderId: pushOrderId.trim() } : {}),
+          ...(pushCouponCode.trim() ? { couponCode: pushCouponCode.trim().toUpperCase() } : {}),
         }),
       });
       const json = await res.json().catch(() => ({}));
       if (res.ok && json.success) {
         const delivered = json.data?.successCount ?? 0;
-        const text = `Firebase Cloud Messaging delivered to ${delivered} device(s).`;
+        const text = `Firebase Cloud Messaging delivered to ${delivered} device(s) & customer feed.`;
         setPushStatusMessage({ type: 'success', text });
         showToast(text, 'success');
+        fetchDeviceStats();
       } else {
         const text = json.message || 'Firebase Cloud Messaging could not send this notification.';
         setPushStatusMessage({ type: 'error', text });
@@ -401,6 +435,63 @@ export default function AdminNotificationsPage() {
     } finally {
       setIsSendingPush(false);
     }
+  };
+
+  const handleSendBroadcastPush = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pushTitle.trim() || !pushBody.trim()) {
+      showToast('Please enter both a title and message body.', 'error');
+      return;
+    }
+
+    const deviceCount = deviceStats?.totalDevices || 0;
+    const confirmPrompt = deviceCount > 0
+      ? `Broadcast this push notification to all ${deviceCount} registered mobile device(s)?`
+      : 'Broadcast this push notification to all registered mobile devices?';
+    if (!confirm(confirmPrompt)) return;
+
+    setIsSendingPush(true);
+    setPushStatusMessage(null);
+    try {
+      const res = await fetch('/api/backend/notifications/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: pushTitle.trim(),
+          body: pushBody.trim(),
+          channel: pushChannel,
+          screen: pushScreen,
+          ...(pushOrderId.trim() ? { orderId: pushOrderId.trim() } : {}),
+          ...(pushCouponCode.trim() ? { couponCode: pushCouponCode.trim().toUpperCase() } : {}),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success) {
+        const sent = json.data?.sent ?? 0;
+        const total = json.data?.totalDevices ?? 0;
+        const text = `✓ Broadcast push dispatched to ${sent} / ${total} device(s) & saved to in-app feeds.`;
+        setPushStatusMessage({ type: 'success', text });
+        showToast(text, 'success');
+        fetchDeviceStats();
+      } else {
+        const text = json.message || 'Broadcast push delivery encountered an issue.';
+        setPushStatusMessage({ type: 'error', text });
+        showToast(text, 'error');
+      }
+    } catch (err: any) {
+      const text = err.message || 'Network error while initiating broadcast push.';
+      setPushStatusMessage({ type: 'error', text });
+      showToast(text, 'error');
+    } finally {
+      setIsSendingPush(false);
+    }
+  };
+
+  const handlePushFormSubmit = (e: React.FormEvent) => {
+    if (pushTargetMode === 'BROADCAST') {
+      return handleSendBroadcastPush(e);
+    }
+    return handleSendFirebasePush(e);
   };
 
   const currentEmailTemplate = emailTemplates.find((t) => t.id === selectedEmailId) || emailTemplates[0];
@@ -916,60 +1007,171 @@ export default function AdminNotificationsPage() {
         </div>
       )}
 
-      {/* 2. FIREBASE CLOUD MESSAGING */}
+      {/* 2. FIREBASE CLOUD MESSAGING & BROADCAST NOTIFICATIONS */}
       {activeChannel === 'PUSH' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <form onSubmit={handleSendFirebasePush} className="lg:col-span-2 azea-card p-5 sm:p-6 space-y-5">
+          <form onSubmit={handlePushFormSubmit} className="lg:col-span-2 azea-card p-5 sm:p-6 space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-4 border-b border-[var(--border-color)]">
               <div>
                 <h2 className="font-bold text-base text-[var(--heading-color)] flex items-center gap-2">
                   <Zap className="w-5 h-5 text-blue-600" />
-                  Send Firebase Push Notification
+                  <span>Push Notification Studio</span>
                 </h2>
                 <p className="text-xs text-[var(--text-secondary)] mt-1">
-                  Sends directly through Firebase Cloud Messaging to the selected customer&apos;s registered Android device.
+                  Dispatch native banner notifications &amp; in-app feed updates directly to mobile devices via Firebase Admin SDK.
                 </p>
               </div>
               <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 px-2.5 py-1 rounded-full">
-                <Server className="w-3.5 h-3.5" /> Firebase Admin only
+                <Server className="w-3.5 h-3.5" /> Direct FCM Admin
               </span>
             </div>
 
+            {/* Target Delivery Mode Selector */}
             <div>
-              <div className="flex items-center justify-between gap-3 mb-1.5">
-                <label htmlFor="push-customer" className="font-bold text-xs text-[var(--heading-color)]">Customer *</label>
+              <label className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">
+                Delivery Target Mode *
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={fetchPushRecipients}
-                  disabled={loadingPushRecipients}
-                  className="text-[11px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-300 inline-flex items-center gap-1 disabled:opacity-60"
+                  onClick={() => setPushTargetMode('SINGLE')}
+                  className={`p-3 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
+                    pushTargetMode === 'SINGLE'
+                      ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/20 shadow-xs'
+                      : 'bg-[var(--bg-secondary-card)] border-[var(--border-color)] hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loadingPushRecipients ? 'animate-spin' : ''}`} />
-                  Refresh customers
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    pushTargetMode === 'SINGLE' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}>
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-[var(--heading-color)]">Targeted Customer</div>
+                    <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">Send to a specific customer&apos;s active devices</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPushTargetMode('BROADCAST')}
+                  className={`p-3 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
+                    pushTargetMode === 'BROADCAST'
+                      ? 'bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'
+                      : 'bg-[var(--bg-secondary-card)] border-[var(--border-color)] hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    pushTargetMode === 'BROADCAST' ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}>
+                    <Radio className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-[var(--heading-color)] flex items-center gap-1.5">
+                      <span>Broadcast to Fleet</span>
+                      <span className="text-[9px] bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.2 rounded-full font-extrabold">
+                        {deviceStats?.totalDevices ? `${deviceStats.totalDevices} Devices` : 'All Devices'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">Push to all registered devices in batches of 500</div>
+                  </div>
                 </button>
               </div>
-              <select
-                id="push-customer"
-                required
-                value={pushCustomerId}
-                onChange={(event) => setPushCustomerId(event.target.value)}
-                className="admin-input w-full text-xs"
-                disabled={loadingPushRecipients}
-              >
-                <option value="">{loadingPushRecipients ? 'Loading customers…' : 'Select a customer'}</option>
-                {pushRecipients.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name || 'Customer'}{customer.phone ? ` · ${customer.phone}` : ''}
-                  </option>
-                ))}
-              </select>
-              {!loadingPushRecipients && pushRecipients.length === 0 && (
-                <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1.5">
-                  No customers are available yet. A customer appears after they sign in or place an order.
-                </p>
-              )}
             </div>
 
+            {/* Quick Template / Preset Buttons */}
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Quick Presets:</span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPushTitle('🎉 Weekend Special: 25% Off Dry Cleaning!');
+                    setPushBody('Get your suits, blazers and dresses fresh and crisp for 25% off this weekend only. Use code FRESH25 at checkout.');
+                    setPushChannel('promotions');
+                    setPushScreen('OFFERS');
+                    setPushCouponCode('FRESH25');
+                  }}
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-[var(--bg-card)] hover:border-blue-400 text-[11px] font-medium text-[var(--heading-color)] transition-colors cursor-pointer"
+                >
+                  🏷️ 25% Off Weekend Sale
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPushTitle('🧺 Clothes Washed & Steam Ironed!');
+                    setPushBody('Your garments have been cleaned and inspected to perfection. Valet is packing your order now.');
+                    setPushChannel('orders');
+                    setPushScreen('ORDER_DETAIL');
+                  }}
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-[var(--bg-card)] hover:border-blue-400 text-[11px] font-medium text-[var(--heading-color)] transition-colors cursor-pointer"
+                >
+                  🧺 Garments Cleaned
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPushTitle('🚚 Valet Out For Delivery');
+                    setPushBody('Our delivery valet is en route with your fresh laundry. Please keep your delivery OTP ready.');
+                    setPushChannel('orders');
+                    setPushScreen('ORDER_DETAIL');
+                  }}
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-[var(--bg-card)] hover:border-blue-400 text-[11px] font-medium text-[var(--heading-color)] transition-colors cursor-pointer"
+                >
+                  🚚 Valet En Route
+                </button>
+              </div>
+            </div>
+
+            {/* Single Customer Selection Dropdown */}
+            {pushTargetMode === 'SINGLE' ? (
+              <div>
+                <div className="flex items-center justify-between gap-3 mb-1.5">
+                  <label htmlFor="push-customer" className="font-bold text-xs text-[var(--heading-color)]">Recipient Customer *</label>
+                  <button
+                    type="button"
+                    onClick={fetchPushRecipients}
+                    disabled={loadingPushRecipients}
+                    className="text-[11px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-300 inline-flex items-center gap-1 disabled:opacity-60 cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingPushRecipients ? 'animate-spin' : ''}`} />
+                    <span>Refresh customers</span>
+                  </button>
+                </div>
+                <select
+                  id="push-customer"
+                  required
+                  value={pushCustomerId}
+                  onChange={(event) => setPushCustomerId(event.target.value)}
+                  className="admin-input w-full text-xs"
+                  disabled={loadingPushRecipients}
+                >
+                  <option value="">{loadingPushRecipients ? 'Loading customers…' : 'Select a customer'}</option>
+                  {pushRecipients.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name || 'Customer'}{customer.phone ? ` · ${customer.phone}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {!loadingPushRecipients && pushRecipients.length === 0 && (
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1.5">
+                    No customers are available yet. A customer appears after they sign in or place an order.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-900/60 text-xs text-indigo-900 dark:text-indigo-200 flex items-center gap-3">
+                <Radio className="w-5 h-5 shrink-0 text-indigo-600 dark:text-indigo-400 animate-pulse" />
+                <div className="flex-1">
+                  <strong className="block font-bold">Fleet Broadcast Mode Activated</strong>
+                  <span className="text-[11px] opacity-90">
+                    This notification will be transmitted to all registered Android and iOS devices in the mobile fleet, and saved to each customer&apos;s In-App Notification Center.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Destination Screen & Notification Channel */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="push-channel" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">Notification channel</label>
@@ -979,12 +1181,36 @@ export default function AdminNotificationsPage() {
                   onChange={(event) => setPushChannel(event.target.value as 'orders' | 'promotions')}
                   className="admin-input w-full text-xs"
                 >
-                  <option value="orders">Order updates</option>
-                  <option value="promotions">Offers &amp; discounts</option>
+                  <option value="orders">Order updates (Transactional)</option>
+                  <option value="promotions">Offers &amp; Discounts (Promotional)</option>
                 </select>
               </div>
+
               <div>
-                <label htmlFor="push-order-id" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">Order ID (optional)</label>
+                <label htmlFor="push-screen" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">
+                  Tap Action / Destination Screen
+                </label>
+                <select
+                  id="push-screen"
+                  value={pushScreen}
+                  onChange={(event) => setPushScreen(event.target.value as any)}
+                  className="admin-input w-full text-xs"
+                >
+                  <option value="HOME">Home Dashboard</option>
+                  <option value="ORDER_DETAIL">Order Details &amp; Live Tracking</option>
+                  <option value="OFFERS">Special Offers &amp; Discounts</option>
+                  <option value="LIVE_CHAT">Support &amp; Live Chat</option>
+                  <option value="NOTIFICATIONS">In-App Notification Feed</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Contextual Deep Link Parameters (Order ID & Coupon Code) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="push-order-id" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">
+                  Order ID {pushScreen === 'ORDER_DETAIL' ? '*' : '(optional)'}
+                </label>
                 <input
                   id="push-order-id"
                   type="text"
@@ -993,33 +1219,50 @@ export default function AdminNotificationsPage() {
                   placeholder="e.g. ORD-1042"
                   className="admin-input w-full text-xs"
                 />
-                <p className="text-[10px] text-[var(--text-secondary)] mt-1">When provided, tapping the push opens that order.</p>
+                <p className="text-[10px] text-[var(--text-secondary)] mt-1">When tapped, app navigates directly to this order.</p>
+              </div>
+
+              <div>
+                <label htmlFor="push-coupon" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">
+                  Promo Coupon Code (optional)
+                </label>
+                <input
+                  id="push-coupon"
+                  type="text"
+                  value={pushCouponCode}
+                  onChange={(event) => setPushCouponCode(event.target.value)}
+                  placeholder="e.g. FRESH25"
+                  className="admin-input w-full text-xs uppercase"
+                />
+                <p className="text-[10px] text-[var(--text-secondary)] mt-1">Auto-applied or displayed on Offers screen.</p>
               </div>
             </div>
 
+            {/* Push Title */}
             <div>
-              <label htmlFor="push-title" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">Push title *</label>
+              <label htmlFor="push-title" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">Push Notification Title *</label>
               <input
                 id="push-title"
                 required
                 maxLength={120}
                 value={pushTitle}
                 onChange={(event) => setPushTitle(event.target.value)}
-                placeholder="e.g. Your pickup partner is on the way"
+                placeholder="e.g. Your laundry order is on the way"
                 className="admin-input w-full text-xs font-semibold"
               />
             </div>
 
+            {/* Push Message Body */}
             <div>
-              <label htmlFor="push-body" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">Message *</label>
+              <label htmlFor="push-body" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">Message Body *</label>
               <textarea
                 id="push-body"
                 required
-                rows={4}
+                rows={3}
                 maxLength={500}
                 value={pushBody}
                 onChange={(event) => setPushBody(event.target.value)}
-                placeholder="Write the message shown in the customer&apos;s notification tray."
+                placeholder="Write the message that appears in the customer's phone banner &amp; notification drawer."
                 className="admin-input w-full h-auto text-xs leading-relaxed"
               />
             </div>
@@ -1038,40 +1281,108 @@ export default function AdminNotificationsPage() {
             <div className="pt-1 flex justify-end">
               <button
                 type="submit"
-                disabled={isSendingPush || !pushRecipients.length}
-                className="admin-btn-primary bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 px-5 py-2.5 flex items-center gap-2 text-xs font-bold disabled:opacity-60"
+                disabled={isSendingPush || (pushTargetMode === 'SINGLE' && !pushRecipients.length)}
+                className={`admin-btn-primary px-5 py-2.5 flex items-center gap-2 text-xs font-bold disabled:opacity-60 cursor-pointer ${
+                  pushTargetMode === 'BROADCAST' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'
+                }`}
               >
-                {isSendingPush ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                <span>{isSendingPush ? 'Sending through Firebase…' : 'Send Firebase Push'}</span>
+                {isSendingPush ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Transmitting Push via Firebase…</span>
+                  </>
+                ) : (
+                  <>
+                    {pushTargetMode === 'BROADCAST' ? <Radio className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+                    <span>{pushTargetMode === 'BROADCAST' ? 'Broadcast Push to Fleet' : 'Send Push to Customer'}</span>
+                  </>
+                )}
               </button>
             </div>
           </form>
 
+          {/* Right Column: Fleet Stats & Architecture */}
           <aside className="space-y-4">
+            {/* Live Mobile Device Fleet Stats Card */}
+            <div className="azea-card p-5 space-y-4 bg-gradient-to-br from-indigo-50/70 to-sky-50/60 dark:from-indigo-950/30 dark:to-sky-950/20 border border-indigo-200/80 dark:border-indigo-900/60">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-600/10 dark:bg-indigo-400/10 text-indigo-600 dark:text-indigo-300 flex items-center justify-center">
+                    <Smartphone className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-[var(--heading-color)]">Active Mobile Fleet</h3>
+                    <p className="text-[10px] text-[var(--text-secondary)]">Registered App Devices</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fetchDeviceStats}
+                  disabled={loadingDeviceStats}
+                  title="Refresh device stats"
+                  className="p-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-xs transition-colors cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingDeviceStats ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="p-3 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-indigo-100 dark:border-indigo-950">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Devices</div>
+                  <div className="text-xl font-extrabold text-indigo-700 dark:text-indigo-300 mt-0.5">
+                    {loadingDeviceStats ? '...' : (deviceStats?.totalDevices ?? 0)}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-indigo-100 dark:border-indigo-950">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active (7 Days)</div>
+                  <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    {loadingDeviceStats ? '...' : (deviceStats?.activePast7Days ?? 0)}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-indigo-100 dark:border-indigo-950">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Android Devices</div>
+                  <div className="text-sm font-extrabold text-slate-700 dark:text-slate-200 mt-0.5">
+                    {loadingDeviceStats ? '...' : (deviceStats?.androidDevices ?? 0)}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-indigo-100 dark:border-indigo-950">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">iOS Devices</div>
+                  <div className="text-sm font-extrabold text-slate-700 dark:text-slate-200 mt-0.5">
+                    {loadingDeviceStats ? '...' : (deviceStats?.iosDevices ?? 0)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* FCM Delivery Architecture Card */}
             <div className="azea-card p-5 space-y-3 bg-gradient-to-br from-blue-50 to-indigo-50/60 dark:from-blue-950/30 dark:to-indigo-950/20 border border-blue-200/80 dark:border-blue-900/60">
               <div className="flex items-center gap-2 text-[var(--heading-color)]">
                 <div className="w-9 h-9 rounded-xl bg-blue-600/10 dark:bg-blue-400/10 text-blue-600 dark:text-blue-300 flex items-center justify-center">
                   <Zap className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm">FCM delivery path</h3>
-                  <p className="text-[10px] text-[var(--text-secondary)]">No Expo Push Service</p>
+                  <h3 className="font-bold text-sm">Direct FCM Architecture</h3>
+                  <p className="text-[10px] text-[var(--text-secondary)]">Zero Expo Cloud Dependency</p>
                 </div>
               </div>
               <div className="space-y-2 text-xs text-[var(--text-secondary)]">
-                <p><strong className="text-[var(--heading-color)]">1.</strong> Customer opens the app and allows the native notification prompt.</p>
-                <p><strong className="text-[var(--heading-color)]">2.</strong> The app registers its native FCM token after sign-in.</p>
-                <p><strong className="text-[var(--heading-color)]">3.</strong> This composer calls the backend, which uses Firebase Admin to send the message.</p>
+                <p><strong className="text-[var(--heading-color)]">1. Native Token:</strong> Android app registers its FCM device token with `com.anusha.laundry` package upon customer login.</p>
+                <p><strong className="text-[var(--heading-color)]">2. Push &amp; In-App Sync:</strong> Backend transmits FCM push to the device AND inserts into MySQL `customer_notifications` feed.</p>
+                <p><strong className="text-[var(--heading-color)]">3. Deep-Link Tap:</strong> Tapping the banner instantly opens the target screen (Order Details, Offers, or Chat).</p>
               </div>
             </div>
 
+            {/* Security & Token Information */}
             <div className="azea-card p-4 text-xs text-[var(--text-secondary)] space-y-2">
               <div className="font-bold text-[var(--heading-color)] flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
-                Before first delivery
+                <span>Production Security</span>
               </div>
-              <p>Set the same private <code>ADMIN_API_TOKEN</code> on the backend and the Admin server. Firebase service-account credentials must exist on the backend only.</p>
-              <p>If a customer has not reopened the app after this update, they may still have an old token and need to open it once to register FCM.</p>
+              <p>Protected by private <code>ADMIN_API_TOKEN</code> proxy routing. Service account credentials reside exclusively in the backend environment.</p>
             </div>
           </aside>
         </div>
