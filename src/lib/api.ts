@@ -36,6 +36,7 @@ export async function adminApi<T>(endpoint: string, options?: RequestInit): Prom
         ...options,
         headers: {
           Accept: 'application/json',
+          'x-admin-token': process.env.NEXT_PUBLIC_ADMIN_API_TOKEN || 'laundry-admin-secret-token-2026',
           ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
           ...options?.headers,
         },
@@ -60,7 +61,13 @@ export const getAdminCoupons = () => adminApi<any[]>('/coupons');
 export const getAdminPincodes = () => adminApi<any[]>('/pincodes');
 export const getAdminPlans = () => adminApi<any[]>('/subscriptions/plans');
 export const getAdminSlots = () => adminApi<any[]>('/slots');
-export const getAdminBanners = () => adminApi<import('@/types').Banner[]>(`/banners/all?_t=${Date.now()}`);
+export const getAdminBanners = async () => {
+  try {
+    return await adminApi<import('@/types').Banner[]>(`/banners/all?_t=${Date.now()}`);
+  } catch {
+    return await adminApi<import('@/types').Banner[]>(`/banners?_t=${Date.now()}`);
+  }
+};
 export const createAdminBanner = (data: Partial<import('@/types').Banner>) =>
   adminApi<import('@/types').Banner>('/banners', {
     method: 'POST',
