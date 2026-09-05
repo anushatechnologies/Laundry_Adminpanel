@@ -1,25 +1,44 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
-import { DollarSign, Save } from 'lucide-react';
+import { DollarSign, Save, ToggleLeft, ToggleRight, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { UnifiedCatalogManager } from '@/components/catalog/UnifiedCatalogManager';
 
 export default function AdminPricingEnginePage() {
   const { pricingSettings, updatePricingSettings, showToast } = useApp();
 
   const [settingsForm, setSettingsForm] = useState({
-    taxPercentage: pricingSettings?.taxPercentage || 5,
+    taxPercentage: pricingSettings?.taxPercentage ?? 5,
+    isGstEnabled: pricingSettings?.isGstEnabled ?? true,
     minOrderValue: pricingSettings?.minOrderValue || 299,
     freeDeliveryThreshold: pricingSettings?.freeDeliveryThreshold || 499,
     standardDeliveryFee: pricingSettings?.standardDeliveryFee || 30,
     expressDeliveryFee: pricingSettings?.expressDeliveryFee || 80,
   });
 
+  useEffect(() => {
+    if (pricingSettings) {
+      setSettingsForm({
+        taxPercentage: pricingSettings.taxPercentage ?? 5,
+        isGstEnabled: pricingSettings.isGstEnabled !== false,
+        minOrderValue: pricingSettings.minOrderValue || 299,
+        freeDeliveryThreshold: pricingSettings.freeDeliveryThreshold || 499,
+        standardDeliveryFee: pricingSettings.standardDeliveryFee || 30,
+        expressDeliveryFee: pricingSettings.expressDeliveryFee || 80,
+      });
+    }
+  }, [pricingSettings]);
+
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     updatePricingSettings(settingsForm);
-    showToast('Financial rules & delivery fees saved live!', 'success');
+    showToast(
+      settingsForm.isGstEnabled
+        ? `Saved! GST Active at ${settingsForm.taxPercentage}%.`
+        : 'Saved! GST Temporarily Turned OFF (0% applied).',
+      'success'
+    );
   };
 
   return (
@@ -52,16 +71,96 @@ export default function AdminPricingEnginePage() {
           </button>
         </div>
 
+        {/* GST Toggle Control Banner */}
+        <div
+          className={`p-3.5 sm:p-4 rounded-xl mb-4 border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+            settingsForm.isGstEnabled
+              ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
+              : 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shrink-0 shadow-xs ${
+                settingsForm.isGstEnabled
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-amber-500 text-white'
+              }`}
+            >
+              %
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-black text-[var(--heading-color)]">
+                  GST Tax Status (Temporary Toggle)
+                </span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1 ${
+                    settingsForm.isGstEnabled
+                      ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300'
+                  }`}
+                >
+                  {settingsForm.isGstEnabled ? (
+                    <>
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Active ({settingsForm.taxPercentage}%)</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-3 h-3" />
+                      <span>Temporarily OFF (0% Tax)</span>
+                    </>
+                  )}
+                </span>
+              </div>
+              <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                {settingsForm.isGstEnabled
+                  ? `Customers will be charged ${settingsForm.taxPercentage}% GST on checkout. Click toggle to turn OFF.`
+                  : 'GST is temporarily turned OFF. ₹0 GST will be charged to customers at checkout. Click toggle to turn ON.'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              setSettingsForm((prev) => ({ ...prev, isGstEnabled: !prev.isGstEnabled }))
+            }
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0 ${
+              settingsForm.isGstEnabled
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                : 'bg-amber-600 hover:bg-amber-700 text-white'
+            }`}
+          >
+            {settingsForm.isGstEnabled ? (
+              <>
+                <ToggleRight className="w-4 h-4" />
+                <span>Turn GST OFF (0%)</span>
+              </>
+            ) : (
+              <>
+                <ToggleLeft className="w-4 h-4" />
+                <span>Turn GST ON ({settingsForm.taxPercentage}%)</span>
+              </>
+            )}
+          </button>
+        </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           <div>
             <label className="text-[11px] font-bold text-[var(--text-secondary)] block mb-1">
-              GST Tax (%)
+              GST Tax Rate (%){!settingsForm.isGstEnabled && ' (Currently Waived)'}
             </label>
             <input
               type="number"
               value={settingsForm.taxPercentage}
-              onChange={(e) => setSettingsForm({ ...settingsForm, taxPercentage: Number(e.target.value) })}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) =>
+                setSettingsForm({ ...settingsForm, taxPercentage: Number(e.target.value) })
+              }
+              className={`w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                !settingsForm.isGstEnabled ? 'border-amber-300 opacity-60' : 'border-[var(--border-color)]'
+              }`}
             />
           </div>
 

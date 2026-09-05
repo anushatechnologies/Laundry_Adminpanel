@@ -5688,6 +5688,7 @@ export const INITIAL_PRICING_SETTINGS: PricingSettings = {
   standardDeliveryFee: 30,
   expressDeliveryFee: 80,
   extraKgPrice: 40,
+  isGstEnabled: true,
 };
 
 export const INITIAL_DISPUTES: DisputeReport[] = [

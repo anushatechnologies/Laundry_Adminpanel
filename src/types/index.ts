@@ -362,6 +362,7 @@ export interface PricingSettings {
   standardDeliveryFee: number;
   expressDeliveryFee: number;
   extraKgPrice: number;
+  isGstEnabled?: boolean;
 }
 
 // -------------------------------------------------------------
