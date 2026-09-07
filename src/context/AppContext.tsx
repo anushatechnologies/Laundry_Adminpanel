@@ -130,6 +130,7 @@ interface AppContextType {
     razorpayDetails?: { razorpayPaymentId?: string; razorpayOrderId?: string; razorpaySignature?: string }
   ) => Order;
   advanceOrderStatus: (orderId: string, status: OrderStatus, notes?: string, updatedBy?: string) => Order | null;
+  assignDeliveryPartner: (orderId: string, partner: { name: string; phone: string; vehicle?: string; rating?: number }) => void;
   updateOrderWeight: (orderId: string, weightKg: number) => Order | null;
   getOrderById: (orderId: string) => Order | undefined;
   refreshOrders: () => void;
@@ -1027,6 +1028,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return optimistic;
   };
 
+  const assignDeliveryPartner = (orderId: string, partner: { name: string; phone: string; vehicle?: string; rating?: number }) => {
+    const current = orders.find((order) => order.id === orderId);
+    if (!current) return;
+    const assignedDeliveryAgent = {
+      id: `delivery-${Date.now()}`,
+      name: partner.name.trim(),
+      phone: partner.phone.trim(),
+      vehicle: partner.vehicle?.trim() || 'Delivery vehicle',
+      rating: partner.rating || 4.9,
+    };
+    const optimistic = { ...current, assignedDeliveryAgent };
+    replaceRemoteOrder(optimistic);
+    showToast(`Delivery partner assigned to order #${orderId}.`, 'success');
+    void adminApi<Order>(`/orders/${encodeURIComponent(orderId)}/assign-driver`, {
+      method: 'PATCH',
+      body: JSON.stringify({ agentType: 'DELIVERY', ...assignedDeliveryAgent, updatedBy: currentUser.id }),
+    })
+      .then(replaceRemoteOrder)
+      .catch((error) => {
+        replaceRemoteOrder(current);
+        showToast(error instanceof Error ? error.message : 'Could not assign the delivery partner.', 'error');
+      });
+  };
+
   const updateOrderWeight = (orderId: string, weightKg: number) => {
     const current = orders.find((order) => order.id === orderId);
     if (!current) return null;
@@ -1169,9 +1194,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateDistanceConfig = (data: Partial<DistanceDeliveryConfig>) => {
+  const updateDistanceConfig = async (data: Partial<DistanceDeliveryConfig>) => {
     const updated = db.updateDistanceConfig(data);
     setDistanceConfig({ ...updated });
+    // Persist to backend so settings survive server restarts
+    try {
+      const { updateAdminSettings } = await import('@/lib/api');
+      await updateAdminSettings({
+        baseDistanceKm: updated.baseDistanceKm,
+        baseDeliveryFee: updated.baseFee,
+        perKmRateAfterBase: updated.perKmRateAfterBase,
+        freeDeliveryThreshold: updated.freeDeliveryOrderValue,
+        maxServiceRadiusKm: updated.maxServiceRadiusKm,
+        distanceTiers: updated.distanceTiers,
+        deliveryCalculationMode: (updated as any).deliveryCalculationMode || 'DISTANCE_BASED',
+        storeLatitude: (updated as any).storeLatitude,
+        storeLongitude: (updated as any).storeLongitude,
+        storeName: (updated as any).storeName,
+        storeAddress: (updated as any).storeAddress,
+        storePhone: (updated as any).storePhone,
+      }).catch(() => {});
+    } catch {}
     showToast('Distance delivery tiers & pricing updated.', 'success');
   };
 
@@ -1282,6 +1325,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         orders,
         createOrder,
         advanceOrderStatus,
+        assignDeliveryPartner,
         updateOrderWeight,
         getOrderById,
         refreshOrders,

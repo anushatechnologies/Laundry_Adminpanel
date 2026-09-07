@@ -524,12 +524,18 @@ export interface DistanceTier {
 
 export interface DistanceDeliveryConfig {
   baseDistanceKm: number; // e.g. 3 KM
-  baseFee: number; // e.g. 0
+  baseFee: number; // e.g. 30
   perKmRateAfterBase: number; // e.g. ₹10/KM
   distanceTiers: DistanceTier[];
   freeDeliveryOrderValue: number; // e.g. ₹499
-  maxServiceRadiusKm: number; // e.g. 25 KM
+  maxServiceRadiusKm: number; // e.g. 30 KM
   expressDeliveryMultiplier: number;
+  deliveryCalculationMode?: 'DISTANCE_BASED' | 'ZONE_BASED' | 'HYBRID';
+  storeLatitude?: number;
+  storeLongitude?: number;
+  storeName?: string;
+  storeAddress?: string;
+  storePhone?: string;
 }
 
 export interface TimeSlotCapacity {

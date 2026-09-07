@@ -156,3 +156,19 @@ export const updateAdminSettings = (data: Record<string, unknown>) =>
     method: 'PUT',
     body: JSON.stringify(data),
   });
+
+// Referral Management & Reward Prices
+export const getAdminReferrals = () => adminApi<any>('/referrals/admin');
+export const updateAdminReferralSettings = (settings: Record<string, unknown>) =>
+  adminApi<any>('/referrals/admin/settings', {
+    method: 'PUT',
+    body: JSON.stringify(settings),
+  });
+
+// Customer Wallets & Transactions
+export const getAdminWallets = () => adminApi<any>('/wallet/admin/overview');
+export const adjustAdminWallet = (data: { customerId: string; amount: number; type: 'CREDIT' | 'DEBIT'; reason: string }) =>
+  adminApi<any>('/wallet/admin/adjust', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });

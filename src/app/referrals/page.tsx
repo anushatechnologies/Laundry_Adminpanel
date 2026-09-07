@@ -1,111 +1,456 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { adminApi } from '@/lib/api';
+import React, { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import {
+  Gift,
+  Search,
+  RefreshCw,
+  Sparkles,
+  Users,
+  CheckCircle2,
+  AlertCircle,
+  CreditCard,
+  ArrowRight,
+  TrendingUp,
+  Settings,
+  Share2,
+} from 'lucide-react';
+import { getAdminReferrals, updateAdminReferralSettings } from '@/lib/api';
 
-interface Settings {
-  enabled: boolean; referrerReward: number; friendReward: number;
-  minimumFirstOrder: number; minimumRedemptionOrder: number; rewardValidityDays: number; shareUrl: string;
+interface ReferralSettings {
+  enabled: boolean;
+  referrerReward: number;
+  friendReward: number;
+  minimumFirstOrder: number;
+  minimumRedemptionOrder: number;
+  rewardValidityDays: number;
+  shareUrl: string;
 }
-interface Referral {
-  id: string; status: string; reason?: string; referrerName: string; referrerPhone: string;
-  friendName: string; friendPhone: string; orderId?: string; createdAt: string;
+
+interface ReferralRecord {
+  id: string;
+  code: string;
+  status: string;
+  reason?: string;
+  referrerName: string;
+  referrerPhone: string;
+  friendName: string;
+  friendPhone: string;
+  orderId?: string;
+  createdAt: string;
 }
-interface Reward {
-  id: string; code: string; customerName: string; customerPhone: string; amount: number;
-  status: string; referralStatus: string; orderId?: string; expiresAt: string;
+
+interface ReferralAdminDashboard {
+  settings: ReferralSettings | null;
+  referrals: ReferralRecord[];
+  rewards: any[];
 }
-interface Dashboard { settings: Settings | null; referrals: Referral[]; rewards: Reward[] }
-const fields = [
-  ['referrerReward', 'Inviter reward (INR)'], ['friendReward', 'Friend reward (INR, zero for none)'],
-  ['minimumFirstOrder', 'Minimum first-order paid total (INR)'],
-  ['minimumRedemptionOrder', 'Minimum item subtotal to redeem (INR)'],
-  ['rewardValidityDays', 'Reward validity (days)'],
-] as const;
-type Field = typeof fields[number][0];
 
 export default function ReferralsPage() {
-  const [data, setData] = useState<Dashboard | null>(null);
+  const [data, setData] = useState<ReferralAdminDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [enabled, setEnabled] = useState(false);
-  const [values, setValues] = useState<Record<Field, string>>({ referrerReward: '', friendReward: '', minimumFirstOrder: '', minimumRedemptionOrder: '', rewardValidityDays: '' });
+
+  // Form state
+  const [enabled, setEnabled] = useState(true);
+  const [referrerReward, setReferrerReward] = useState('100');
+  const [friendReward, setFriendReward] = useState('50');
+  const [minimumFirstOrder, setMinimumFirstOrder] = useState('0');
   const [shareUrl, setShareUrl] = useState('');
+
+  // Table filters
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('ALL');
-  const load = useCallback(async () => {
-    setLoading(true); setError('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError('');
     try {
-      const result = await adminApi<Dashboard>('/referrals/admin');
+      const result = await getAdminReferrals();
       setData(result);
       if (result.settings) {
         setEnabled(result.settings.enabled);
-        setShareUrl(result.settings.shareUrl);
-        setValues(Object.fromEntries(fields.map(([key]) => [key, String(result.settings![key])])) as Record<Field, string>);
+        setReferrerReward(String(result.settings.referrerReward ?? 100));
+        setFriendReward(String(result.settings.friendReward ?? 50));
+        setMinimumFirstOrder(String(result.settings.minimumFirstOrder ?? 0));
+        setShareUrl(result.settings.shareUrl || '');
       }
-    } catch (err) { setError(err instanceof Error ? err.message : 'Unable to load referral records.'); }
-    finally { setLoading(false); }
+    } catch (err: any) {
+      setError(err?.message || 'Unable to load referral records.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
-  useEffect(() => { void load(); }, [load]);
-  const save = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (saving) return;
-    setSaving(true); setError(''); setNotice('');
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    setNotice('');
+
+    const rReward = parseFloat(referrerReward);
+    const fReward = parseFloat(friendReward);
+    const minOrder = parseFloat(minimumFirstOrder);
+
+    if (isNaN(rReward) || rReward < 0 || isNaN(fReward) || fReward < 0) {
+      setError('Please provide valid positive reward amounts.');
+      setSaving(false);
+      return;
+    }
+
     try {
-      const payload = { enabled, shareUrl, ...Object.fromEntries(fields.map(([key]) => [key, Number(values[key])])) };
-      const settings = await adminApi<Settings>('/referrals/admin/settings', { method: 'PUT', body: JSON.stringify(payload) });
-      setData(current => current ? { ...current, settings } : current);
-      setNotice('Settings saved. Existing accepted invites keep their agreed reward terms.');
-    } catch (err) { setError(err instanceof Error ? err.message : 'Unable to save settings.'); }
-    finally { setSaving(false); }
+      const payload = {
+        enabled,
+        referrerReward: rReward,
+        friendReward: fReward,
+        minimumFirstOrder: isNaN(minOrder) ? 0 : minOrder,
+        minimumRedemptionOrder: 0,
+        rewardValidityDays: 365,
+        shareUrl: shareUrl.trim(),
+      };
+
+      const updated = await updateAdminReferralSettings(payload);
+      setData((curr) => (curr ? { ...curr, settings: updated } : curr));
+      setNotice('Referral program pricing saved! New registrations will receive these reward amounts.');
+      setTimeout(() => setNotice(''), 4000);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to save settings.');
+    } finally {
+      setSaving(false);
+    }
   };
-  const matches = (values: (string | undefined)[]) => values.some(value => value?.toLowerCase().includes(search.trim().toLowerCase()));
-  const referrals = data?.referrals.filter(item => (status === 'ALL' || item.status === status) && matches([item.referrerName, item.referrerPhone, item.friendName, item.friendPhone, item.orderId])) || [];
-  const rewards = data?.rewards.filter(item => matches([item.customerName, item.customerPhone, item.code, item.orderId])) || [];
-  return <main className="space-y-6">
-    <header className="flex flex-wrap justify-between items-center gap-3">
-      <div><h1 className="text-2xl font-bold">Refer & Earn</h1><p className="text-sm text-[var(--text-secondary)]">Configure the program and track actual referrals and reward coupons.</p></div>
-      <button disabled={loading || saving} className="border rounded-lg px-4 py-2" onClick={() => void load()}>{loading ? 'Loading...' : 'Refresh and reconcile'}</button>
-    </header>
-    {error && <p role="alert" className="text-red-600">{error}</p>}
-    {notice && <p role="status" className="text-green-600">{notice}</p>}
-    {data && <>
-      <form onSubmit={save} className="azea-card p-6 space-y-4">
-        <h2 className="text-lg font-bold">Program settings</h2>
-        {!data.settings && <p>No campaign configured. Enter your terms to enable referrals.</p>}
-        <label className="flex items-center gap-3"><input type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} />Accept new referrals</label>
-        <div className="grid md:grid-cols-2 gap-4">{fields.map(([key, label]) => <label key={key} className="space-y-1">
-          <span className="block text-sm">{label}</span><input required type="number" min={key === 'rewardValidityDays' ? 1 : 0}
-            max={key === 'rewardValidityDays' ? 365 : key.includes('Reward') ? 10000 : 100000}
-            step={key === 'rewardValidityDays' ? 1 : 0.01} value={values[key]} onChange={event => setValues(current => ({ ...current, [key]: event.target.value }))}
-            className="border rounded-lg p-2 w-full bg-transparent" />
-        </label>)}</div>
-        <label className="block space-y-1"><span className="text-sm">App download link (optional HTTPS URL)</span><input type="url" value={shareUrl} onChange={event => setShareUrl(event.target.value)} className="border rounded-lg p-2 w-full bg-transparent" /></label>
-        <p className="text-sm text-[var(--text-secondary)]">Apply a code before the first order. The first non-cancelled order must be paid and delivered and meet the paid-total minimum. Rewards are single-use laundry discount coupons, never cash. Redemption minimum must exceed both reward amounts. Pausing prevents new referrals; accepted invites retain their terms.</p>
-        <button disabled={saving || loading} className="rounded-lg px-5 py-2 bg-indigo-600 text-white">{saving ? 'Saving...' : 'Save program settings'}</button>
-      </form>
-      <div className="grid sm:grid-cols-3 gap-4">
-        <div className="azea-card p-4">Accepted invites<strong className="block text-2xl">{data.referrals.length}</strong></div>
-        <div className="azea-card p-4">Qualified referrals<strong className="block text-2xl">{data.referrals.filter(item => item.status === 'QUALIFIED').length}</strong></div>
-        <div className="azea-card p-4">Available reward value<strong className="block text-2xl">INR {data.rewards.filter(item => item.status === 'AVAILABLE').reduce((sum, item) => sum + item.amount, 0).toFixed(2)}</strong></div>
+
+  const matches = (values: (string | undefined)[]) => {
+    const term = search.trim().toLowerCase();
+    if (!term) return true;
+    return values.some((v) => v?.toLowerCase().includes(term));
+  };
+
+  const filteredReferrals = (data?.referrals || []).filter((r) => {
+    if (statusFilter !== 'ALL' && r.status !== statusFilter) return false;
+    return matches([r.referrerName, r.referrerPhone, r.friendName, r.friendPhone, r.code]);
+  });
+
+  const totalReferrals = data?.referrals?.length || 0;
+  const qualifiedReferrals = (data?.referrals || []).filter((r) => r.status === 'QUALIFIED').length;
+  const totalPaidOut = qualifiedReferrals * (Number(referrerReward) || 100);
+
+  return (
+    <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">
+              <Gift className="w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+                Refer & Earn Command Center
+              </h1>
+              <p className="text-sm text-[var(--text-secondary)]">
+                Configure referral reward prices, track all invited friends, and monitor wallet credits.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => void loadData()}
+            disabled={loading || saving}
+            className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+
+          <Link
+            href="/wallets"
+            className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all"
+          >
+            <CreditCard className="w-4 h-4" />
+            <span>View Customer Wallets</span>
+          </Link>
+        </div>
       </div>
-      <div className="flex flex-wrap gap-3"><input aria-label="Search referral records" placeholder="Search customer, phone, order or reward code" className="border rounded-lg p-3 flex-1 bg-transparent" value={search} onChange={event => setSearch(event.target.value)} />
-        <select aria-label="Referral status" className="border rounded-lg p-3 bg-transparent" value={status} onChange={event => setStatus(event.target.value)}>{['ALL', 'PENDING', 'QUALIFIED', 'INELIGIBLE', 'REVERSED'].map(value => <option key={value}>{value}</option>)}</select></div>
-      <section className="azea-card p-5 overflow-x-auto"><h2 className="font-bold mb-4">Referral history</h2>
-        {!referrals.length && <p>No referral records match this view.</p>}
-        <table className="w-full text-sm text-left"><thead><tr>{['Inviter', 'Friend', 'Status', 'Qualifying order', 'Accepted'].map(value => <th className="p-3" key={value}>{value}</th>)}</tr></thead><tbody>
-          {referrals.map(item => <tr key={item.id} className="border-t"><td className="p-3">{item.referrerName}<br />{item.referrerPhone}</td><td className="p-3">{item.friendName}<br />{item.friendPhone}</td><td className="p-3">{item.status}<br />{item.reason}</td><td className="p-3">{item.orderId || 'Not qualified yet'}</td><td className="p-3">{new Date(item.createdAt).toLocaleDateString()}</td></tr>)}
-        </tbody></table>
-      </section>
-      <section className="azea-card p-5 overflow-x-auto"><h2 className="font-bold mb-4">Reward ledger</h2>
-        <p className="text-sm mb-3">Refunded or cancelled qualifying orders void unused rewards. Rewards already redeemed remain visible for review.</p>
-        {!rewards.length && <p>No reward records match this view.</p>}
-        <table className="w-full text-sm text-left"><thead><tr>{['Customer', 'Coupon', 'Value', 'Status', 'Used on order', 'Expires'].map(value => <th className="p-3" key={value}>{value}</th>)}</tr></thead><tbody>
-          {rewards.map(item => <tr key={item.id} className="border-t"><td className="p-3">{item.customerName}<br />{item.customerPhone}</td><td className="p-3">{item.code}</td><td className="p-3">INR {item.amount.toFixed(2)}</td><td className="p-3">{item.status}{item.referralStatus === 'REVERSED' && <strong className="block text-red-600">Qualifying referral reversed</strong>}</td><td className="p-3">{item.orderId || '-'}</td><td className="p-3">{new Date(item.expiresAt).toLocaleDateString()}</td></tr>)}
-        </tbody></table>
-      </section>
-    </>}
-  </main>;
+
+      {error && (
+        <div className="p-4 rounded-xl text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {notice && (
+        <div className="p-4 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{notice}</span>
+        </div>
+      )}
+
+      {/* KPI Overview */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="azea-card p-4 rounded-xl border border-slate-800/80 bg-slate-900/40">
+          <div className="flex items-center justify-between text-slate-400 text-xs font-semibold mb-2">
+            <span>TOTAL INVITES COMPLETED</span>
+            <Users className="w-4 h-4 text-blue-400" />
+          </div>
+          <div className="text-2xl font-black text-white">{totalReferrals}</div>
+          <div className="text-[11px] text-slate-400 mt-1">Friends joined via referral codes</div>
+        </div>
+
+        <div className="azea-card p-4 rounded-xl border border-slate-800/80 bg-slate-900/40">
+          <div className="flex items-center justify-between text-slate-400 text-xs font-semibold mb-2">
+            <span>QUALIFIED WALLET REWARDS</span>
+            <Sparkles className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div className="text-2xl font-black text-emerald-400">{qualifiedReferrals}</div>
+          <div className="text-[11px] text-slate-400 mt-1">Directly credited to wallets</div>
+        </div>
+
+        <div className="azea-card p-4 rounded-xl border border-slate-800/80 bg-slate-900/40">
+          <div className="flex items-center justify-between text-slate-400 text-xs font-semibold mb-2">
+            <span>TOTAL REFERRAL CASH DISTRIBUTED</span>
+            <TrendingUp className="w-4 h-4 text-amber-400" />
+          </div>
+          <div className="text-2xl font-black text-amber-400">
+            ₹{totalPaidOut.toLocaleString('en-IN')}
+          </div>
+          <div className="text-[11px] text-slate-400 mt-1">Customer wallet balances awarded</div>
+        </div>
+      </div>
+
+      {/* PROGRAM PRICING & CONFIGURATION CARD */}
+      <form onSubmit={handleSaveSettings} className="azea-card p-5 rounded-2xl border border-slate-800 bg-slate-900/50 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Settings className="w-5 h-5 text-amber-400" />
+            <h2 className="font-bold text-base text-white">Referral Pricing & Reward Terms</h2>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(e) => setEnabled(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-amber-500 focus:ring-amber-500"
+            />
+            <span className="text-xs font-bold text-slate-200">
+              {enabled ? 'Program Active' : 'Program Paused'}
+            </span>
+          </label>
+        </div>
+
+        <div className="grid sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1">
+              Referrer Reward (₹) <span className="text-amber-400">*</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
+              <input
+                type="number"
+                min="0"
+                max="5000"
+                step="1"
+                required
+                value={referrerReward}
+                onChange={(e) => setReferrerReward(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 text-sm font-bold rounded-lg border border-slate-700 bg-slate-800 text-white focus:outline-none focus:border-amber-500"
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Credited directly to inviter's wallet.</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1">
+              Friend Welcome Cash (₹) <span className="text-emerald-400">*</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
+              <input
+                type="number"
+                min="0"
+                max="5000"
+                step="1"
+                required
+                value={friendReward}
+                onChange={(e) => setFriendReward(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 text-sm font-bold rounded-lg border border-slate-700 bg-slate-800 text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Given to new user upon registering with code.</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1">
+              Minimum First Order (₹) <span className="text-slate-400">(0 = On Registration)</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
+              <input
+                type="number"
+                min="0"
+                max="10000"
+                step="1"
+                value={minimumFirstOrder}
+                onChange={(e) => setMinimumFirstOrder(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 text-sm font-bold rounded-lg border border-slate-700 bg-slate-800 text-white focus:outline-none focus:border-amber-500"
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Threshold required if reward is order-triggered.</p>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-slate-300 mb-1">
+            App Share Link (included in WhatsApp / SMS share messages)
+          </label>
+          <div className="relative">
+            <Share2 className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={shareUrl}
+              onChange={(e) => setShareUrl(e.target.value)}
+              placeholder="https://laundryfresh.in/app"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-700 bg-slate-800 text-white focus:outline-none focus:border-amber-500"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end pt-2 border-t border-slate-800">
+          <button
+            type="submit"
+            disabled={saving || loading}
+            className="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-sm transition-all disabled:opacity-50"
+          >
+            {saving ? 'Saving Pricing...' : 'Save Referral Pricing & Rules'}
+          </button>
+        </div>
+      </form>
+
+      {/* ALL REFERRALS TRACKING SECTION */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <h2 className="font-bold text-base text-white flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-400" />
+            <span>Referral Audit & History ({filteredReferrals.length})</span>
+          </h2>
+
+          <div className="flex items-center gap-3">
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Search referrer, friend, or code..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-slate-700 bg-slate-900/60 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="p-1.5 rounded-lg border border-slate-700 bg-slate-900/60 text-white text-xs focus:outline-none"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="QUALIFIED">QUALIFIED</option>
+              <option value="PENDING">PENDING</option>
+              <option value="REVERSED">REVERSED</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="azea-card rounded-xl border border-slate-800 overflow-hidden bg-slate-900/40">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-950/60 text-slate-400 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-800">
+                <tr>
+                  <th className="px-4 py-3">Referrer (Inviter)</th>
+                  <th className="px-4 py-3">Code Used</th>
+                  <th className="px-4 py-3">Invited Friend</th>
+                  <th className="px-4 py-3">Reward Granted</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Date Registered</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-slate-300 font-medium">
+                {loading && !data ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                      <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-amber-500" />
+                      Loading referral records...
+                    </td>
+                  </tr>
+                ) : filteredReferrals.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                      No referral records found matching your filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredReferrals.map((r) => (
+                    <tr key={r.id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-bold text-white">{r.referrerName || 'Customer'}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">{r.referrerPhone}</div>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <span className="font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 text-[11px]">
+                          {r.code}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="font-bold text-white">{r.friendName || 'New Friend'}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">{r.friendPhone}</div>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <span className="text-emerald-400 font-bold">
+                          +₹{referrerReward} (Inviter)
+                        </span>
+                        <div className="text-[10px] text-slate-400">+₹{friendReward} (Friend)</div>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            r.status === 'QUALIFIED'
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          }`}
+                        >
+                          {r.status}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3 text-slate-400 text-[11px] whitespace-nowrap">
+                        {new Date(r.createdAt).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

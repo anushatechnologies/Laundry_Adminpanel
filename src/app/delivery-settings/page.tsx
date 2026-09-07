@@ -20,15 +20,26 @@ import { DistanceDeliveryConfig, DistanceTier } from '@/types';
 export default function AdminDeliverySettingsPage() {
   const { distanceConfig, updateDistanceConfig, hubs } = useApp();
 
-  const [baseDistanceKm, setBaseDistanceKm] = useState<number>(distanceConfig.baseDistanceKm);
-  const [baseFee, setBaseFee] = useState<number>(distanceConfig.baseFee);
-  const [perKmRateAfterBase, setPerKmRateAfterBase] = useState<number>(distanceConfig.perKmRateAfterBase);
-  const [freeDeliveryOrderValue, setFreeDeliveryOrderValue] = useState<number>(distanceConfig.freeDeliveryOrderValue);
-  const [maxRadius, setMaxRadius] = useState<number>(distanceConfig.maxServiceRadiusKm);
+  const [deliveryCalculationMode, setDeliveryCalculationMode] = useState<'DISTANCE_BASED' | 'ZONE_BASED' | 'HYBRID'>(
+    distanceConfig.deliveryCalculationMode || 'DISTANCE_BASED'
+  );
+  const [storeName, setStoreName] = useState<string>(distanceConfig.storeName || 'LaundryFresh Central Hub');
+  const [storeAddress, setStoreAddress] = useState<string>(
+    distanceConfig.storeAddress || 'Plot 18, Road 2, Banjara Hills / Kukatpally, Hyderabad'
+  );
+  const [storeLatitude, setStoreLatitude] = useState<number>(distanceConfig.storeLatitude ?? 17.4929894);
+  const [storeLongitude, setStoreLongitude] = useState<number>(distanceConfig.storeLongitude ?? 78.4144426);
+  const [storePhone, setStorePhone] = useState<string>(distanceConfig.storePhone || '+91 91219 99999');
+
+  const [baseDistanceKm, setBaseDistanceKm] = useState<number>(distanceConfig.baseDistanceKm ?? 3);
+  const [baseFee, setBaseFee] = useState<number>(distanceConfig.baseFee ?? 30);
+  const [perKmRateAfterBase, setPerKmRateAfterBase] = useState<number>(distanceConfig.perKmRateAfterBase ?? 10);
+  const [freeDeliveryOrderValue, setFreeDeliveryOrderValue] = useState<number>(distanceConfig.freeDeliveryOrderValue ?? 499);
+  const [maxRadius, setMaxRadius] = useState<number>(distanceConfig.maxServiceRadiusKm ?? 30);
   const [tiers, setTiers] = useState<DistanceTier[]>([...distanceConfig.distanceTiers]);
 
   // Test Distance Calculator state
-  const [testKm, setTestKm] = useState<number>(5.5);
+  const [testKm, setTestKm] = useState<number>(4.2);
   const [testSubtotal, setTestSubtotal] = useState<number>(350);
   const [testExpress, setTestExpress] = useState<boolean>(false);
 
@@ -51,6 +62,12 @@ export default function AdminDeliverySettingsPage() {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     updateDistanceConfig({
+      deliveryCalculationMode,
+      storeName,
+      storeAddress,
+      storeLatitude,
+      storeLongitude,
+      storePhone,
       baseDistanceKm,
       baseFee,
       perKmRateAfterBase,
@@ -60,32 +77,57 @@ export default function AdminDeliverySettingsPage() {
     });
   };
 
-  // Test calculation
+  // Test calculation matching backend logic
   const calculateFee = (km: number, subtotal: number, isExpress: boolean) => {
-    if (subtotal >= freeDeliveryOrderValue && km <= 7) {
-      return { fee: 0, reason: `Free Delivery (Order subtotal ₹${subtotal} >= ₹${freeDeliveryOrderValue})` };
+    if (subtotal >= freeDeliveryOrderValue) {
+      return {
+        fee: 0,
+        isFree: true,
+        reason: `FREE Delivery unlocked! (Order subtotal ₹${subtotal} ≥ ₹${freeDeliveryOrderValue})`,
+      };
     }
-    const matched = tiers.find((t) => km >= t.minKm && km < t.maxKm);
+
+    if (km > maxRadius) {
+      return {
+        fee: 0,
+        isFree: false,
+        reason: `Outside service radius (${km} km > max ${maxRadius} km)`,
+      };
+    }
+
     let fee = 0;
     let reason = '';
-    if (matched) {
-      fee = matched.fee;
-      reason = `Matched Distance Tier: ${matched.minKm}–${matched.maxKm} KM (₹${matched.fee})`;
-    } else if (km >= 20) {
-      const extraKm = km - 20;
-      fee = 150 + extraKm * perKmRateAfterBase;
-      reason = `Outstation > 20 KM: Base ₹150 + ${extraKm} KM × ₹${perKmRateAfterBase}`;
+
+    if (deliveryCalculationMode === 'ZONE_BASED' && tiers.length > 0) {
+      const sortedTiers = [...tiers].sort((a, b) => a.maxKm - b.maxKm);
+      const matched = sortedTiers.find((t) => km <= t.maxKm);
+      if (matched) {
+        fee = matched.fee;
+        reason = `Zone Tier ≤${matched.maxKm} KM: ₹${matched.fee} (Orders < ₹${freeDeliveryOrderValue})`;
+      } else {
+        const last = sortedTiers[sortedTiers.length - 1];
+        const extra = km - last.maxKm;
+        fee = Math.round(last.fee + extra * perKmRateAfterBase);
+        reason = `Tier ≤${last.maxKm} KM (₹${last.fee}) + ${extra.toFixed(1)} KM × ₹${perKmRateAfterBase} = ₹${fee}`;
+      }
     } else {
-      fee = baseFee;
-      reason = `Base Radius 0–${baseDistanceKm} KM`;
+      // DISTANCE_BASED (Orders < ₹499 charge standard zone delivery fee ₹30 across Hyderabad, plus per-km for extra distance)
+      if (km <= baseDistanceKm) {
+        fee = baseFee;
+        reason = `Standard Zone Delivery Fee ₹${baseFee} within ${baseDistanceKm} KM base (Orders < ₹${freeDeliveryOrderValue})`;
+      } else {
+        const extraKm = parseFloat((km - baseDistanceKm).toFixed(1));
+        fee = Math.round(baseFee + extraKm * perKmRateAfterBase);
+        reason = `Base ${baseDistanceKm} KM (₹${baseFee}) + ${extraKm} KM × ₹${perKmRateAfterBase}/KM = ₹${fee} (Orders < ₹${freeDeliveryOrderValue})`;
+      }
     }
 
     if (isExpress) {
       fee = Math.round(fee * 1.5);
-      reason += ' [Express Priority +50%]';
+      reason += ' [+50% Express Multiplier]';
     }
 
-    return { fee, reason };
+    return { fee, isFree: false, reason };
   };
 
   const testResult = calculateFee(testKm, testSubtotal, testExpress);
@@ -115,6 +157,129 @@ export default function AdminDeliverySettingsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Distance Tiers & Config Form */}
         <form onSubmit={handleSave} className="lg:col-span-2 space-y-6">
+          {/* Delivery Calculation Engine Mode Card */}
+          <div className="azea-card p-6 space-y-4">
+            <h3 className="font-bold text-sm text-[var(--heading-color)] flex items-center gap-2">
+              <Zap className="w-4 h-4 text-[#16A34A]" />
+              <span>Delivery Fee Calculation Engine</span>
+            </h3>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Choose how delivery fees are calculated for customers at checkout based on their GPS or address.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                {
+                  id: 'DISTANCE_BASED',
+                  title: 'Distance-Based (GPS)',
+                  desc: 'Calculates exact KM from Store to Customer. Base fee within perimeter + per-KM rate after.',
+                },
+                {
+                  id: 'ZONE_BASED',
+                  title: 'Zone Tiers',
+                  desc: 'Uses tiered distance slabs (e.g. 0–3 km, 3–7 km, 7–12 km) configured below.',
+                },
+                {
+                  id: 'HYBRID',
+                  title: 'Hybrid Engine',
+                  desc: 'Zone rates within city limits, dynamic per-KM surcharge beyond.',
+                },
+              ].map((m) => (
+                <div
+                  key={m.id}
+                  onClick={() => setDeliveryCalculationMode(m.id as any)}
+                  className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                    deliveryCalculationMode === m.id
+                      ? 'border-[#16A34A] bg-[#DCFCE7]/30 dark:bg-emerald-950/20'
+                      : 'border-[var(--border-color)] bg-[var(--bg-secondary-card)] hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs text-[var(--heading-color)]">{m.title}</span>
+                    <input
+                      type="radio"
+                      name="deliveryCalculationMode"
+                      checked={deliveryCalculationMode === m.id}
+                      onChange={() => setDeliveryCalculationMode(m.id as any)}
+                      className="accent-[#16A34A]"
+                    />
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">{m.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Central Store / Processing Hub Location Card */}
+          <div className="azea-card p-6 space-y-4">
+            <h3 className="font-bold text-sm text-[var(--heading-color)] flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-[#16A34A]" />
+              <span>Central Store / Hub GPS Location</span>
+            </h3>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Customer distance is calculated directly from this location to their delivery GPS coordinates.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="font-bold text-[var(--heading-color)] block mb-1">Store / Hub Name</label>
+                <input
+                  type="text"
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
+                  className="admin-input w-full font-bold"
+                  placeholder="LaundryFresh Central Hub"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-[var(--heading-color)] block mb-1">Contact Phone</label>
+                <input
+                  type="text"
+                  value={storePhone}
+                  onChange={(e) => setStorePhone(e.target.value)}
+                  className="admin-input w-full font-mono"
+                  placeholder="+91 91219 99999"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="font-bold text-[var(--heading-color)] block mb-1">Store Full Address</label>
+                <input
+                  type="text"
+                  value={storeAddress}
+                  onChange={(e) => setStoreAddress(e.target.value)}
+                  className="admin-input w-full"
+                  placeholder="Plot 18, Road 2, Banjara Hills / Kukatpally, Hyderabad"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-[var(--heading-color)] block mb-1">Store GPS Latitude</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={storeLatitude}
+                  onChange={(e) => setStoreLatitude(parseFloat(e.target.value) || 0)}
+                  className="admin-input w-full font-mono font-bold"
+                />
+                <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">e.g. 17.492989 (Hyderabad)</p>
+              </div>
+
+              <div>
+                <label className="font-bold text-[var(--heading-color)] block mb-1">Store GPS Longitude</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={storeLongitude}
+                  onChange={(e) => setStoreLongitude(parseFloat(e.target.value) || 0)}
+                  className="admin-input w-full font-mono font-bold"
+                />
+                <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">e.g. 78.414442 (Hyderabad)</p>
+              </div>
+            </div>
+          </div>
+
           {/* Main Thresholds Card */}
           <div className="azea-card p-6 space-y-4">
             <h3 className="font-bold text-sm text-[var(--heading-color)] flex items-center gap-2">
@@ -124,7 +289,31 @@ export default function AdminDeliverySettingsPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
               <div>
-                <label className="font-bold text-[var(--heading-color)] block mb-1">Base Free Distance (KM)</label>
+                <label className="font-bold text-[var(--heading-color)] block mb-1">Free Delivery Min Order (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={freeDeliveryOrderValue}
+                  onChange={(e) => setFreeDeliveryOrderValue(parseFloat(e.target.value) || 0)}
+                  className="admin-input w-full font-mono font-bold text-emerald-600"
+                />
+                <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">Orders ≥ this get 100% FREE Delivery</p>
+              </div>
+
+              <div>
+                <label className="font-bold text-[var(--heading-color)] block mb-1">Standard Delivery Fee (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={baseFee}
+                  onChange={(e) => setBaseFee(parseFloat(e.target.value) || 0)}
+                  className="admin-input w-full font-mono font-bold text-blue-600"
+                />
+                <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">Charged for orders &lt; ₹{freeDeliveryOrderValue}</p>
+              </div>
+
+              <div>
+                <label className="font-bold text-[var(--heading-color)] block mb-1">Base Distance Included (KM)</label>
                 <input
                   type="number"
                   min="0"
@@ -133,19 +322,20 @@ export default function AdminDeliverySettingsPage() {
                   onChange={(e) => setBaseDistanceKm(parseFloat(e.target.value) || 0)}
                   className="admin-input w-full font-mono font-bold"
                 />
-                <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">Local perimeter</p>
+                <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">Local zone covered by standard fee</p>
               </div>
 
               <div>
-                <label className="font-bold text-[var(--heading-color)] block mb-1">Free Delivery Min Order (₹)</label>
+                <label className="font-bold text-[var(--heading-color)] block mb-1">Per KM Rate After Base (₹/KM)</label>
                 <input
                   type="number"
                   min="0"
-                  value={freeDeliveryOrderValue}
-                  onChange={(e) => setFreeDeliveryOrderValue(parseFloat(e.target.value) || 0)}
+                  step="1"
+                  value={perKmRateAfterBase}
+                  onChange={(e) => setPerKmRateAfterBase(parseFloat(e.target.value) || 0)}
                   className="admin-input w-full font-mono font-bold"
                 />
-                <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">Orders &gt; this get Free Delivery</p>
+                <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">Added per KM beyond base distance</p>
               </div>
 
               <div>
@@ -157,7 +347,7 @@ export default function AdminDeliverySettingsPage() {
                   onChange={(e) => setMaxRadius(parseFloat(e.target.value) || 25)}
                   className="admin-input w-full font-mono font-bold"
                 />
-                <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">Farthest service radius</p>
+                <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">Maximum serviceable delivery radius</p>
               </div>
             </div>
           </div>

@@ -40,6 +40,7 @@ export default function AdminOrdersPage() {
   const {
     orders,
     advanceOrderStatus,
+    assignDeliveryPartner,
     submitWeightVerification,
     approvePriceAdjustment,
     updateGarmentTagStatus,
@@ -62,6 +63,8 @@ export default function AdminOrdersPage() {
   const [ratePerKg, setRatePerKg] = useState<number>(60);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [newInternalNote, setNewInternalNote] = useState('');
+  const [deliveryPartnerName, setDeliveryPartnerName] = useState('');
+  const [deliveryPartnerPhone, setDeliveryPartnerPhone] = useState('');
   const [activeDetailTab, setActiveDetailTab] = useState<'ITEMS' | 'TAGS' | 'WEIGHT' | 'NOTES'>('TAGS');
   const customerBookingUrl = `${process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000'}/book`;
 
@@ -131,6 +134,20 @@ export default function AdminOrdersPage() {
     if (!activeOrder || !newInternalNote.trim()) return;
     addInternalNote(activeOrder.id, 'Super Admin', 'Super Admin', newInternalNote.trim());
     setNewInternalNote('');
+  };
+
+  const handleAssignDeliveryPartner = () => {
+    if (!activeOrder) return;
+    if (!deliveryPartnerName.trim() || !deliveryPartnerPhone.trim()) {
+      showToast('Enter the delivery partner name and mobile number.', 'error');
+      return;
+    }
+    assignDeliveryPartner(activeOrder.id, {
+      name: deliveryPartnerName,
+      phone: deliveryPartnerPhone,
+    });
+    setDeliveryPartnerName('');
+    setDeliveryPartnerPhone('');
   };
 
   const calculateNet = () => Math.max(0, +(grossWeight - tareWeight).toFixed(2));
@@ -344,6 +361,39 @@ export default function AdminOrdersPage() {
                   Assigned Hub: <strong>{hubs[0]?.name || 'Koramangala Central Hub'}</strong>
                 </div>
               </div>
+            </div>
+
+            {/* 13-Stage Operational Stepper */}
+            <div className="p-4 bg-[var(--bg-secondary-card)] rounded-[10px] border border-[var(--border-color)] space-y-3">
+              <div className="flex items-center gap-2 font-bold text-xs text-[var(--heading-color)]">
+                <Truck className="w-4 h-4 text-[var(--primary)]" />
+                <span>Assign Delivery Partner</span>
+              </div>
+              {activeOrder.assignedDeliveryAgent && (
+                <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                  Currently assigned: <strong>{activeOrder.assignedDeliveryAgent.name}</strong> · {activeOrder.assignedDeliveryAgent.phone}
+                </p>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
+                <input
+                  value={deliveryPartnerName}
+                  onChange={(event) => setDeliveryPartnerName(event.target.value)}
+                  placeholder="Partner name"
+                  className="admin-input"
+                />
+                <input
+                  value={deliveryPartnerPhone}
+                  onChange={(event) => setDeliveryPartnerPhone(event.target.value)}
+                  placeholder="Mobile number"
+                  inputMode="tel"
+                  className="admin-input"
+                />
+                <button onClick={handleAssignDeliveryPartner} className="admin-btn-primary justify-center">
+                  <Truck className="w-3.5 h-3.5" />
+                  Assign
+                </button>
+              </div>
+              <p className="text-[11px] text-[var(--text-secondary)]">The customer receives the partner details by push notification and email.</p>
             </div>
 
             {/* 13-Stage Operational Stepper */}

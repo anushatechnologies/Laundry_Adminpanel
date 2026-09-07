@@ -41,6 +41,7 @@ export default function ChatManagementPage() {
   const [messageInput, setMessageInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
   const [connected, setConnected] = useState(false);
   
   const socketRef = useRef<Socket | null>(null);
@@ -176,6 +177,53 @@ export default function ChatManagementPage() {
     }
   };
 
+  const sendOtpToCustomer = async () => {
+    if (!selectedRoom || !selectedRoom.customer_phone) {
+      alert('Customer phone number not available');
+      return;
+    }
+
+    const confirmed = confirm(
+      `Send OTP to ${selectedRoom.customer_name || 'Customer'}?\nPhone: ${selectedRoom.customer_phone}`
+    );
+
+    if (!confirmed) return;
+
+    setSendingOtp(true);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/chat/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber: selectedRoom.customer_phone }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        alert(`✅ OTP sent successfully to ${data.data.phone} via ${data.data.gateway}`);
+        
+        // Auto-send chat message confirming OTP was sent
+        if (socketRef.current) {
+          socketRef.current.emit('send_message', {
+            roomId: selectedRoom.id,
+            senderId: 'admin_agent',
+            senderType: 'AGENT',
+            message: `✅ OTP has been sent to your registered mobile number ${data.data.phone}. Please check your SMS inbox. The code is valid for 10 minutes.`,
+            messageType: 'TEXT',
+          });
+        }
+      } else {
+        alert(`❌ Failed to send OTP: ${data.message}`);
+      }
+    } catch (error: any) {
+      console.error('[Admin Chat] Error sending OTP:', error);
+      alert('Failed to send OTP. Please try again.');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
   const closeRoom = async (roomId: string) => {
     try {
       await fetch(`${API_BASE_URL}/chat/rooms/${roomId}/close`, {
@@ -290,6 +338,26 @@ export default function ChatManagementPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {selectedRoom.customer_phone && (
+                  <button
+                    onClick={sendOtpToCustomer}
+                    disabled={sendingOtp || !connected}
+                    className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    title="Send OTP to customer's phone"
+                  >
+                    {sendingOtp ? (
+                      <>
+                        <Clock className="w-4 h-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquare className="w-4 h-4" />
+                        Send OTP
+                      </>
+                    )}
+                  </button>
+                )}
                 <span className={`text-xs px-3 py-1 rounded-full ${
                   selectedRoom.status === 'ACTIVE'
                     ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
@@ -349,6 +417,41 @@ export default function ChatManagementPage() {
 
             {/* Message Input */}
             <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              {/* Quick Response Buttons */}
+              <div className="mb-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => setMessageInput('Thank you for contacting LaundryFresh support. How can I help you today?')}
+                  className="text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  👋 Greeting
+                </button>
+                <button
+                  onClick={sendOtpToCustomer}
+                  disabled={!selectedRoom.customer_phone || sendingOtp}
+                  className="text-xs px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  🔐 Send OTP
+                </button>
+                <button
+                  onClick={() => setMessageInput('Your order is being processed and will be ready soon. You can track it in the Orders section of the app.')}
+                  className="text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  📦 Order Status
+                </button>
+                <button
+                  onClick={() => setMessageInput('Our delivery partner will contact you shortly. Please keep your phone handy.')}
+                  className="text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  🚚 Delivery
+                </button>
+                <button
+                  onClick={() => setMessageInput('We apologize for the inconvenience. Our team will look into this immediately and get back to you.')}
+                  className="text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  😔 Apology
+                </button>
+              </div>
+              
               <div className="flex items-center gap-2">
                 <input
                   type="text"

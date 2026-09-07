@@ -5866,17 +5866,23 @@ export const INITIAL_HUBS: HubBranch[] = [
 
 export const INITIAL_DISTANCE_CONFIG: DistanceDeliveryConfig = {
   baseDistanceKm: 3,
-  baseFee: 0,
+  baseFee: 30,
   perKmRateAfterBase: 10,
   distanceTiers: [
-    { minKm: 0, maxKm: 3, fee: 0 },
-    { minKm: 3, maxKm: 7, fee: 40 },
-    { minKm: 7, maxKm: 12, fee: 80 },
+    { minKm: 0, maxKm: 3, fee: 30 },
+    { minKm: 3, maxKm: 7, fee: 50 },
+    { minKm: 7, maxKm: 12, fee: 90 },
     { minKm: 12, maxKm: 20, fee: 150 },
   ],
   freeDeliveryOrderValue: 499,
-  maxServiceRadiusKm: 25,
+  maxServiceRadiusKm: 30,
   expressDeliveryMultiplier: 1.5,
+  deliveryCalculationMode: 'DISTANCE_BASED',
+  storeLatitude: 17.4929894,
+  storeLongitude: 78.4144426,
+  storeName: 'LaundryFresh Central Hub',
+  storeAddress: 'Plot 18, Road 2, Banjara Hills / Kukatpally, Hyderabad',
+  storePhone: '+91 91219 99999',
 };
 
 export const INITIAL_SLOT_CAPACITIES: TimeSlotCapacity[] = [

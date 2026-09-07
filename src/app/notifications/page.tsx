@@ -21,8 +21,14 @@ import {
   Radio,
   Tag,
   BellRing,
+  Sparkles,
+  Filter,
+  Upload,
+  Image as ImageIcon,
+  X,
 } from 'lucide-react';
 import { NotificationTemplate } from '@/types';
+import { PUSH_NOTIFICATION_TEMPLATES, TEMPLATE_CATEGORIES, PushTemplate } from '@/data/pushNotificationTemplates';
 
 interface EmailTemplateMeta {
   id: string;
@@ -106,9 +112,12 @@ export default function AdminNotificationsPage() {
   const [pushCustomerId, setPushCustomerId] = useState('');
   const [pushTitle, setPushTitle] = useState('🧺 LaundryFresh update');
   const [pushBody, setPushBody] = useState('');
+  const [pushImageUrl, setPushImageUrl] = useState(''); // Image URL for rich notifications
+  const [pushImageFile, setPushImageFile] = useState<File | null>(null); // Uploaded image file
+  const [uploadingImage, setUploadingImage] = useState(false); // Upload progress
   const [pushOrderId, setPushOrderId] = useState('');
   const [pushChannel, setPushChannel] = useState<'orders' | 'promotions'>('orders');
-  const [pushScreen, setPushScreen] = useState<'HOME' | 'ORDER_DETAIL' | 'OFFERS' | 'LIVE_CHAT' | 'NOTIFICATIONS'>('HOME');
+  const [pushScreen, setPushScreen] = useState<'HOME' | 'ORDER_DETAIL' | 'OFFERS' | 'WALLET' | 'CHAT' | 'LIVE_CHAT' | 'NOTIFICATIONS'>('HOME');
   const [pushCouponCode, setPushCouponCode] = useState('');
   const [deviceStats, setDeviceStats] = useState<{
     totalDevices: number;
@@ -119,6 +128,11 @@ export default function AdminNotificationsPage() {
   const [loadingDeviceStats, setLoadingDeviceStats] = useState(false);
   const [isSendingPush, setIsSendingPush] = useState(false);
   const [pushStatusMessage, setPushStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Template library state
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [selectedTemplate, setSelectedTemplate] = useState<PushTemplate | null>(null);
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(true);
 
   // Fetch readymade email templates from backend
   const fetchEmailTemplates = async () => {
@@ -414,6 +428,7 @@ export default function AdminNotificationsPage() {
           screen: pushScreen,
           ...(pushOrderId.trim() ? { orderId: pushOrderId.trim() } : {}),
           ...(pushCouponCode.trim() ? { couponCode: pushCouponCode.trim().toUpperCase() } : {}),
+          ...(pushImageUrl.trim() ? { imageUrl: pushImageUrl.trim() } : {}), // Add image URL
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -463,6 +478,7 @@ export default function AdminNotificationsPage() {
           screen: pushScreen,
           ...(pushOrderId.trim() ? { orderId: pushOrderId.trim() } : {}),
           ...(pushCouponCode.trim() ? { couponCode: pushCouponCode.trim().toUpperCase() } : {}),
+          ...(pushImageUrl.trim() ? { imageUrl: pushImageUrl.trim() } : {}), // Add image URL
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -492,6 +508,71 @@ export default function AdminNotificationsPage() {
       return handleSendBroadcastPush(e);
     }
     return handleSendFirebasePush(e);
+  };
+
+  // Handle push notification image upload
+  const handlePushImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (JPG, PNG, WebP)', 'error');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image size must be less than 5MB', 'error');
+      return;
+    }
+
+    setPushImageFile(file);
+    setUploadingImage(true);
+    setPushStatusMessage(null);
+
+    try {
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const imageBase64 = reader.result as string;
+        const fileName = `push-notification-${Date.now()}-${file.name}`;
+
+        // Upload to S3 via backend
+        const res = await fetch('/api/backend/services/upload-s3', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64, fileName }),
+        });
+
+        const json = await res.json();
+        if (res.ok && json.success && json.data?.s3Url) {
+          setPushImageUrl(json.data.s3Url);
+          showToast('✓ Image uploaded to S3 successfully!', 'success');
+        } else {
+          showToast(json.message || 'Failed to upload image to S3', 'error');
+          setPushImageFile(null);
+        }
+        setUploadingImage(false);
+      };
+
+      reader.onerror = () => {
+        showToast('Failed to read image file', 'error');
+        setPushImageFile(null);
+        setUploadingImage(false);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      showToast(err.message || 'Upload error', 'error');
+      setPushImageFile(null);
+      setUploadingImage(false);
+    }
+  };
+
+  const clearPushImage = () => {
+    setPushImageUrl('');
+    setPushImageFile(null);
   };
 
   const currentEmailTemplate = emailTemplates.find((t) => t.id === selectedEmailId) || emailTemplates[0];
@@ -1079,49 +1160,112 @@ export default function AdminNotificationsPage() {
               </div>
             </div>
 
-            {/* Quick Template / Preset Buttons */}
-            <div>
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Quick Presets:</span>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPushTitle('🎉 Weekend Special: 25% Off Dry Cleaning!');
-                    setPushBody('Get your suits, blazers and dresses fresh and crisp for 25% off this weekend only. Use code FRESH25 at checkout.');
-                    setPushChannel('promotions');
-                    setPushScreen('OFFERS');
-                    setPushCouponCode('FRESH25');
-                  }}
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-[var(--bg-card)] hover:border-blue-400 text-[11px] font-medium text-[var(--heading-color)] transition-colors cursor-pointer"
-                >
-                  🏷️ 25% Off Weekend Sale
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPushTitle('🧺 Clothes Washed & Steam Ironed!');
-                    setPushBody('Your garments have been cleaned and inspected to perfection. Valet is packing your order now.');
-                    setPushChannel('orders');
-                    setPushScreen('ORDER_DETAIL');
-                  }}
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-[var(--bg-card)] hover:border-blue-400 text-[11px] font-medium text-[var(--heading-color)] transition-colors cursor-pointer"
-                >
-                  🧺 Garments Cleaned
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPushTitle('🚚 Valet Out For Delivery');
-                    setPushBody('Our delivery valet is en route with your fresh laundry. Please keep your delivery OTP ready.');
-                    setPushChannel('orders');
-                    setPushScreen('ORDER_DETAIL');
-                  }}
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-[var(--bg-card)] hover:border-blue-400 text-[11px] font-medium text-[var(--heading-color)] transition-colors cursor-pointer"
-                >
-                  🚚 Valet En Route
-                </button>
+            {/* Template Library - Like Zepto */}
+            {showTemplateLibrary && (
+              <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-4 bg-gradient-to-br from-blue-50/30 to-indigo-50/30 dark:from-blue-950/20 dark:to-indigo-950/20">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-blue-600" />
+                    <h3 className="font-bold text-sm text-[var(--heading-color)]">Pre-made Templates ({PUSH_NOTIFICATION_TEMPLATES.length})</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowTemplateLibrary(false)}
+                    className="text-[10px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  >
+                    Hide
+                  </button>
+                </div>
+
+                {/* Category Filter */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {TEMPLATE_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                        selectedCategory === cat.id
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-blue-400'
+                      }`}
+                    >
+                      {cat.icon} {cat.name} ({cat.count})
+                    </button>
+                  ))}
+                </div>
+
+                {/* Template Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[400px] overflow-y-auto pr-2">
+                  {PUSH_NOTIFICATION_TEMPLATES
+                    .filter(t => selectedCategory === 'ALL' || t.category === selectedCategory)
+                    .map((template) => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => {
+                          // Load template into form
+                          setPushTitle(template.title);
+                          setPushBody(template.body);
+                          setPushChannel(template.channel);
+                          setPushScreen(template.screen);
+                          if (template.requiresOrderId) {
+                            // Keep existing orderId or clear
+                          }
+                          if (template.requiresCouponCode) {
+                            // Extract coupon code from body if exists
+                            const match = template.body.match(/code[:\s]+([A-Z0-9]+)/i);
+                            if (match) setPushCouponCode(match[1]);
+                          }
+                          setSelectedTemplate(template);
+                          setPushStatusMessage(null);
+                        }}
+                        className={`text-left p-3 rounded-lg border transition-all hover:shadow-md ${
+                          selectedTemplate?.id === template.id
+                            ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/20'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-blue-300'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <span className="text-2xl shrink-0">{template.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-bold text-xs text-[var(--heading-color)] truncate">{template.name}</h4>
+                              <span 
+                                className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase shrink-0"
+                                style={{ backgroundColor: `${template.color}20`, color: template.color }}
+                              >
+                                {template.category}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-600 dark:text-slate-400 line-clamp-2 mb-1.5">
+                              {template.body}
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {template.tags.slice(0, 3).map((tag) => (
+                                <span key={tag} className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-[9px] text-slate-600 dark:text-slate-400 rounded">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {!showTemplateLibrary && (
+              <button
+                type="button"
+                onClick={() => setShowTemplateLibrary(true)}
+                className="w-full py-2.5 px-4 rounded-lg border-2 border-dashed border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-all flex items-center justify-center gap-2 text-sm font-bold"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Show {PUSH_NOTIFICATION_TEMPLATES.length} Pre-made Templates</span>
+              </button>
+            )}
 
             {/* Single Customer Selection Dropdown */}
             {pushTargetMode === 'SINGLE' ? (
@@ -1267,6 +1411,109 @@ export default function AdminNotificationsPage() {
               />
             </div>
 
+            {/* Image URL (optional) for rich notifications */}
+            <div>
+              <label htmlFor="push-image-url" className="font-bold text-xs text-[var(--heading-color)] block mb-1.5">
+                Notification Banner Image (Optional)
+                <span className="ml-1.5 text-[10px] font-normal text-[var(--text-secondary)]">Rich notifications like Zepto</span>
+              </label>
+              
+              {/* Upload Button or Image Preview */}
+              {!pushImageUrl.trim() ? (
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePushImageUpload}
+                    disabled={uploadingImage}
+                    className="hidden"
+                    id="push-image-file"
+                  />
+                  <label
+                    htmlFor="push-image-file"
+                    className={`admin-btn-secondary w-full py-3 flex items-center justify-center gap-2 text-xs font-semibold cursor-pointer transition-all ${
+                      uploadingImage ? 'opacity-60 cursor-not-allowed' : 'hover:bg-blue-50 dark:hover:bg-blue-950'
+                    }`}
+                  >
+                    {uploadingImage ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Uploading to S3...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        <span>Upload Banner Image</span>
+                      </>
+                    )}
+                  </label>
+                  <p className="text-[10px] text-[var(--text-secondary)] mt-1.5">
+                    JPG, PNG, WebP • Max 5MB • Recommended: 1200x600px
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* Image Preview */}
+                  <div className="relative rounded-lg overflow-hidden border-2 border-green-200 dark:border-green-800 bg-slate-50 dark:bg-slate-900">
+                    <img 
+                      src={pushImageUrl} 
+                      alt="Upload preview" 
+                      className="w-full h-40 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={clearPushImage}
+                      className="absolute top-2 right-2 p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+                      title="Remove image"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-green-500 text-white text-[10px] font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Uploaded</span>
+                    </div>
+                  </div>
+                  
+                  {/* S3 URL Display */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      value={pushImageUrl}
+                      onChange={(e) => setPushImageUrl(e.target.value)}
+                      className="admin-input flex-1 text-xs font-mono"
+                      placeholder="https://..."
+                    />
+                    <button
+                      type="button"
+                      onClick={clearPushImage}
+                      className="admin-btn-secondary px-3 py-2 text-xs font-semibold"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Image ready for push notification
+                  </p>
+                </div>
+              )}
+              
+              {/* Manual URL Entry Option */}
+              {!uploadingImage && !pushImageUrl.trim() && (
+                <div className="mt-3">
+                  <p className="text-[10px] text-[var(--text-secondary)] mb-1.5">Or paste an image URL manually:</p>
+                  <input
+                    id="push-image-url"
+                    type="url"
+                    value={pushImageUrl}
+                    onChange={(event) => setPushImageUrl(event.target.value)}
+                    placeholder="https://your-image-url.com/promo-banner.jpg"
+                    className="admin-input w-full text-xs"
+                  />
+                </div>
+              )}
+            </div>
+
             {pushStatusMessage && (
               <div className={`rounded-xl border px-3 py-2.5 text-xs font-medium flex items-start gap-2 ${
                 pushStatusMessage.type === 'success'
@@ -1357,6 +1604,65 @@ export default function AdminNotificationsPage() {
                 </div>
               </div>
             </div>
+
+            {/* Notification Preview Card */}
+            {(pushTitle.trim() || pushBody.trim() || pushImageUrl.trim()) && (
+              <div className="azea-card p-5 space-y-3 bg-gradient-to-br from-slate-50 to-gray-50/60 dark:from-slate-900/50 dark:to-gray-900/30 border border-slate-200/80 dark:border-slate-800/60">
+                <div className="flex items-center gap-2 text-[var(--heading-color)]">
+                  <div className="w-9 h-9 rounded-xl bg-slate-600/10 dark:bg-slate-400/10 text-slate-600 dark:text-slate-300 flex items-center justify-center">
+                    <BellRing className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm">Notification Preview</h3>
+                    <p className="text-[10px] text-[var(--text-secondary)]">How it appears on device</p>
+                  </div>
+                </div>
+                
+                {/* Mobile notification mockup */}
+                <div className="bg-white dark:bg-slate-950 rounded-2xl border-2 border-slate-300 dark:border-slate-700 p-3 shadow-lg">
+                  {/* Notification Header */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-bold">
+                      L
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-xs font-bold text-slate-900 dark:text-slate-100">LaundryFresh</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">now</div>
+                    </div>
+                  </div>
+                  
+                  {/* Notification Content */}
+                  <div className="space-y-2">
+                    <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      {pushTitle.trim() || 'Title appears here...'}
+                    </div>
+                    <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                      {pushBody.trim() || 'Message body appears here...'}
+                    </div>
+                    
+                    {/* Image Preview */}
+                    {pushImageUrl.trim() && (
+                      <div className="mt-2 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800">
+                        <img 
+                          src={pushImageUrl.trim()} 
+                          alt="Notification banner" 
+                          className="w-full h-auto object-cover max-h-40"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).insertAdjacentHTML('afterend', 
+                              '<div class="p-4 text-center text-xs text-slate-500">Invalid image URL</div>'
+                            );
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <p className="text-[10px] text-[var(--text-secondary)] italic">
+                  Actual appearance varies by Android/iOS device and OS version.
+                </p>
+              </div>
+            )}
 
             {/* FCM Delivery Architecture Card */}
             <div className="azea-card p-5 space-y-3 bg-gradient-to-br from-blue-50 to-indigo-50/60 dark:from-blue-950/30 dark:to-indigo-950/20 border border-blue-200/80 dark:border-blue-900/60">
