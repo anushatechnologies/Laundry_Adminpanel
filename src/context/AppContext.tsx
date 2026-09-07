@@ -130,6 +130,7 @@ interface AppContextType {
     razorpayDetails?: { razorpayPaymentId?: string; razorpayOrderId?: string; razorpaySignature?: string }
   ) => Order;
   advanceOrderStatus: (orderId: string, status: OrderStatus, notes?: string, updatedBy?: string) => Order | null;
+  assignPickupPartner: (orderId: string, partner: { name: string; phone: string; vehicle?: string; rating?: number }) => void;
   assignDeliveryPartner: (orderId: string, partner: { name: string; phone: string; vehicle?: string; rating?: number }) => void;
   updateOrderWeight: (orderId: string, weightKg: number) => Order | null;
   getOrderById: (orderId: string) => Order | undefined;
@@ -1028,6 +1029,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return optimistic;
   };
 
+  const assignPickupPartner = (orderId: string, partner: { name: string; phone: string; vehicle?: string; rating?: number }) => {
+    const current = orders.find((order) => order.id === orderId);
+    if (!current) return;
+    const assignedPickupAgent = {
+      id: `pickup-${Date.now()}`,
+      name: partner.name.trim(),
+      phone: partner.phone.trim(),
+      vehicle: partner.vehicle?.trim() || 'Valet Pilot Bike (Hero Splendor)',
+      rating: partner.rating || 4.9,
+    };
+    const optimistic = {
+      ...current,
+      assignedPickupAgent,
+      currentStatus: current.currentStatus === 'ORDER_PLACED' ? ('PICKUP_ASSIGNED' as OrderStatus) : current.currentStatus,
+    };
+    replaceRemoteOrder(optimistic);
+    showToast(`Pickup pilot ${assignedPickupAgent.name} assigned to order #${orderId}.`, 'success');
+    void adminApi<Order>(`/orders/${encodeURIComponent(orderId)}/assign-driver`, {
+      method: 'PATCH',
+      body: JSON.stringify({ agentType: 'PICKUP', ...assignedPickupAgent, updatedBy: currentUser.id }),
+    })
+      .then(replaceRemoteOrder)
+      .catch((error) => {
+        replaceRemoteOrder(current);
+        showToast(error instanceof Error ? error.message : 'Could not assign the pickup pilot.', 'error');
+      });
+  };
+
   const assignDeliveryPartner = (orderId: string, partner: { name: string; phone: string; vehicle?: string; rating?: number }) => {
     const current = orders.find((order) => order.id === orderId);
     if (!current) return;
@@ -1325,6 +1354,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         orders,
         createOrder,
         advanceOrderStatus,
+        assignPickupPartner,
         assignDeliveryPartner,
         updateOrderWeight,
         getOrderById,

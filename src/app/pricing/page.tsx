@@ -15,6 +15,7 @@ export default function AdminPricingEnginePage() {
     freeDeliveryThreshold: pricingSettings?.freeDeliveryThreshold || 499,
     standardDeliveryFee: pricingSettings?.standardDeliveryFee || 30,
     expressDeliveryFee: pricingSettings?.expressDeliveryFee || 80,
+    sameDayDeliveryFee: pricingSettings?.sameDayDeliveryFee || 160,
   });
 
   useEffect(() => {
@@ -26,6 +27,7 @@ export default function AdminPricingEnginePage() {
         freeDeliveryThreshold: pricingSettings.freeDeliveryThreshold || 499,
         standardDeliveryFee: pricingSettings.standardDeliveryFee || 30,
         expressDeliveryFee: pricingSettings.expressDeliveryFee || 80,
+        sameDayDeliveryFee: pricingSettings.sameDayDeliveryFee || (pricingSettings.expressDeliveryFee ? pricingSettings.expressDeliveryFee * 2 : 160),
       });
     }
   }, [pricingSettings]);
@@ -147,7 +149,7 @@ export default function AdminPricingEnginePage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
           <div>
             <label className="text-[11px] font-bold text-[var(--text-secondary)] block mb-1">
               GST Tax Rate (%){!settingsForm.isGstEnabled && ' (Currently Waived)'}
@@ -202,7 +204,7 @@ export default function AdminPricingEnginePage() {
 
           <div>
             <label className="text-[11px] font-bold text-[var(--text-secondary)] block mb-1">
-              Express Delivery (₹)
+              Express 24h Fee (₹)
             </label>
             <input
               type="number"
@@ -211,6 +213,22 @@ export default function AdminPricingEnginePage() {
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-[var(--text-secondary)] block mb-1">
+              Same-Day 12h Fee (₹)
+            </label>
+            <input
+              type="number"
+              value={settingsForm.sameDayDeliveryFee}
+              onChange={(e) => setSettingsForm({ ...settingsForm, sameDayDeliveryFee: Number(e.target.value) })}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-[var(--border-color)] flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
+          <span>⚡ <strong>Customer Speed Choices:</strong> Normal (48h) is free above ₹{settingsForm.freeDeliveryThreshold} (or ₹{settingsForm.standardDeliveryFee}). Express 24h (+₹{settingsForm.expressDeliveryFee}) and Same-Day 12h (+₹{settingsForm.sameDayDeliveryFee}) are applied transparently at checkout.</span>
         </div>
       </form>
 

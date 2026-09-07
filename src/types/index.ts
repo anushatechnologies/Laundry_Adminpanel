@@ -361,6 +361,7 @@ export interface PricingSettings {
   freeDeliveryThreshold: number;
   standardDeliveryFee: number;
   expressDeliveryFee: number;
+  sameDayDeliveryFee?: number;
   extraKgPrice: number;
   isGstEnabled?: boolean;
 }

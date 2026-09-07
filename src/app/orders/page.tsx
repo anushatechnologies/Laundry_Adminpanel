@@ -40,6 +40,7 @@ export default function AdminOrdersPage() {
   const {
     orders,
     advanceOrderStatus,
+    assignPickupPartner,
     assignDeliveryPartner,
     submitWeightVerification,
     approvePriceAdjustment,
@@ -65,6 +66,8 @@ export default function AdminOrdersPage() {
   const [newInternalNote, setNewInternalNote] = useState('');
   const [deliveryPartnerName, setDeliveryPartnerName] = useState('');
   const [deliveryPartnerPhone, setDeliveryPartnerPhone] = useState('');
+  const [pickupPartnerName, setPickupPartnerName] = useState('');
+  const [pickupPartnerPhone, setPickupPartnerPhone] = useState('');
   const [activeDetailTab, setActiveDetailTab] = useState<'ITEMS' | 'TAGS' | 'WEIGHT' | 'NOTES'>('TAGS');
   const customerBookingUrl = `${process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000'}/book`;
 
@@ -148,6 +151,20 @@ export default function AdminOrdersPage() {
     });
     setDeliveryPartnerName('');
     setDeliveryPartnerPhone('');
+  };
+
+  const handleAssignPickupPartner = () => {
+    if (!activeOrder) return;
+    if (!pickupPartnerName.trim() || !pickupPartnerPhone.trim()) {
+      showToast('Enter the pickup pilot name and mobile number.', 'error');
+      return;
+    }
+    assignPickupPartner(activeOrder.id, {
+      name: pickupPartnerName,
+      phone: pickupPartnerPhone,
+    });
+    setPickupPartnerName('');
+    setPickupPartnerPhone('');
   };
 
   const calculateNet = () => Math.max(0, +(grossWeight - tareWeight).toFixed(2));
@@ -363,37 +380,103 @@ export default function AdminOrdersPage() {
               </div>
             </div>
 
-            {/* 13-Stage Operational Stepper */}
-            <div className="p-4 bg-[var(--bg-secondary-card)] rounded-[10px] border border-[var(--border-color)] space-y-3">
-              <div className="flex items-center gap-2 font-bold text-xs text-[var(--heading-color)]">
-                <Truck className="w-4 h-4 text-[var(--primary)]" />
-                <span>Assign Delivery Partner</span>
+            {/* Partner Assignment Cards: Pickup & Delivery Pilots */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Pickup Pilot Assignment */}
+              <div className="p-4 bg-[var(--bg-secondary-card)] rounded-[10px] border border-[var(--border-color)] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-bold text-xs text-[var(--heading-color)]">
+                    <Truck className="w-4 h-4 text-[#16A34A]" />
+                    <span>Assign Pickup Pilot</span>
+                  </div>
+                  {activeOrder.assignedPickupAgent ? (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      Assigned
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                      Pending
+                    </span>
+                  )}
+                </div>
+
+                {activeOrder.assignedPickupAgent ? (
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                    Assigned: <strong>{activeOrder.assignedPickupAgent.name}</strong> · {activeOrder.assignedPickupAgent.phone}
+                  </p>
+                ) : (
+                  <p className="text-xs text-[var(--text-secondary)] italic">No pickup pilot assigned yet</p>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
+                  <input
+                    value={pickupPartnerName}
+                    onChange={(event) => setPickupPartnerName(event.target.value)}
+                    placeholder="Pilot name"
+                    className="admin-input"
+                  />
+                  <input
+                    value={pickupPartnerPhone}
+                    onChange={(event) => setPickupPartnerPhone(event.target.value)}
+                    placeholder="Mobile number"
+                    inputMode="tel"
+                    className="admin-input"
+                  />
+                  <button onClick={handleAssignPickupPartner} className="admin-btn-primary justify-center">
+                    <Truck className="w-3.5 h-3.5" />
+                    Assign
+                  </button>
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)]">The customer app live-tracks the assigned pilot.</p>
               </div>
-              {activeOrder.assignedDeliveryAgent && (
-                <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                  Currently assigned: <strong>{activeOrder.assignedDeliveryAgent.name}</strong> · {activeOrder.assignedDeliveryAgent.phone}
-                </p>
-              )}
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
-                <input
-                  value={deliveryPartnerName}
-                  onChange={(event) => setDeliveryPartnerName(event.target.value)}
-                  placeholder="Partner name"
-                  className="admin-input"
-                />
-                <input
-                  value={deliveryPartnerPhone}
-                  onChange={(event) => setDeliveryPartnerPhone(event.target.value)}
-                  placeholder="Mobile number"
-                  inputMode="tel"
-                  className="admin-input"
-                />
-                <button onClick={handleAssignDeliveryPartner} className="admin-btn-primary justify-center">
-                  <Truck className="w-3.5 h-3.5" />
-                  Assign
-                </button>
+
+              {/* Delivery Partner Assignment */}
+              <div className="p-4 bg-[var(--bg-secondary-card)] rounded-[10px] border border-[var(--border-color)] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-bold text-xs text-[var(--heading-color)]">
+                    <Truck className="w-4 h-4 text-[var(--primary)]" />
+                    <span>Assign Delivery Partner</span>
+                  </div>
+                  {activeOrder.assignedDeliveryAgent ? (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      Assigned
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                      Unassigned
+                    </span>
+                  )}
+                </div>
+
+                {activeOrder.assignedDeliveryAgent ? (
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                    Assigned: <strong>{activeOrder.assignedDeliveryAgent.name}</strong> · {activeOrder.assignedDeliveryAgent.phone}
+                  </p>
+                ) : (
+                  <p className="text-xs text-[var(--text-secondary)] italic">No delivery partner assigned yet</p>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
+                  <input
+                    value={deliveryPartnerName}
+                    onChange={(event) => setDeliveryPartnerName(event.target.value)}
+                    placeholder="Partner name"
+                    className="admin-input"
+                  />
+                  <input
+                    value={deliveryPartnerPhone}
+                    onChange={(event) => setDeliveryPartnerPhone(event.target.value)}
+                    placeholder="Mobile number"
+                    inputMode="tel"
+                    className="admin-input"
+                  />
+                  <button onClick={handleAssignDeliveryPartner} className="admin-btn-primary justify-center">
+                    <Truck className="w-3.5 h-3.5" />
+                    Assign
+                  </button>
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)]">The customer receives the partner details upon dispatch.</p>
               </div>
-              <p className="text-[11px] text-[var(--text-secondary)]">The customer receives the partner details by push notification and email.</p>
             </div>
 
             {/* 13-Stage Operational Stepper */}
