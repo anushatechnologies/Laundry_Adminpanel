@@ -127,22 +127,37 @@ export default function ChatManagementPage() {
     };
   }, [selectedRoom, rooms.length]);
 
-  // Fetch rooms on mount
+  // Fetch rooms on mount and poll every 10s
   useEffect(() => {
     fetchRooms();
-    const interval = setInterval(fetchRooms, 30000); // Refresh every 30s
+    const interval = setInterval(fetchRooms, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  // Join room when selected
+  // Fetch messages immediately when a room is selected, and join socket if connected
   useEffect(() => {
-    if (selectedRoom && socketRef.current?.connected) {
+    if (!selectedRoom?.id) return;
+    
+    // Always fetch messages via HTTP API immediately
+    fetchMessages(selectedRoom.id);
+
+    if (socketRef.current?.connected) {
       socketRef.current.emit('join_room', { 
         roomId: selectedRoom.id, 
         userId: 'admin_agent' 
       });
-      fetchMessages(selectedRoom.id);
     }
+  }, [selectedRoom?.id]);
+
+  // Poll messages for the active room every 3 seconds
+  useEffect(() => {
+    if (!selectedRoom?.id) return;
+
+    const interval = setInterval(() => {
+      fetchMessages(selectedRoom.id);
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, [selectedRoom?.id]);
 
   const scrollToBottom = () => {
@@ -152,26 +167,45 @@ export default function ChatManagementPage() {
   };
 
   const sendMessage = async () => {
-    if (!messageInput.trim() || !selectedRoom || !socketRef.current) return;
+    if (!messageInput.trim() || !selectedRoom) return;
 
     setSending(true);
     const messageText = messageInput.trim();
     setMessageInput('');
 
     try {
-      // Send via WebSocket
-      socketRef.current.emit('send_message', {
-        roomId: selectedRoom.id,
-        senderId: 'admin_agent',
-        senderType: 'AGENT',
-        message: messageText,
-        messageType: 'TEXT',
+      // 1. Send via reliable HTTP REST API (persists in MySQL)
+      const res = await fetch(`${API_BASE_URL}/chat/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId: selectedRoom.id,
+          senderId: 'admin_agent',
+          senderType: 'AGENT',
+          message: messageText,
+          messageType: 'TEXT',
+        }),
       });
+      const data = await res.json();
 
-      console.log('[Admin Chat] Message sent');
+      // 2. Also emit via WebSocket if connected
+      if (socketRef.current?.connected) {
+        socketRef.current.emit('send_message', {
+          roomId: selectedRoom.id,
+          senderId: 'admin_agent',
+          senderType: 'AGENT',
+          message: messageText,
+          messageType: 'TEXT',
+        });
+      }
+
+      // 3. Immediately refresh messages and room list
+      await fetchMessages(selectedRoom.id);
+      fetchRooms();
     } catch (error) {
       console.error('[Admin Chat] Error sending message:', error);
-      alert('Failed to send message');
+      alert('Failed to send message. Please try again.');
+      setMessageInput(messageText);
     } finally {
       setSending(false);
     }
@@ -203,16 +237,33 @@ export default function ChatManagementPage() {
       if (data.success) {
         alert(`✅ OTP sent successfully to ${data.data.phone} via ${data.data.gateway}`);
         
-        // Auto-send chat message confirming OTP was sent
-        if (socketRef.current) {
+        // Save confirmation message to chat via HTTP REST
+        const otpNotice = `✅ OTP has been sent to your registered mobile number ${data.data.phone}. Please check your SMS inbox. The code is valid for 10 minutes.`;
+        await fetch(`${API_BASE_URL}/chat/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roomId: selectedRoom.id,
+            senderId: 'admin_agent',
+            senderType: 'AGENT',
+            message: otpNotice,
+            messageType: 'TEXT',
+          }),
+        });
+
+        // Also emit via WebSocket if connected
+        if (socketRef.current?.connected) {
           socketRef.current.emit('send_message', {
             roomId: selectedRoom.id,
             senderId: 'admin_agent',
             senderType: 'AGENT',
-            message: `✅ OTP has been sent to your registered mobile number ${data.data.phone}. Please check your SMS inbox. The code is valid for 10 minutes.`,
+            message: otpNotice,
             messageType: 'TEXT',
           });
         }
+
+        await fetchMessages(selectedRoom.id);
+        fetchRooms();
       } else {
         alert(`❌ Failed to send OTP: ${data.message}`);
       }
@@ -341,7 +392,7 @@ export default function ChatManagementPage() {
                 {selectedRoom.customer_phone && (
                   <button
                     onClick={sendOtpToCustomer}
-                    disabled={sendingOtp || !connected}
+                    disabled={sendingOtp}
                     className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                     title="Send OTP to customer's phone"
                   >
@@ -386,7 +437,10 @@ export default function ChatManagementPage() {
                 </div>
               ) : (
                 messages.map(msg => {
-                  const isAgent = msg.sender_type === 'AGENT';
+                  const senderType = String(msg.sender_type || (msg as any).senderType || 'CUSTOMER').toUpperCase();
+                  const isAgent = senderType.includes('AGENT') || senderType.includes('ADMIN');
+                  const timeString = new Date(msg.created_at || (msg as any).createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  const isRead = Boolean(msg.is_read ?? (msg as any).isRead);
                   return (
                     <div
                       key={msg.id}
@@ -402,9 +456,9 @@ export default function ChatManagementPage() {
                           isAgent ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
                         }`}>
                           <Clock className="w-3 h-3" />
-                          <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span>{timeString}</span>
                           {isAgent && (
-                            msg.is_read ? <CheckCheck className="w-3 h-3" /> : <Check className="w-3 h-3" />
+                            isRead ? <CheckCheck className="w-3 h-3" /> : <Check className="w-3 h-3" />
                           )}
                         </div>
                       </div>
