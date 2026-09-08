@@ -15,6 +15,7 @@ import {
   TrendingUp,
   Settings,
   Share2,
+  Smartphone,
 } from 'lucide-react';
 import { getAdminReferrals, updateAdminReferralSettings } from '@/lib/api';
 
@@ -322,6 +323,18 @@ export default function ReferralsPage() {
               placeholder="https://laundryfresh.in/app"
               className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-700 bg-slate-800 text-white focus:outline-none focus:border-amber-500"
             />
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2">
+            <p className="text-[11px] text-slate-400">
+              Need to upload or update the APK without cPanel?
+            </p>
+            <Link
+              href="/app-releases"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Upload New APK via Admin Panel →</span>
+            </Link>
           </div>
         </div>
 

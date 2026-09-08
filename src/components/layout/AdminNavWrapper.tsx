@@ -43,6 +43,7 @@ import {
   Box,
   FileSpreadsheet,
   Scale,
+  Smartphone,
 } from 'lucide-react';
 
 function SidebarNavItems({
@@ -205,6 +206,7 @@ export const AdminNavWrapper: React.FC<{ children: React.ReactNode }> = ({ child
         { name: 'Coupons & Offers', href: '/coupons', icon: Tag },
         { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
         { name: 'Refer & Earn', href: '/referrals', icon: Sparkles },
+        { name: 'App APK Releases', href: '/app-releases', icon: Smartphone, badge: 'APK' },
         { name: 'Customer Wallets', href: '/wallets', icon: CreditCard, badge: 'Live' },
       ],
     },
