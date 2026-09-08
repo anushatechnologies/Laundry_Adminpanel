@@ -56,8 +56,8 @@ export default function ReferralsPage() {
 
   // Form state
   const [enabled, setEnabled] = useState(true);
-  const [referrerReward, setReferrerReward] = useState('100');
-  const [friendReward, setFriendReward] = useState('50');
+  const [referrerReward, setReferrerReward] = useState('50');
+  const [friendReward, setFriendReward] = useState('25');
   const [minimumFirstOrder, setMinimumFirstOrder] = useState('0');
   const [shareUrl, setShareUrl] = useState('');
 
@@ -73,8 +73,8 @@ export default function ReferralsPage() {
       setData(result);
       if (result.settings) {
         setEnabled(result.settings.enabled);
-        setReferrerReward(String(result.settings.referrerReward ?? 100));
-        setFriendReward(String(result.settings.friendReward ?? 50));
+        setReferrerReward(String(result.settings.referrerReward ?? 50));
+        setFriendReward(String(result.settings.friendReward ?? 25));
         setMinimumFirstOrder(String(result.settings.minimumFirstOrder ?? 0));
         setShareUrl(result.settings.shareUrl || '');
       }
@@ -140,7 +140,7 @@ export default function ReferralsPage() {
 
   const totalReferrals = data?.referrals?.length || 0;
   const qualifiedReferrals = (data?.referrals || []).filter((r) => r.status === 'QUALIFIED').length;
-  const totalPaidOut = qualifiedReferrals * (Number(referrerReward) || 100);
+  const totalPaidOut = qualifiedReferrals * (Number(referrerReward) || 50);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-6">
