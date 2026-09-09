@@ -33,6 +33,7 @@ import {
   User,
   MapPin,
   MoreVertical,
+  CreditCard,
 } from 'lucide-react';
 import { Order, OrderStatus, GarmentTagStatus, GarmentTagItem } from '@/types';
 
@@ -287,7 +288,14 @@ export default function AdminOrdersPage() {
                   </div>
 
                   <div className="text-xs text-[var(--heading-color)] font-semibold">{o.customerName}</div>
-                  <div className="text-[11px] text-[var(--text-secondary)]">{o.customerPhone} • {o.address.city}</div>
+                  <div className="text-[11px] text-[var(--text-secondary)] flex items-center justify-between gap-1">
+                    <span>{o.customerPhone} • {o.address.city}</span>
+                    {o.customerSubscriptionId && (
+                      <span className="text-[9px] font-bold text-amber-800 bg-amber-100 dark:bg-amber-950 dark:text-amber-300 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-800">
+                        👑 VIP {o.subscriptionKgUsed ? `${o.subscriptionKgUsed}KG` : 'MEMBER'}
+                      </span>
+                    )}
+                  </div>
 
                   <div className="mt-2.5 pt-2 border-t border-[var(--border-color)] flex items-center justify-between text-[11px]">
                     <span className="text-[var(--text-secondary)] font-medium">
@@ -377,6 +385,61 @@ export default function AdminOrdersPage() {
                 <div className="text-[11px] text-[var(--text-secondary)] mt-1">
                   Assigned Hub: <strong>{hubs[0]?.name || 'Koramangala Central Hub'}</strong>
                 </div>
+              </div>
+            </div>
+
+            {/* Financials & Subscription Quota Breakdown Box */}
+            <div className="p-4 bg-[var(--bg-secondary-card)] rounded-[10px] border border-[var(--border-color)] space-y-2 text-xs">
+              <div className="flex items-center justify-between pb-1.5 border-b border-[var(--border-color)] font-bold text-[var(--heading-color)]">
+                <span className="flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-[var(--primary)]" />
+                  <span>Payment & Financial Breakdown</span>
+                </span>
+                <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-mono font-bold">
+                  {activeOrder.paymentMethod || 'ONLINE'} • {activeOrder.paymentStatus}
+                </span>
+              </div>
+              <div className="flex justify-between text-[var(--text-secondary)]">
+                <span>Items Subtotal:</span>
+                <span className="font-semibold text-[var(--heading-color)]">₹{activeOrder.itemTotal}</span>
+              </div>
+              {activeOrder.subscriptionDiscount ? (
+                <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-medium">
+                  <span>👑 VIP Quota Applied ({activeOrder.subscriptionKgUsed ?? 0} KG from {activeOrder.subscriptionPlanName || 'Membership'}):</span>
+                  <span className="font-bold">- ₹{activeOrder.subscriptionDiscount}</span>
+                </div>
+              ) : null}
+              {activeOrder.discountAmount ? (
+                <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-medium">
+                  <span>Coupon Discount ({activeOrder.couponCode || 'PROMO'}):</span>
+                  <span className="font-bold">- ₹{activeOrder.discountAmount}</span>
+                </div>
+              ) : null}
+              <div className="flex justify-between text-[var(--text-secondary)]">
+                <span>Doorstep Pickup & Delivery:</span>
+                <span className="font-semibold text-[var(--heading-color)]">
+                  {activeOrder.pickupDeliveryFee === 0 ? (
+                    <span className="text-emerald-700 dark:text-emerald-400 font-bold">FREE (Member Perk)</span>
+                  ) : (
+                    `₹${activeOrder.pickupDeliveryFee}`
+                  )}
+                </span>
+              </div>
+              {activeOrder.expressFee ? (
+                <div className="flex justify-between text-[var(--text-secondary)]">
+                  <span>Express Tier Speed Fee:</span>
+                  <span className="font-semibold text-[var(--heading-color)]">₹{activeOrder.expressFee}</span>
+                </div>
+              ) : null}
+              {activeOrder.walletDeduction ? (
+                <div className="flex justify-between text-blue-700 dark:text-blue-400 font-medium">
+                  <span>Wallet Balance Deducted:</span>
+                  <span className="font-bold">- ₹{activeOrder.walletDeduction}</span>
+                </div>
+              ) : null}
+              <div className="flex justify-between pt-1.5 border-t border-[var(--border-color)] font-bold text-sm text-[var(--heading-color)]">
+                <span>Net Total Amount:</span>
+                <span className="text-[var(--primary)] text-base font-black">₹{activeOrder.totalAmount}</span>
               </div>
             </div>
 

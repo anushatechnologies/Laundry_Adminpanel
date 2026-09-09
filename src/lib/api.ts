@@ -172,3 +172,20 @@ export const adjustAdminWallet = (data: { customerId: string; amount: number; ty
     method: 'POST',
     body: JSON.stringify(data),
   });
+
+// Fast2SMS Live SMS Gateway Wallet & Credits Balance
+export interface SmsWalletInfo {
+  configured: boolean;
+  wallet: number;
+  smsCount: number;
+  quickSmsCount?: number;
+  dltSmsCount?: number;
+  currency: string;
+  gateway: string;
+  status: string;
+  ratePerSms?: number;
+  dltRatePerSms?: number;
+  lastChecked?: string;
+}
+
+export const getSmsWalletBalance = () => adminApi<SmsWalletInfo>('/notifications/sms-wallet');

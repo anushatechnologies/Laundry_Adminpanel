@@ -8,10 +8,12 @@ import {
   Cloud,
   CreditCard,
   DollarSign,
+  ExternalLink,
   KeyRound,
   MapPin,
   MessageSquare,
   Percent,
+  RefreshCw,
   Save,
   Settings,
   ShieldCheck,
@@ -19,13 +21,16 @@ import {
   Zap,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { getAdminSettings, updateAdminSettings } from '@/lib/api';
+import { getAdminSettings, updateAdminSettings, getSmsWalletBalance, type SmsWalletInfo } from '@/lib/api';
 
 export default function AdminSettingsPage() {
   const { showToast } = useApp();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [smsWallet, setSmsWallet] = useState<SmsWalletInfo | null>(null);
+  const [loadingSms, setLoadingSms] = useState(true);
+  const [refreshingSms, setRefreshingSms] = useState(false);
 
   // Operational & Financial Settings
   const [form, setForm] = useState({
@@ -40,6 +45,27 @@ export default function AdminSettingsPage() {
     smsNotificationsEnabled: true,
     emailNotificationsEnabled: true,
   });
+
+  const fetchSmsBalance = async (isManual = false) => {
+    if (isManual) setRefreshingSms(true);
+    try {
+      const data = await getSmsWalletBalance();
+      if (data) {
+        setSmsWallet(data);
+        if (isManual) {
+          showToast(`Fast2SMS Balance: ₹${Number(data.wallet).toFixed(2)} (${data.smsCount} SMS available)`, 'success');
+        }
+      }
+    } catch (err: any) {
+      console.warn('Could not fetch SMS wallet balance:', err);
+      if (isManual) {
+        showToast('Could not fetch Fast2SMS wallet balance.', 'error');
+      }
+    } finally {
+      setLoadingSms(false);
+      setRefreshingSms(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -66,6 +92,9 @@ export default function AdminSettingsPage() {
         if (active) setLoading(false);
       }
     })();
+
+    fetchSmsBalance();
+
     return () => {
       active = false;
     };
@@ -97,10 +126,12 @@ export default function AdminSettingsPage() {
   const integrations = [
     {
       name: 'Fast2SMS Indian OTP Gateway',
-      detail: 'Recharged wallet (Rs 150 balance, 600 SMS). Direct OTP & milestone SMS dispatch to Indian mobiles.',
+      detail: loadingSms
+        ? 'Connecting to Fast2SMS gateway balance...'
+        : `Live Wallet: ₹${Number(smsWallet?.wallet || 0).toFixed(2)} (${smsWallet?.smsCount ?? 0} SMS credits available). Direct OTP SMS dispatch to Indian mobiles.`,
       icon: MessageSquare,
-      status: 'Connected & Active',
-      statusColor: 'text-[#16A34A]',
+      status: (smsWallet?.wallet || 0) > 10 ? 'Connected & Active' : (smsWallet?.wallet || 0) > 0 ? 'Low Balance' : 'Exhausted',
+      statusColor: (smsWallet?.wallet || 0) > 10 ? 'text-[#16A34A]' : (smsWallet?.wallet || 0) > 0 ? 'text-amber-500' : 'text-rose-500',
     },
     {
       name: 'Razorpay Payment Gateway',
@@ -325,9 +356,116 @@ export default function AdminSettingsPage() {
         </div>
       </section>
 
-      {/* 3. Connected Integrations Status */}
-      <section className="space-y-3">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">Live Integrated Cloud Services</h2>
+      {/* 3. Fast2SMS Live Gateway & Remaining SMS Credits */}
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+              Fast2SMS Gateway Live Wallet & Remaining Credits
+            </h2>
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+              Live carrier credits used for customer OTP authentication and delivery SMS dispatches
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fetchSmsBalance(true)}
+              disabled={refreshingSms}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border-color)] bg-white dark:bg-slate-900 text-xs font-bold text-[var(--heading-color)] hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${refreshingSms ? 'animate-spin' : ''}`} />
+              {refreshingSms ? 'Checking...' : 'Refresh Balance'}
+            </button>
+            <a
+              href="https://www.fast2sms.com/wallet"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+            >
+              <span>Recharge Fast2SMS</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        </div>
+
+        {/* Realtime Wallet Metrics Banner */}
+        <div className="azea-card p-5 sm:p-6 bg-gradient-to-br from-emerald-950/10 via-white to-slate-50 dark:from-emerald-950/25 dark:via-slate-900 dark:to-slate-950 border-emerald-500/25">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Metric 1: Current Wallet Balance */}
+            <div className="p-4 rounded-xl bg-white dark:bg-slate-900/80 border border-[var(--border-color)] shadow-2xs flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 flex items-center justify-center shrink-0">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">Wallet Balance</span>
+                <span className="text-2xl font-black text-emerald-600 font-poppins tracking-tight">
+                  {loadingSms ? '...' : `₹${Number(smsWallet?.wallet || 0).toFixed(2)}`}
+                </span>
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium block">Active INR Credits</span>
+              </div>
+            </div>
+
+            {/* Metric 2: Estimated Remaining SMS Count */}
+            <div className="p-4 rounded-xl bg-white dark:bg-slate-900/80 border border-[var(--border-color)] shadow-2xs flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-600 flex items-center justify-center shrink-0">
+                <MessageSquare className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">Remaining OTPs</span>
+                <span className="text-2xl font-black text-blue-600 font-poppins tracking-tight">
+                  {loadingSms ? '...' : `${smsWallet?.quickSmsCount ?? Math.floor((smsWallet?.wallet || 0) / 5)} SMS`}
+                </span>
+                <span className="text-[10px] text-blue-700 dark:text-blue-400 font-medium block">
+                  At ₹5.00 / Quick SMS ({smsWallet?.dltSmsCount ?? Math.floor((smsWallet?.wallet || 0) / 0.25)} on DLT)
+                </span>
+              </div>
+            </div>
+
+            {/* Metric 3: Active Delivery Route & Status */}
+            <div className="p-4 rounded-xl bg-white dark:bg-slate-900/80 border border-[var(--border-color)] shadow-2xs flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 flex items-center justify-center shrink-0">
+                <Zap className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">Carrier Gateway</span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-sm font-black text-[var(--heading-color)]">Quick Route (Q)</span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black ${
+                    (smsWallet?.wallet || 0) >= 10
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                      : (smsWallet?.wallet || 0) > 0
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400'
+                      : 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400'
+                  }`}>
+                    {(smsWallet?.wallet || 0) >= 10 ? '● Active' : (smsWallet?.wallet || 0) > 0 ? '● Low Credits' : '● Empty'}
+                  </span>
+                </div>
+                <span className="text-[10px] text-[var(--text-secondary)] block">Instant Indian carrier delivery</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-[var(--border-color)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-[var(--text-secondary)]">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+              <span>
+                <strong>Rate Note:</strong> Fast2SMS charges <strong>₹5.00/SMS</strong> on Quick Route without DLT (37 OTPs left). If DLT / Smart OTP website verification is approved, rate drops to <strong>₹0.25/SMS</strong> (740 OTPs).
+              </span>
+            </div>
+            <a
+              href="https://www.fast2sms.com/dashboard/smart-otp"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-600 dark:text-emerald-400 hover:underline font-bold shrink-0 inline-flex items-center gap-1"
+            >
+              Verify Website for ₹0.25 Rate <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        </div>
+
+        {/* Connected Cloud Services Grid */}
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] pt-2">All Cloud Integrations</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {integrations.map(({ name, detail, icon: Icon, status, statusColor }) => (
             <article key={name} className="azea-card p-5 flex gap-4">
