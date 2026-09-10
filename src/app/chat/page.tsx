@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { MessageSquare, Send, X, Check, CheckCheck, Clock, User } from 'lucide-react';
+import { MessageSquare, Send, X, Check, CheckCheck, Clock, User, Trash2 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 
 interface ChatRoom {
@@ -41,6 +41,7 @@ export default function ChatManagementPage() {
   const [messageInput, setMessageInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [connected, setConnected] = useState(false);
   
@@ -114,6 +115,14 @@ export default function ChatManagementPage() {
       }
       
       // Update room list
+      fetchRooms();
+    });
+
+    socket.on('messages_cleared', (data: { roomId: string }) => {
+      console.log('[Admin Chat] Messages cleared event received:', data);
+      if (selectedRoom && data.roomId === selectedRoom.id) {
+        setMessages([]);
+      }
       fetchRooms();
     });
 
@@ -208,6 +217,35 @@ export default function ChatManagementPage() {
       setMessageInput(messageText);
     } finally {
       setSending(false);
+    }
+  };
+
+  const clearConversation = async () => {
+    if (!selectedRoom) return;
+
+    const customerDisplayName = selectedRoom.customer_name || selectedRoom.customer_phone || `Customer ${selectedRoom.customer_id.slice(-4)}`;
+    const confirmed = window.confirm(
+      `Are you sure you want to CLEAR ALL MESSAGES for ${customerDisplayName}?\n\nThis will remove all message history for this chat session.`
+    );
+    if (!confirmed) return;
+
+    setClearing(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/chat/rooms/${selectedRoom.id}/messages`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessages([]);
+        fetchRooms();
+      } else {
+        alert(data.message || 'Failed to clear chat');
+      }
+    } catch (err: any) {
+      console.error('[Admin Chat] Error clearing chat messages:', err);
+      alert('Error clearing chat messages: ' + (err?.message || 'Network error'));
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -409,6 +447,16 @@ export default function ChatManagementPage() {
                     )}
                   </button>
                 )}
+                <button
+                  onClick={clearConversation}
+                  disabled={clearing}
+                  className="px-3 py-1.5 text-sm bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-900/50 rounded-lg transition-colors flex items-center gap-1.5 border border-red-200 dark:border-red-900/60 disabled:opacity-50"
+                  title="Clear all messages in this conversation"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>{clearing ? 'Clearing...' : 'Clear Chat'}</span>
+                </button>
+
                 <span className={`text-xs px-3 py-1 rounded-full ${
                   selectedRoom.status === 'ACTIVE'
                     ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
@@ -513,12 +561,12 @@ export default function ChatManagementPage() {
                   onChange={(e) => setMessageInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                   placeholder="Type your message..."
-                  disabled={!connected || selectedRoom.status !== 'ACTIVE'}
+                  disabled={selectedRoom.status !== 'ACTIVE'}
                   className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
                 />
                 <button
                   onClick={sendMessage}
-                  disabled={!messageInput.trim() || sending || !connected || selectedRoom.status !== 'ACTIVE'}
+                  disabled={!messageInput.trim() || sending || selectedRoom.status !== 'ACTIVE'}
                   className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <Send className="w-5 h-5" />
