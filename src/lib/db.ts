@@ -585,6 +585,7 @@ export const INITIAL_PINCODES: PincodeZone[] = [
   // --- HYDERABAD & SECUNDERABAD (50 Key Localities & Tech Hubs) ---
   { pincode: '500081', areaName: 'Hitec City / Madhapur / Cyber Towers', city: 'Hyderabad', isServiceable: true, standardFee: 40, minFreeOrderValue: 399, expressAvailable: true, averageTurnaroundHours: 24 },
   { pincode: '500032', areaName: 'Gachibowli / Financial District / Nanakramguda', city: 'Hyderabad', isServiceable: true, standardFee: 40, minFreeOrderValue: 399, expressAvailable: true, averageTurnaroundHours: 24 },
+  { pincode: '500104', areaName: 'Siri Sampada Arcade 1 / Khajaguda / Gachibowli', city: 'Hyderabad', isServiceable: true, standardFee: 30, minFreeOrderValue: 499, expressAvailable: true, averageTurnaroundHours: 24 },
   { pincode: '500084', areaName: 'Kondapur / Kothaguda / Botanical Garden', city: 'Hyderabad', isServiceable: true, standardFee: 40, minFreeOrderValue: 399, expressAvailable: true, averageTurnaroundHours: 24 },
   { pincode: '500072', areaName: 'Kukatpally / KPHB Colony (Phase 1-6)', city: 'Hyderabad', isServiceable: true, standardFee: 40, minFreeOrderValue: 399, expressAvailable: true, averageTurnaroundHours: 24 },
   { pincode: '500085', areaName: 'KPHB Phase 7-9 / JNTU Road', city: 'Hyderabad', isServiceable: true, standardFee: 40, minFreeOrderValue: 399, expressAvailable: true, averageTurnaroundHours: 24 },
@@ -5862,6 +5863,36 @@ export const INITIAL_HUBS: HubBranch[] = [
     ],
     isActive: true,
   },
+  {
+    id: 'HUB-HYD-01',
+    name: 'Hyderabad Cyber Hub & Processing Plant',
+    city: 'Hyderabad',
+    address: 'Survey 64, Hitech City Main Road, Madhapur, Hyderabad - 500081 (Serving Khajaguda / Gachibowli)',
+    pincodes: [
+      '500081','500032','500104','500084','500072','500085','500033','500034','500089','500075',
+      '500049','500050','500090','500018','500082','500016','500003','500026','500009',
+      '500015','500011','500062','500047','500040','500056','500014','500055','500037',
+      '500008','500028','500004','500001','500029','500020','500044','500007','500017',
+      '500039','500076','500068','500074','500070','500035','500036','500059','500053',
+      '500077','500030','500052','500088','500043'
+    ],
+    contactPhone: '+91 40 4567 8900',
+    capacityKgPerDay: 1200,
+    activeOrdersCount: 35,
+    inHouseVehicles: [
+      {
+        id: 'VAN-HYD-01',
+        vehicleType: 'ELECTRIC_VAN',
+        registrationNo: 'TS-09-EV-8822',
+        driverName: 'Kishore Kumar',
+        driverPhone: '+91 99887 76655',
+        capacityKg: 200,
+        status: 'IDLE',
+        currentHubId: 'HUB-HYD-01',
+      },
+    ],
+    isActive: true,
+  },
 ];
 
 export const INITIAL_DISTANCE_CONFIG: DistanceDeliveryConfig = {
@@ -6205,14 +6236,14 @@ class LaundryDatabase {
         const savedPlans = localStorage.getItem('laundry_subscription_plans');
         if (savedPlans) this.subscriptionPlans = JSON.parse(savedPlans);
 
-        const PINCODE_CACHE_VERSION = 'v2.0_hyderabad_50';
+        const PINCODE_CACHE_VERSION = 'v2.1_hyderabad_500104';
         const currentPincodeVersion = localStorage.getItem('laundry_pincode_version');
         const savedPincodes = localStorage.getItem('laundry_pincodes');
         if (
           !savedPincodes ||
           currentPincodeVersion !== PINCODE_CACHE_VERSION
         ) {
-          // Seed from code defaults — includes all 50 Hyderabad pincodes
+          // Seed from code defaults — includes all Hyderabad pincodes including 500104
           this.pincodes = [...INITIAL_PINCODES];
           this.safeSetItem('laundry_pincodes', JSON.stringify(this.pincodes));
           this.safeSetItem('laundry_pincode_version', PINCODE_CACHE_VERSION);
@@ -6226,6 +6257,13 @@ class LaundryDatabase {
               this.safeSetItem('laundry_pincode_version', PINCODE_CACHE_VERSION);
             } else {
               this.pincodes = parsedPincodes;
+              if (!this.pincodes.some((p) => p.pincode === '500104')) {
+                const pin104 = INITIAL_PINCODES.find((p) => p.pincode === '500104');
+                if (pin104) {
+                  this.pincodes.unshift(pin104);
+                  this.safeSetItem('laundry_pincodes', JSON.stringify(this.pincodes));
+                }
+              }
             }
           } catch {
             this.pincodes = [...INITIAL_PINCODES];
