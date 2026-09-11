@@ -197,18 +197,9 @@ export default function ChatManagementPage() {
       });
       const data = await res.json();
 
-      // 2. Also emit via WebSocket if connected
-      if (socketRef.current?.connected) {
-        socketRef.current.emit('send_message', {
-          roomId: selectedRoom.id,
-          senderId: 'admin_agent',
-          senderType: 'AGENT',
-          message: messageText,
-          messageType: 'TEXT',
-        });
-      }
-
-      // 3. Immediately refresh messages and room list
+      // The REST endpoint persists and broadcasts the message via Socket.io.
+      // Sending a second Socket.io event here would create a duplicate message.
+      // Immediately refresh messages and room list.
       await fetchMessages(selectedRoom.id);
       fetchRooms();
     } catch (error) {
@@ -288,17 +279,6 @@ export default function ChatManagementPage() {
             messageType: 'TEXT',
           }),
         });
-
-        // Also emit via WebSocket if connected
-        if (socketRef.current?.connected) {
-          socketRef.current.emit('send_message', {
-            roomId: selectedRoom.id,
-            senderId: 'admin_agent',
-            senderType: 'AGENT',
-            message: otpNotice,
-            messageType: 'TEXT',
-          });
-        }
 
         await fetchMessages(selectedRoom.id);
         fetchRooms();
