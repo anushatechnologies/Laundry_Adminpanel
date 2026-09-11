@@ -6,7 +6,8 @@ import { db } from '@/lib/db';
 import { ClothType, ServicePriceItem } from '@/types';
 import { 
   Search, Plus, Camera, Edit2, X, 
-  RefreshCw, ShieldCheck, Link2, ExternalLink, Layers, Sparkles, Tag, Clock, ArrowRight, Settings
+  RefreshCw, ShieldCheck, Link2, ExternalLink, Layers, Sparkles, Tag, Clock, ArrowRight, Settings,
+  Trash2, Check, CheckCircle2
 } from 'lucide-react';
 import { 
   getAdminCategories, 
@@ -199,6 +200,7 @@ export function UnifiedCatalogManager() {
     priceMatrix,
     addClothType,
     updateClothType,
+    deleteClothType,
     upsertPriceItem,
     showToast 
   } = useApp();
@@ -298,6 +300,144 @@ export function UnifiedCatalogManager() {
 
   // Add Garment Modal
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Edit Garment & Manage its Services Modal
+  const [editingCloth, setEditingCloth] = useState<ClothType | null>(null);
+  const [editingClothForm, setEditingClothForm] = useState<{
+    name: string;
+    icon: string;
+    categoryTag: string;
+    subCategory: string;
+    description: string;
+    isActive: boolean;
+  }>({
+    name: '',
+    icon: '👔',
+    categoryTag: 'MENS',
+    subCategory: '',
+    description: '',
+    isActive: true,
+  });
+
+  const [newServiceToAdd, setNewServiceToAdd] = useState<{
+    serviceId: string;
+    price: number;
+    expressPrice: number;
+    turnaroundHours: number;
+  }>({
+    serviceId: 'srv-m-starch',
+    price: 50,
+    expressPrice: 75,
+    turnaroundHours: 24,
+  });
+
+  const getServiceMeta = (serviceId: string) => {
+    const srv = servicesList.find((s) => s.id === serviceId) || serviceMasters.find((s) => s.id === serviceId);
+    if (srv) return { name: srv.name.replace(' Only', ''), icon: srv.icon || '🧺' };
+    if (serviceId.includes('dry-clean')) return { name: 'Dry Clean', icon: '🧥' };
+    if (serviceId.includes('steam-iron')) return { name: 'Steam Iron', icon: '🔥' };
+    if (serviceId.includes('wash-iron')) return { name: 'Wash+Iron', icon: '👔' };
+    if (serviceId.includes('wash-fold')) return { name: 'Wash+Fold', icon: '🧺' };
+    if (serviceId.includes('starch')) return { name: 'Starch Finish', icon: '✨' };
+    if (serviceId.includes('charak')) return { name: 'Saree Polishing', icon: '🥻' };
+    if (serviceId.includes('spa')) return { name: 'Shoe Spa', icon: '👞' };
+    if (serviceId.includes('express')) return { name: 'Express Emergency', icon: '⚡' };
+    return { name: 'Service', icon: '🧺' };
+  };
+
+  useEffect(() => {
+    if (editingCloth) {
+      setEditingClothForm({
+        name: editingCloth.name,
+        icon: editingCloth.icon || '👔',
+        categoryTag: editingCloth.categoryTag,
+        subCategory: editingCloth.subCategory || 'General',
+        description: editingCloth.description || '',
+        isActive: editingCloth.isActive !== false,
+      });
+
+      const existingIds = new Set(
+        priceMatrix
+          .filter((p) => p.clothTypeId === editingCloth.id && p.isActive !== false && Number(p.price) > 0)
+          .map((p) => p.serviceId)
+      );
+      const unassigned = servicesList.find((s) => !existingIds.has(s.id));
+      setNewServiceToAdd({
+        serviceId: unassigned ? unassigned.id : servicesList[0]?.id || 'srv-m-starch',
+        price: 45,
+        expressPrice: 70,
+        turnaroundHours: unassigned?.turnaroundHours || 24,
+      });
+    }
+  }, [editingCloth, priceMatrix, servicesList]);
+
+  const handleSaveClothDetails = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCloth) return;
+
+    const catMatch = categories.find((c) => c.id === editingClothForm.categoryTag);
+    const updatedData: Partial<ClothType> = {
+      name: editingClothForm.name,
+      icon: editingClothForm.icon,
+      categoryTag: editingClothForm.categoryTag,
+      categoryLabel: catMatch ? catMatch.name : (editingClothForm.categoryTag === 'MENS' ? "Men's Clothing" : "Women's Clothing"),
+      subCategory: editingClothForm.subCategory,
+      description: editingClothForm.description,
+      isActive: editingClothForm.isActive,
+    };
+
+    updateClothType(editingCloth.id, updatedData);
+    showToast(`Saved product details for ${editingClothForm.name}!`, 'success');
+    setEditingCloth(null);
+  };
+
+  const handleAddServiceToCloth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCloth || !newServiceToAdd.serviceId) return;
+
+    const srvMeta = getServiceMeta(newServiceToAdd.serviceId);
+    const newPriceItem: ServicePriceItem = {
+      id: `pr-${editingCloth.id}-${newServiceToAdd.serviceId}`,
+      clothTypeId: editingCloth.id,
+      clothName: editingClothForm.name || editingCloth.name,
+      clothIcon: editingClothForm.icon || editingCloth.icon,
+      categoryTag: editingClothForm.categoryTag || editingCloth.categoryTag,
+      serviceId: newServiceToAdd.serviceId,
+      serviceName: srvMeta.name,
+      price: Number(newServiceToAdd.price) || 50,
+      expressPrice: Number(newServiceToAdd.expressPrice) || Math.round(Number(newServiceToAdd.price || 50) * 1.5),
+      turnaroundHours: Number(newServiceToAdd.turnaroundHours) || 24,
+      isActive: true,
+      isAvailable: true,
+    };
+
+    upsertPriceItem(newPriceItem);
+    showToast(`Added ${srvMeta.name} (₹${newPriceItem.price}) to ${editingCloth.name}!`, 'success');
+  };
+
+  const handleRemoveServiceFromCloth = (priceItemId: string, serviceName: string) => {
+    if (!editingCloth) return;
+    upsertPriceItem({
+      id: priceItemId,
+      clothTypeId: editingCloth.id,
+      clothName: editingCloth.name,
+      serviceId: '',
+      serviceName: '',
+      price: 0,
+      isActive: false,
+      isAvailable: false,
+    } as any);
+    showToast(`Removed ${serviceName} from ${editingCloth.name}.`, 'info');
+  };
+
+  const handleDeleteCloth = () => {
+    if (!editingCloth) return;
+    if (window.confirm(`Are you sure you want to permanently delete "${editingCloth.name}"? This removes the garment and its rates from the catalog.`)) {
+      deleteClothType(editingCloth.id);
+      showToast(`Deleted ${editingCloth.name} from catalog.`, 'info');
+      setEditingCloth(null);
+    }
+  };
 
   // Quick Price Inspector Modal
   const [editingPriceData, setEditingPriceData] = useState<{
@@ -1016,13 +1156,34 @@ export function UnifiedCatalogManager() {
           {/* Garments Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredClothes.map((cloth) => {
-              // Find prices for key services
-              const dcPrice = priceMatrix.find((p) => p.clothTypeId === cloth.id && p.serviceId === 'srv-m-dry-clean')?.price || 80;
-              const siPrice = priceMatrix.find((p) => p.clothTypeId === cloth.id && p.serviceId === 'srv-m-steam-iron')?.price || 20;
-              const wiPrice = priceMatrix.find((p) => p.clothTypeId === cloth.id && p.serviceId === 'srv-m-wash-iron')?.price || 49;
-              const wfPrice = priceMatrix.find((p) => p.clothTypeId === cloth.id && p.serviceId === 'srv-m-wash-fold')?.price || 35;
-
               const isUploadingThis = uploadingId === cloth.id;
+
+              // Gather all services configured for this cloth
+              const configuredForCloth = priceMatrix.filter(
+                (p) => p.clothTypeId === cloth.id && p.isActive !== false && Number(p.price) > 0
+              );
+              const coreServiceIds = ['srv-m-dry-clean', 'srv-m-steam-iron', 'srv-m-wash-iron', 'srv-m-wash-fold'];
+              const allServiceIds = Array.from(
+                new Set([...coreServiceIds, ...configuredForCloth.map((p) => p.serviceId)])
+              );
+
+              const clothServices = allServiceIds.map((serviceId) => {
+                const priceItem = priceMatrix.find((p) => p.clothTypeId === cloth.id && p.serviceId === serviceId);
+                const meta = getServiceMeta(serviceId);
+                let defaultPrice = 50;
+                if (serviceId === 'srv-m-dry-clean') defaultPrice = 80;
+                else if (serviceId === 'srv-m-steam-iron') defaultPrice = 20;
+                else if (serviceId === 'srv-m-wash-iron') defaultPrice = 49;
+                else if (serviceId === 'srv-m-wash-fold') defaultPrice = 35;
+                else if (serviceId === 'srv-m-starch') defaultPrice = 30;
+
+                return {
+                  serviceId,
+                  name: meta.name,
+                  icon: meta.icon,
+                  price: priceItem?.price ?? defaultPrice,
+                };
+              });
 
               return (
                 <div
@@ -1084,35 +1245,46 @@ export function UnifiedCatalogManager() {
                           <span>{isUploadingThis ? 'Uploading...' : 'Upload Photo'}</span>
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingUrlTarget({ 
-                              type: 'CLOTH', 
-                              id: cloth.id, 
-                              name: cloth.name, 
-                              icon: cloth.icon,
-                              currentUrl: cloth.imageUrl || '' 
-                            });
-                            setManualImageUrl(cloth.imageUrl || '');
-                          }}
-                          className="p-1.5 bg-black/50 hover:bg-black/80 text-white rounded-lg transition-all cursor-pointer backdrop-blur-xs"
-                          title="Paste direct image URL"
-                        >
-                          <Link2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditingCloth(cloth)}
+                            className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all cursor-pointer backdrop-blur-xs flex items-center gap-1 text-xs font-bold shadow-xs"
+                            title="Edit Product & Services"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingUrlTarget({ 
+                                type: 'CLOTH', 
+                                id: cloth.id, 
+                                name: cloth.name, 
+                                icon: cloth.icon,
+                                currentUrl: cloth.imageUrl || '' 
+                              });
+                              setManualImageUrl(cloth.imageUrl || '');
+                            }}
+                            className="p-1.5 bg-black/50 hover:bg-black/80 text-white rounded-lg transition-all cursor-pointer backdrop-blur-xs"
+                            title="Paste direct image URL"
+                          >
+                            <Link2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
 
                     {/* Garment Title & Subcategory */}
                     <div className="p-3.5">
-                      <div className="flex items-start justify-between gap-1">
-                        <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
                           <h3 className="text-sm font-black text-[var(--heading-color)] flex items-center gap-1.5">
                             <span>{cloth.icon}</span>
-                            <span>{cloth.name}</span>
+                            <span className="truncate">{cloth.name}</span>
                           </h3>
-                          <div className="flex items-center gap-1.5 mt-1">
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-md">
                               {cloth.subCategory || 'General'}
                             </span>
@@ -1121,6 +1293,16 @@ export function UnifiedCatalogManager() {
                             </span>
                           </div>
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setEditingCloth(cloth)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/80 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0"
+                          title="Edit Garment Details & Services"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
                       </div>
 
                       {cloth.description && (
@@ -1131,77 +1313,44 @@ export function UnifiedCatalogManager() {
                     </div>
                   </div>
 
-                  {/* 4-Tier Service Rate Grid */}
+                  {/* Dynamic Service Rates Grid */}
                   <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border-t border-[var(--border-color)]">
                     <div className="text-[10px] font-black uppercase text-[var(--text-secondary)] tracking-wider mb-2 flex items-center justify-between">
-                      <span>Service Rates</span>
-                      <span className="text-[9px] font-medium text-slate-400">Click to edit rate</span>
+                      <span className="flex items-center gap-1.5">
+                        <span>Service Rates</span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                          {clothServices.length}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingCloth(cloth)}
+                        className="text-[9px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <Plus className="w-2.5 h-2.5" /> Manage Services
+                      </button>
                     </div>
 
                     <div className="grid grid-cols-2 gap-1.5">
-                      {/* Dry Clean */}
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPriceModal(cloth, 'srv-m-dry-clean')}
-                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                          activeServiceFocus === 'srv-m-dry-clean'
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                            : 'bg-white dark:bg-slate-900 border-[var(--border-color)] hover:border-blue-300'
-                        }`}
-                      >
-                        <span className="text-[11px] font-bold flex items-center gap-1">
-                          <span>🧥</span> Dry Clean
-                        </span>
-                        <span className="text-xs font-black">₹{dcPrice}</span>
-                      </button>
-
-                      {/* Iron Only */}
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPriceModal(cloth, 'srv-m-steam-iron')}
-                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                          activeServiceFocus === 'srv-m-steam-iron'
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                            : 'bg-white dark:bg-slate-900 border-[var(--border-color)] hover:border-blue-300'
-                        }`}
-                      >
-                        <span className="text-[11px] font-bold flex items-center gap-1">
-                          <span>🔥</span> Steam Iron
-                        </span>
-                        <span className="text-xs font-black">₹{siPrice}</span>
-                      </button>
-
-                      {/* Wash & Steam Iron */}
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPriceModal(cloth, 'srv-m-wash-iron')}
-                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                          activeServiceFocus === 'srv-m-wash-iron'
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                            : 'bg-white dark:bg-slate-900 border-[var(--border-color)] hover:border-blue-300'
-                        }`}
-                      >
-                        <span className="text-[11px] font-bold flex items-center gap-1">
-                          <span>👔</span> Wash+Iron
-                        </span>
-                        <span className="text-xs font-black">₹{wiPrice}</span>
-                      </button>
-
-                      {/* Wash & Fold */}
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPriceModal(cloth, 'srv-m-wash-fold')}
-                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                          activeServiceFocus === 'srv-m-wash-fold'
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                            : 'bg-white dark:bg-slate-900 border-[var(--border-color)] hover:border-blue-300'
-                        }`}
-                      >
-                        <span className="text-[11px] font-bold flex items-center gap-1">
-                          <span>🧺</span> Wash+Fold
-                        </span>
-                        <span className="text-xs font-black">₹{wfPrice}</span>
-                      </button>
+                      {clothServices.map((srv) => (
+                        <button
+                          key={srv.serviceId}
+                          type="button"
+                          onClick={() => handleOpenPriceModal(cloth, srv.serviceId)}
+                          className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                            activeServiceFocus === srv.serviceId
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                              : 'bg-white dark:bg-slate-900 border-[var(--border-color)] hover:border-blue-300'
+                          }`}
+                          title={`Click to edit ${srv.name} rate for ${cloth.name}`}
+                        >
+                          <span className="text-[11px] font-bold flex items-center gap-1 truncate pr-1">
+                            <span>{srv.icon}</span>
+                            <span className="truncate">{srv.name}</span>
+                          </span>
+                          <span className="text-xs font-black shrink-0">₹{srv.price}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -1563,6 +1712,344 @@ export function UnifiedCatalogManager() {
           </div>
         </div>
       )}
+      {/* ========================================================================= */}
+      {/* MODAL: Edit Garment / Product & Manage its Services */}
+      {/* ========================================================================= */}
+      {editingCloth && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-[var(--border-color)] max-w-2xl w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)] shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-[var(--border-color)]">
+                  {editingClothForm.icon || editingCloth.icon}
+                </span>
+                <div>
+                  <h3 className="text-base font-black text-[var(--heading-color)] flex items-center gap-2">
+                    <span>Edit Product: {editingClothForm.name || editingCloth.name}</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500">
+                      {editingCloth.id}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                    Update product information, subcategory, photo, and configure attached laundry services.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingCloth(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body Scrollable */}
+            <div className="overflow-y-auto pr-1 py-4 space-y-6 flex-1">
+              {/* 1. Basic Product Info Form */}
+              <form id="edit-cloth-form" onSubmit={handleSaveClothDetails} className="space-y-3">
+                <div className="text-xs font-black uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-blue-600" />
+                  <span>1. Product Details</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                      Product / Garment Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editingClothForm.name}
+                      onChange={(e) => setEditingClothForm({ ...editingClothForm, name: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                      Icon Emoji
+                    </label>
+                    <input
+                      type="text"
+                      value={editingClothForm.icon}
+                      onChange={(e) => setEditingClothForm({ ...editingClothForm, icon: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-center text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                      Master Category
+                    </label>
+                    <select
+                      value={editingClothForm.categoryTag}
+                      onChange={(e) => setEditingClothForm({ ...editingClothForm, categoryTag: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.icon} {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                      Subcategory
+                    </label>
+                    <input
+                      type="text"
+                      value={editingClothForm.subCategory}
+                      onChange={(e) => setEditingClothForm({ ...editingClothForm, subCategory: e.target.value })}
+                      placeholder="e.g. Ethnic Wear, Daily Wear..."
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                    Description & Care Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editingClothForm.description}
+                    onChange={(e) => setEditingClothForm({ ...editingClothForm, description: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-medium text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Short description shown to customers..."
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-[var(--border-color)]">
+                  <div>
+                    <span className="text-xs font-bold text-[var(--heading-color)] block">Catalog Visibility</span>
+                    <span className="text-[11px] text-[var(--text-secondary)]">
+                      {editingClothForm.isActive ? 'Visible to all customers in mobile app' : 'Hidden from customer app'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingClothForm({ ...editingClothForm, isActive: !editingClothForm.isActive })}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                      editingClothForm.isActive
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-amber-600 text-white'
+                    }`}
+                  >
+                    {editingClothForm.isActive ? 'Active' : 'Hidden'}
+                  </button>
+                </div>
+              </form>
+
+              {/* 2. Services & Price Matrix for this Garment */}
+              <div className="space-y-3 pt-2 border-t border-[var(--border-color)]">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-black uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>2. Services Linked to this Product (Appears in Mobile App)</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    {priceMatrix.filter((p) => p.clothTypeId === editingCloth.id && p.isActive !== false && Number(p.price) > 0).length} services active
+                  </span>
+                </div>
+
+                {/* List of current services */}
+                <div className="space-y-2">
+                  {priceMatrix
+                    .filter((p) => p.clothTypeId === editingCloth.id && p.isActive !== false && Number(p.price) > 0)
+                    .map((item) => {
+                      const meta = getServiceMeta(item.serviceId);
+                      return (
+                        <div
+                          key={item.id || item.serviceId}
+                          className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-[var(--border-color)] gap-3"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="text-xl shrink-0">{meta.icon}</span>
+                            <div className="truncate">
+                              <span className="text-xs font-black text-[var(--heading-color)] block truncate">
+                                {meta.name}
+                              </span>
+                              <span className="text-[10px] text-[var(--text-secondary)]">
+                                Turnaround: {item.turnaroundHours || 24}h • Express: ₹{item.expressPrice || Math.round(item.price * 1.5)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-[var(--border-color)]">
+                              <span className="text-[11px] font-bold text-slate-400">₹</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.price}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  upsertPriceItem({
+                                    ...item,
+                                    price: val,
+                                    expressPrice: Math.round(val * 1.5),
+                                  });
+                                }}
+                                className="w-14 text-xs font-black text-[var(--heading-color)] text-right focus:outline-none"
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPriceModal(editingCloth, item.serviceId)}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                              title="Full price details"
+                            >
+                              <Settings className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveServiceFromCloth(item.id, meta.name)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                              title="Remove service from this product"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                {/* Add New Service to this Garment Form */}
+                <form
+                  onSubmit={handleAddServiceToCloth}
+                  className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                      <Plus className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Add Another Service to {editingCloth.name}</span>
+                    </span>
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">
+                      (e.g. Starch, Saree Polishing, Express...)
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                    <div className="sm:col-span-2">
+                      <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                        Select Service
+                      </label>
+                      <select
+                        value={newServiceToAdd.serviceId}
+                        onChange={(e) => {
+                          const srvId = e.target.value;
+                          const found = servicesList.find((s) => s.id === srvId);
+                          setNewServiceToAdd({
+                            ...newServiceToAdd,
+                            serviceId: srvId,
+                            turnaroundHours: found?.turnaroundHours || 24,
+                          });
+                        }}
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none"
+                      >
+                        {servicesList.map((srv) => (
+                          <option key={srv.id} value={srv.id}>
+                            {srv.icon} {srv.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                        Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={newServiceToAdd.price}
+                        onChange={(e) => {
+                          const p = Number(e.target.value);
+                          setNewServiceToAdd({
+                            ...newServiceToAdd,
+                            price: p,
+                            expressPrice: Math.round(p * 1.5),
+                          });
+                        }}
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                        Turnaround (h)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={newServiceToAdd.turnaroundHours}
+                        onChange={(e) =>
+                          setNewServiceToAdd({ ...newServiceToAdd, turnaroundHours: Number(e.target.value) })
+                        }
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Service to Garment</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-[var(--border-color)] shrink-0">
+              <button
+                type="button"
+                onClick={handleDeleteCloth}
+                className="px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Garment</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingCloth(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[var(--text-secondary)] hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  form="edit-cloth-form"
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Save Product Details</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Category & Subcategory Management Modal */}
       <CategorySubcategoryModal
         isOpen={showCatSubModal}

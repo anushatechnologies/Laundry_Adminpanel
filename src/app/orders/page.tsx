@@ -17,6 +17,7 @@ import {
   FileText,
   AlertCircle,
   X,
+  XCircle,
   Plus,
   Tag,
   Shield,
@@ -335,6 +336,28 @@ export default function AdminOrdersPage() {
 
               {/* Action Buttons */}
               <div className="flex items-center gap-2">
+                {!['DELIVERED', 'COMPLETED', 'CANCELLED'].includes(activeOrder.currentStatus) && (
+                  <button
+                    onClick={() => {
+                      const paidAmount = (activeOrder.paymentStatus === 'PAID' ? activeOrder.totalAmount : 0) + (activeOrder.walletDeduction || 0);
+                      const hasSub = Boolean(activeOrder.customerSubscriptionId);
+                      let msg = `Cancel Order #${activeOrder.id}?`;
+                      if (paidAmount > 0) {
+                        msg += `\n\n₹${paidAmount.toFixed(2)} paid by customer will be refunded directly into their wallet.`;
+                      }
+                      if (hasSub) {
+                        msg += `\n\nSubscription quota used will be restored to their subscription.`;
+                      }
+                      if (window.confirm(msg)) {
+                        advanceOrderStatus(activeOrder.id, 'CANCELLED', 'Order cancelled by Operations Admin', 'Operations Admin');
+                      }
+                    }}
+                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-[8px] transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Cancel Order</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setInvoiceModalOpen(true)}
                   className="admin-btn-secondary"
