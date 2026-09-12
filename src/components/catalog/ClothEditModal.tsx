@@ -5,6 +5,7 @@ import { ClothType, ClothCategoryTag, PricingUnit } from '@/types';
 import { X, Image as ImageIcon, Check, UploadCloud, Loader2, Link as LinkIcon } from 'lucide-react';
 import { CATALOG_MAIN_CATEGORIES } from './CatalogCategoryTabs';
 import { adminApi } from '@/lib/api';
+import { SubcategorySelectDropdown } from './SubcategorySelectDropdown';
 
 interface ClothEditModalProps {
   isOpen: boolean;
@@ -248,20 +249,12 @@ export const ClothEditModal: React.FC<ClothEditModalProps> = ({
             </div>
 
             <div>
-              <label className="font-bold text-[var(--heading-color)] block mb-1">Subcategory</label>
-              <input
-                type="text"
-                list="subcategories-datalist"
+              <SubcategorySelectDropdown
                 value={formData.subCategory}
-                onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
-                placeholder="e.g. Sarees, Shirts, Denim"
-                className="admin-input w-full"
+                categoryTag={formData.categoryTag}
+                onChange={(sub) => setFormData({ ...formData, subCategory: sub })}
+                required
               />
-              <datalist id="subcategories-datalist">
-                {existingSubcategories.map((sub) => (
-                  <option key={sub} value={sub} />
-                ))}
-              </datalist>
             </div>
           </div>
 

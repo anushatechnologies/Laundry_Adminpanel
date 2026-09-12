@@ -192,6 +192,7 @@ export const AdminNavWrapper: React.FC<{ children: React.ReactNode }> = ({ child
       group: 'CATALOG & PRICING',
       items: [
         { name: 'Cloth Types', href: '/pricing?tab=cloths', icon: Shirt },
+        { name: 'Subcategories', href: '/pricing?tab=subcategories', icon: Sparkles },
         { name: 'Services', href: '/services', icon: Layers },
         { name: 'Pricing Matrix', href: '/pricing', icon: DollarSign, badge: '2D Grid' },
         { name: 'Bulk / KG Pricing', href: '/pricing/bulk', icon: Scale, badge: 'Slabs' },

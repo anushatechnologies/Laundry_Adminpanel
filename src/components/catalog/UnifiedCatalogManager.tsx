@@ -7,7 +7,7 @@ import { ClothType, ServicePriceItem } from '@/types';
 import { 
   Search, Plus, Camera, Edit2, X, 
   RefreshCw, ShieldCheck, Link2, ExternalLink, Layers, Sparkles, Tag, Clock, ArrowRight, Settings,
-  Trash2, Check, CheckCircle2
+  Trash2, Check, CheckCircle2, Loader2, UploadCloud
 } from 'lucide-react';
 import { 
   getAdminCategories, 
@@ -17,6 +17,8 @@ import {
 } from '@/lib/api';
 import { CategorySubcategoryModal } from './CategorySubcategoryModal';
 import { getLocalFallbackPhoto } from '@/components/common/GarmentImage';
+import { SubcategorySelectDropdown } from './SubcategorySelectDropdown';
+import { SubcategoriesManager } from './SubcategoriesManager';
 
 const INITIAL_MASTER_CATEGORIES = [
   { 
@@ -205,8 +207,8 @@ export function UnifiedCatalogManager() {
     showToast 
   } = useApp();
 
-  // Top-level Navigation Mode: Garments | Categories | Services
-  const [viewMode, setViewMode] = useState<'GARMENTS' | 'CATEGORIES' | 'SERVICES'>('GARMENTS');
+  // Top-level Navigation Mode: Garments | Categories | Subcategories | Services
+  const [viewMode, setViewMode] = useState<'GARMENTS' | 'CATEGORIES' | 'SUBCATEGORIES' | 'SERVICES'>('GARMENTS');
 
   // Master Categories State (with live photo overrides)
   const [categories, setCategories] = useState(INITIAL_MASTER_CATEGORIES);
@@ -216,6 +218,23 @@ export function UnifiedCatalogManager() {
 
   // Category & Subcategory Management Modal
   const [showCatSubModal, setShowCatSubModal] = useState(false);
+
+  // Read URL query parameter for tab
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab === 'subcategories' || tab === 'subcategory') {
+        setViewMode('SUBCATEGORIES');
+      } else if (tab === 'cloths' || tab === 'products') {
+        setViewMode('GARMENTS');
+      } else if (tab === 'categories') {
+        setViewMode('CATEGORIES');
+      } else if (tab === 'services') {
+        setViewMode('SERVICES');
+      }
+    }
+  }, []);
 
   // Load live categories and service masters from API & S3
   const loadLiveCatalog = async () => {
@@ -298,17 +317,25 @@ export function UnifiedCatalogManager() {
   } | null>(null);
   const [manualImageUrl, setManualImageUrl] = useState('');
 
-  // Add Garment Modal
+  // Add Garment Modal Form State
   const [showAddModal, setShowAddModal] = useState(false);
+  const [addGarmentCategory, setAddGarmentCategory] = useState('MENS');
+  const [addGarmentSubcategory, setAddGarmentSubcategory] = useState('Shirts');
+  const [addGarmentImageUrl, setAddGarmentImageUrl] = useState('');
+  const [addGarmentUploadingS3, setAddGarmentUploadingS3] = useState(false);
+  const addGarmentFileInputRef = useRef<HTMLInputElement>(null);
 
   // Edit Garment & Manage its Services Modal
   const [editingCloth, setEditingCloth] = useState<ClothType | null>(null);
+  const [editGarmentUploadingS3, setEditGarmentUploadingS3] = useState(false);
+  const editGarmentFileInputRef = useRef<HTMLInputElement>(null);
   const [editingClothForm, setEditingClothForm] = useState<{
     name: string;
     icon: string;
     categoryTag: string;
     subCategory: string;
     description: string;
+    imageUrl: string;
     isActive: boolean;
   }>({
     name: '',
@@ -316,6 +343,7 @@ export function UnifiedCatalogManager() {
     categoryTag: 'MENS',
     subCategory: '',
     description: '',
+    imageUrl: '',
     isActive: true,
   });
 
@@ -353,6 +381,7 @@ export function UnifiedCatalogManager() {
         categoryTag: editingCloth.categoryTag,
         subCategory: editingCloth.subCategory || 'General',
         description: editingCloth.description || '',
+        imageUrl: editingCloth.imageUrl || '',
         isActive: editingCloth.isActive !== false,
       });
 
@@ -383,6 +412,7 @@ export function UnifiedCatalogManager() {
       categoryLabel: catMatch ? catMatch.name : (editingClothForm.categoryTag === 'MENS' ? "Men's Clothing" : "Women's Clothing"),
       subCategory: editingClothForm.subCategory,
       description: editingClothForm.description,
+      imageUrl: editingClothForm.imageUrl || undefined,
       isActive: editingClothForm.isActive,
     };
 
@@ -730,7 +760,18 @@ export function UnifiedCatalogManager() {
 
               <button
                 type="button"
-                onClick={() => setShowAddModal(true)}
+                onClick={() => {
+                  const defaultCat = activeCategory === 'ALL' ? 'MENS' : activeCategory;
+                  setAddGarmentCategory(defaultCat);
+                  if (defaultCat === 'WOMENS') setAddGarmentSubcategory('Sarees');
+                  else if (defaultCat === 'HOME_TEXTILES') setAddGarmentSubcategory('Bedsheets');
+                  else if (defaultCat === 'KIDS') setAddGarmentSubcategory('Baby Clothing');
+                  else if (defaultCat === 'FOOTWEAR') setAddGarmentSubcategory('Sneakers');
+                  else if (defaultCat === 'ACCESSORIES') setAddGarmentSubcategory('Backpacks');
+                  else setAddGarmentSubcategory('Shirts');
+                  setAddGarmentImageUrl('');
+                  setShowAddModal(true);
+                }}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <Plus className="w-4 h-4" />
@@ -741,7 +782,7 @@ export function UnifiedCatalogManager() {
         </div>
       </div>
 
-      {/* Primary Section Mode Selector: Garments / Categories / Services */}
+      {/* Primary Section Mode Selector: Garments / Categories / Subcategories / Services */}
       <div className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-[var(--border-color)]">
         <button
           type="button"
@@ -769,11 +810,28 @@ export function UnifiedCatalogManager() {
               : 'text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
           }`}
         >
-          <span>🗂️ Categories Photography</span>
+          <span>🗂️ Categories</span>
           <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
             viewMode === 'CATEGORIES' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
           }`}>
             {categories.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setViewMode('SUBCATEGORIES')}
+          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            viewMode === 'SUBCATEGORIES'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
+          }`}
+        >
+          <span>✨ Subcategories</span>
+          <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+            viewMode === 'SUBCATEGORIES' ? 'bg-white/20 text-white' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+          }`}>
+            Dedicated
           </span>
         </button>
 
@@ -996,6 +1054,13 @@ export function UnifiedCatalogManager() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2.5. SUBCATEGORIES MASTER MANAGEMENT VIEW */}
+      {/* ========================================================================= */}
+      {viewMode === 'SUBCATEGORIES' && (
+        <SubcategoriesManager onRefreshCatalog={loadLiveCatalog} />
       )}
 
       {/* ========================================================================= */}
@@ -1559,8 +1624,8 @@ export function UnifiedCatalogManager() {
                 const form = e.target as HTMLFormElement;
                 const name = (form.elements.namedItem('name') as HTMLInputElement).value;
                 const icon = (form.elements.namedItem('icon') as HTMLInputElement).value || '👔';
-                const cat = (form.elements.namedItem('categoryTag') as HTMLSelectElement).value;
-                const sub = (form.elements.namedItem('subCategory') as HTMLInputElement).value || 'General';
+                const cat = addGarmentCategory;
+                const sub = addGarmentSubcategory || 'General';
                 const si = Number((form.elements.namedItem('siPrice') as HTMLInputElement).value) || 20;
                 const dc = Number((form.elements.namedItem('dcPrice') as HTMLInputElement).value) || 80;
                 const wi = Number((form.elements.namedItem('wiPrice') as HTMLInputElement).value) || 49;
@@ -1572,10 +1637,10 @@ export function UnifiedCatalogManager() {
                   name,
                   icon,
                   categoryTag: cat,
-                  categoryLabel: cat === 'MENS' ? "Men's Clothing" : cat === 'WOMENS' ? "Women's Clothing" : cat === 'KIDS' ? "Kids & Baby" : "Home Textiles",
+                  categoryLabel: cat === 'MENS' ? "Men's Clothing" : cat === 'WOMENS' ? "Women's Clothing" : cat === 'KIDS' ? "Kids & Baby" : cat === 'FOOTWEAR' ? 'Footwear' : cat === 'ACCESSORIES' ? 'Accessories' : "Home Textiles",
                   subCategory: sub,
                   description: `${name} laundry care & finishing.`,
-                  imageUrl: getLocalFallbackPhoto(name, cat),
+                  imageUrl: addGarmentImageUrl || getLocalFallbackPhoto(name, cat),
                   isActive: true,
                   sortOrder: 99,
                 };
@@ -1594,12 +1659,12 @@ export function UnifiedCatalogManager() {
                 showToast(`Added ${name} to catalog!`, 'success');
                 setShowAddModal(false);
               }}
-              className="mt-4 space-y-3"
+              className="mt-4 space-y-3.5"
             >
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
                   <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                    Garment Name
+                    Garment Name *
                   </label>
                   <input
                     name="name"
@@ -1620,32 +1685,130 @@ export function UnifiedCatalogManager() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                    Category
+                    Master Category *
                   </label>
                   <select
-                    name="categoryTag"
+                    value={addGarmentCategory}
+                    onChange={(e) => {
+                      const newCat = e.target.value;
+                      setAddGarmentCategory(newCat);
+                      if (newCat === 'WOMENS') setAddGarmentSubcategory('Sarees');
+                      else if (newCat === 'HOME_TEXTILES') setAddGarmentSubcategory('Bedsheets');
+                      else if (newCat === 'KIDS') setAddGarmentSubcategory('Baby Clothing');
+                      else if (newCat === 'FOOTWEAR') setAddGarmentSubcategory('Sneakers');
+                      else if (newCat === 'ACCESSORIES') setAddGarmentSubcategory('Backpacks');
+                      else setAddGarmentSubcategory('Shirts');
+                    }}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="MENS">Men's Wear</option>
-                    <option value="WOMENS">Women's Wear</option>
-                    <option value="KIDS">Kids & Baby</option>
-                    <option value="HOME_TEXTILES">Home Textiles</option>
+                    <option value="MENS">👔 Men&apos;s Wear</option>
+                    <option value="WOMENS">👗 Women&apos;s Wear</option>
+                    <option value="KIDS">🧸 Kids & Baby</option>
+                    <option value="HOME_TEXTILES">🛏️ Home Textiles</option>
+                    <option value="FOOTWEAR">👟 Footwear</option>
+                    <option value="ACCESSORIES">🎒 Accessories</option>
+                    <option value="BULK">🧺 Bulk Laundry</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                    Subcategory
-                  </label>
-                  <input
-                    name="subCategory"
-                    defaultValue="General"
-                    placeholder="e.g. Shirts, Kurtas..."
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  <SubcategorySelectDropdown
+                    categoryTag={addGarmentCategory}
+                    value={addGarmentSubcategory}
+                    onChange={setAddGarmentSubcategory}
+                    required
                   />
+                </div>
+              </div>
+
+              {/* Photo Upload for New Garment */}
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-[var(--border-color)] space-y-2">
+                <input
+                  ref={addGarmentFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setAddGarmentUploadingS3(true);
+                    try {
+                      const compressed = await compressImage(file, 800, 0.8);
+                      const res = await fetch('/api/upload-s3', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          imageBase64: compressed,
+                          fileName: `garment-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`,
+                        }),
+                      });
+                      const data = await res.json();
+                      const s3Url = data.data?.s3Url || compressed;
+                      setAddGarmentImageUrl(s3Url);
+                      showToast('Photo uploaded to AWS S3!', 'success');
+                    } catch (err: any) {
+                      showToast('Failed to upload image: ' + err.message, 'error');
+                    } finally {
+                      setAddGarmentUploadingS3(false);
+                    }
+                  }}
+                />
+
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[var(--heading-color)] flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Garment Photo (AWS S3)</span>
+                  </label>
+                  {addGarmentImageUrl?.includes('s3') && (
+                    <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                      <Check className="w-3 h-3" /> S3 Cloud Active
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 border border-[var(--border-color)] relative">
+                    <img
+                      src={addGarmentImageUrl || getLocalFallbackPhoto('preview', addGarmentCategory)}
+                      alt="Garment Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                    {addGarmentUploadingS3 && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-1">
+                    <button
+                      type="button"
+                      disabled={addGarmentUploadingS3}
+                      onClick={() => addGarmentFileInputRef.current?.click()}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {addGarmentUploadingS3 ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <UploadCloud className="w-3.5 h-3.5" />
+                          <span>Choose Photo</span>
+                        </>
+                      )}
+                    </button>
+                    <p className="text-[10px] text-[var(--text-secondary)]">
+                      Optional. Fallback photography is automatically applied if omitted.
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -1784,7 +1947,7 @@ export function UnifiedCatalogManager() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                      Master Category
+                      Master Category *
                     </label>
                     <select
                       value={editingClothForm.categoryTag}
@@ -1800,15 +1963,122 @@ export function UnifiedCatalogManager() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                      Subcategory
+                    <SubcategorySelectDropdown
+                      value={editingClothForm.subCategory}
+                      categoryTag={editingClothForm.categoryTag}
+                      onChange={(sub) => setEditingClothForm({ ...editingClothForm, subCategory: sub })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Product Photo Upload directly inside Edit Modal */}
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-[var(--border-color)] space-y-2">
+                  <input
+                    ref={editGarmentFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setEditGarmentUploadingS3(true);
+                      try {
+                        const compressed = await compressImage(file, 800, 0.8);
+                        const res = await fetch('/api/upload-s3', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            imageBase64: compressed,
+                            fileName: `garment-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`,
+                          }),
+                        });
+                        const data = await res.json();
+                        const s3Url = data.data?.s3Url || compressed;
+                        setEditingClothForm((prev) => ({ ...prev, imageUrl: s3Url }));
+                        showToast('✓ Photo uploaded to AWS S3 & applied to garment!', 'success');
+                      } catch (err: any) {
+                        showToast('Failed to upload image: ' + err.message, 'error');
+                      } finally {
+                        setEditGarmentUploadingS3(false);
+                      }
+                    }}
+                  />
+
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[var(--heading-color)] flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Product Photography (AWS S3 Cloud)</span>
                     </label>
+                    {editingClothForm.imageUrl?.includes('s3') && (
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                        <Check className="w-3 h-3" /> AWS S3 Synced
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 border border-[var(--border-color)] relative">
+                      <img
+                        src={editingClothForm.imageUrl || getLocalFallbackPhoto(editingClothForm.name, editingClothForm.categoryTag)}
+                        alt={editingClothForm.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                      {editGarmentUploadingS3 && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={editGarmentUploadingS3}
+                          onClick={() => editGarmentFileInputRef.current?.click()}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {editGarmentUploadingS3 ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Uploading to S3...</span>
+                            </>
+                          ) : (
+                            <>
+                              <UploadCloud className="w-3.5 h-3.5" />
+                              <span>Upload New Photo</span>
+                            </>
+                          )}
+                        </button>
+                        {editingClothForm.imageUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setEditingClothForm((prev) => ({ ...prev, imageUrl: '' }))}
+                            className="px-2 py-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg text-xs font-bold cursor-pointer"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-[var(--text-secondary)]">
+                        Uploads directly to AWS S3 & displays in customer mobile app
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Direct URL input */}
+                  <div className="flex items-center gap-1.5 pt-1 border-t border-[var(--border-color)]">
+                    <Link2 className="w-3 h-3 text-slate-400 shrink-0" />
                     <input
                       type="text"
-                      value={editingClothForm.subCategory}
-                      onChange={(e) => setEditingClothForm({ ...editingClothForm, subCategory: e.target.value })}
-                      placeholder="e.g. Ethnic Wear, Daily Wear..."
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={editingClothForm.imageUrl || ''}
+                      onChange={(e) => setEditingClothForm({ ...editingClothForm, imageUrl: e.target.value })}
+                      placeholder="Or paste direct image URL (https://...)"
+                      className="w-full px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-[var(--border-color)] text-[10px] font-mono text-[var(--heading-color)] focus:outline-none"
                     />
                   </div>
                 </div>
