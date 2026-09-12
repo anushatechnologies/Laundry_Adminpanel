@@ -63,6 +63,20 @@ const INITIAL_MASTER_CATEGORIES = [
     imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-special-treatments.jpg', 
     description: 'Mattress, Carpet, Rug & Sofa Cover Deep Extraction.' 
   },
+  { 
+    id: 'FOOTWEAR', 
+    name: 'Footwear & Shoes', 
+    icon: '👟', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg', 
+    description: 'Sneakers, Formal Leather Shoes, Boots, Suede Spa & Sports Shoes.' 
+  },
+  { 
+    id: 'ACCESSORIES', 
+    name: 'Bags & Accessories', 
+    icon: '🎒', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/accessories.jpg', 
+    description: 'Backpacks, Handbags, Suitcases, Trolley Bags & Leather Accessories.' 
+  },
 ];
 
 const INITIAL_SERVICES_MASTERS = [
@@ -267,12 +281,14 @@ export function UnifiedCatalogManager({
             (c) =>
               c.id === rc.id ||
               c.id.toLowerCase().replace(/_/g, '-') === rc.slug ||
-              (c.id === 'MENS' && rc.slug === 'mens-wear') ||
-              (c.id === 'WOMENS' && rc.slug === 'womens-wear') ||
-              (c.id === 'KIDS' && rc.slug === 'kids-wear') ||
-              (c.id === 'HOME_TEXTILES' && rc.slug === 'home-textiles') ||
-              (c.id === 'BRIDAL' && rc.slug === 'bridal-wear') ||
-              (c.id === 'SPECIAL' && rc.slug === 'special-cleaning')
+              (c.id === 'MENS' && (rc.slug === 'mens-wear' || rc.id === 'cat-1')) ||
+              (c.id === 'WOMENS' && (rc.slug === 'womens-wear' || rc.id === 'cat-2')) ||
+              (c.id === 'KIDS' && (rc.slug === 'kids-wear' || rc.id === 'cat-3')) ||
+              (c.id === 'HOME_TEXTILES' && (rc.slug === 'home-textiles' || rc.id === 'cat-4')) ||
+              (c.id === 'FOOTWEAR' && (rc.slug === 'footwear' || rc.slug === 'shoes' || rc.id === 'cat-5')) ||
+              (c.id === 'ACCESSORIES' && (rc.slug === 'bags-accessories' || rc.slug === 'accessories' || rc.id === 'cat-6')) ||
+              (c.id === 'BRIDAL' && (rc.slug === 'bridal-wear' || rc.slug === 'wedding-wear' || rc.id === 'cat-7')) ||
+              (c.id === 'SPECIAL' && (rc.slug === 'special-cleaning' || rc.id === 'cat-8'))
           );
           return {
             id: localMatch?.id || rc.id,
