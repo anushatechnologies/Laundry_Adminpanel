@@ -36,6 +36,7 @@ import {
 } from '@/types';
 import { db } from '@/lib/db';
 import { adminApi, getAdminCatalog, getAdminCoupons, getAdminOrders, getAdminPincodes, getAdminPlans, getAdminSlots } from '@/lib/api';
+import { isServiceAllowedForCategory } from '@/lib/catalogCategoryServices';
 
 interface UserProfile {
   id: string;
@@ -298,7 +299,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWallet(db.getWallet());
     setClothTypes(db.getClothTypes());
     setServiceMasters(db.getServiceMasters());
-    setPriceMatrix(db.getPriceMatrix());
+    setPriceMatrix(db.getPriceMatrix().filter((p) => isServiceAllowedForCategory(p.categoryTag, p.serviceId)));
     setBulkPricing(db.getBulkPricing());
     setPricingSettings(db.getPricingSettings());
 
@@ -354,18 +355,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const localMasterPrices = db.getPriceMatrix();
         const remotePrices = Array.isArray(catalog.priceMatrix) ? catalog.priceMatrix : (catalog.data?.priceMatrix || []);
         if (Array.isArray(remotePrices) && remotePrices.length > 0) {
-          if (remotePrices.length < localMasterPrices.length) {
-            const remotePriceMap = new Map(remotePrices.map((p: any) => [`${p.clothTypeId}-${p.serviceId}`, p]));
-            const mergedPrices = localMasterPrices.map((p) => {
-              const r = remotePriceMap.get(`${p.clothTypeId}-${p.serviceId}`);
-              return r ? { ...p, ...r } : p;
-            });
+          const sanitizedRemote = remotePrices.filter((p: any) => isServiceAllowedForCategory(p.categoryTag, p.serviceId));
+          if (sanitizedRemote.length < localMasterPrices.length) {
+            const remotePriceMap = new Map(sanitizedRemote.map((p: any) => [`${p.clothTypeId}-${p.serviceId}`, p]));
+            const mergedPrices = localMasterPrices
+              .filter((p) => isServiceAllowedForCategory(p.categoryTag, p.serviceId))
+              .map((p) => {
+                const r = remotePriceMap.get(`${p.clothTypeId}-${p.serviceId}`);
+                return r ? { ...p, ...r } : p;
+              });
             setPriceMatrix(mergedPrices);
           } else {
-            setPriceMatrix(remotePrices);
+            setPriceMatrix(sanitizedRemote);
           }
         } else {
-          setPriceMatrix(localMasterPrices);
+          setPriceMatrix(localMasterPrices.filter((p) => isServiceAllowedForCategory(p.categoryTag, p.serviceId)));
         }
 
         if (catalog.bulkPricing && Array.isArray(catalog.bulkPricing) && catalog.bulkPricing.length > 0) {

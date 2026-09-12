@@ -19,6 +19,11 @@ import { CategorySubcategoryModal } from './CategorySubcategoryModal';
 import { getLocalFallbackPhoto } from '@/components/common/GarmentImage';
 import { SubcategorySelectDropdown } from './SubcategorySelectDropdown';
 import { SubcategoriesManager } from './SubcategoriesManager';
+import { 
+  isServiceAllowedForCategory, 
+  getCategoryServiceFocusOptions, 
+  CATEGORY_SERVICES_RULES 
+} from '@/lib/catalogCategoryServices';
 
 const INITIAL_MASTER_CATEGORIES = [
   { 
@@ -328,8 +333,19 @@ export function UnifiedCatalogManager({
   // Filter States for Garments View
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [activeSubcategory, setActiveSubcategory] = useState<string>('ALL');
-  const [activeServiceFocus, setActiveServiceFocus] = useState<string>('srv-m-dry-clean');
+  const [activeServiceFocus, setActiveServiceFocus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const serviceFocusOptions = useMemo(
+    () => getCategoryServiceFocusOptions(activeCategory),
+    [activeCategory]
+  );
+
+  useEffect(() => {
+    if (activeServiceFocus !== 'ALL' && !serviceFocusOptions.some((o) => o.id === activeServiceFocus)) {
+      setActiveServiceFocus('ALL');
+    }
+  }, [activeCategory, serviceFocusOptions, activeServiceFocus]);
 
   // Modals & Uploading State
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -357,6 +373,11 @@ export function UnifiedCatalogManager({
   const [addGarmentImageUrl, setAddGarmentImageUrl] = useState('');
   const [addGarmentUploadingS3, setAddGarmentUploadingS3] = useState(false);
   const addGarmentFileInputRef = useRef<HTMLInputElement>(null);
+
+  const addCategoryRule = useMemo(() => {
+    const normCat = (addGarmentCategory || 'MENS').toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    return CATEGORY_SERVICES_RULES[normCat] || CATEGORY_SERVICES_RULES.MENS;
+  }, [addGarmentCategory]);
 
   // Edit Garment & Manage its Services Modal
   const [editingCloth, setEditingCloth] = useState<ClothType | null>(null);
@@ -423,12 +444,15 @@ export function UnifiedCatalogManager({
           .filter((p) => p.clothTypeId === editingCloth.id && p.isActive !== false && Number(p.price) > 0)
           .map((p) => p.serviceId)
       );
-      const unassigned = servicesList.find((s) => !existingIds.has(s.id));
+      const unassigned = servicesList.find(
+        (s) => !existingIds.has(s.id) && isServiceAllowedForCategory(editingCloth.categoryTag, s.id)
+      );
+      const defaultService = unassigned || servicesList.find((s) => isServiceAllowedForCategory(editingCloth.categoryTag, s.id));
       setNewServiceToAdd({
-        serviceId: unassigned ? unassigned.id : servicesList[0]?.id || 'srv-m-starch',
-        price: 45,
-        expressPrice: 70,
-        turnaroundHours: unassigned?.turnaroundHours || 24,
+        serviceId: defaultService?.id || 'srv-m-dry-clean',
+        price: defaultService?.id === 'srv-m-spa' ? 250 : 50,
+        expressPrice: defaultService?.id === 'srv-m-spa' ? 350 : 75,
+        turnaroundHours: defaultService?.turnaroundHours || 24,
       });
     }
   }, [editingCloth, priceMatrix, servicesList]);
@@ -457,6 +481,11 @@ export function UnifiedCatalogManager({
   const handleAddServiceToCloth = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCloth || !newServiceToAdd.serviceId) return;
+
+    if (!isServiceAllowedForCategory(editingCloth.categoryTag, newServiceToAdd.serviceId)) {
+      showToast(`This service is not available for ${editingCloth.categoryTag} items.`, 'error');
+      return;
+    }
 
     const srvMeta = getServiceMeta(newServiceToAdd.serviceId);
     const newPriceItem: ServicePriceItem = {
@@ -1240,7 +1269,7 @@ export function UnifiedCatalogManager({
             </div>
 
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-              {SERVICE_FOCUS_OPTIONS.map((srv) => {
+              {serviceFocusOptions.map((srv) => {
                 const isSelected = activeServiceFocus === srv.id;
                 return (
                   <button
@@ -1273,9 +1302,12 @@ export function UnifiedCatalogManager({
             {filteredClothes.map((cloth) => {
               const isUploadingThis = uploadingId === cloth.id;
 
-              // Gather only services that are ACTUALLY configured for this cloth in the database
+              // Gather only services that are ACTUALLY configured for this cloth in the database AND allowed for this category
               const configuredForCloth = priceMatrix.filter(
-                (p) => p.clothTypeId === cloth.id && p.isActive !== false && Number(p.price) > 0
+                (p) => p.clothTypeId === cloth.id && 
+                       p.isActive !== false && 
+                       Number(p.price) > 0 &&
+                       isServiceAllowedForCategory(cloth.categoryTag, p.serviceId)
               );
 
               let clothServices: Array<{
@@ -1299,25 +1331,15 @@ export function UnifiedCatalogManager({
                 });
               } else {
                 // If garment has no service prices saved yet, provide category-specific defaults
-                const isShoeOrBag = cloth.categoryTag === 'FOOTWEAR' || cloth.categoryTag === 'ACCESSORIES';
-                const defaultIds = isShoeOrBag
-                  ? ['srv-m-spa', 'srv-m-dry-clean']
-                  : ['srv-m-dry-clean', 'srv-m-steam-iron', 'srv-m-wash-iron', 'srv-m-wash-fold'];
-
-                clothServices = defaultIds.map((serviceId) => {
-                  const meta = getServiceMeta(serviceId);
-                  let defaultPrice = 50;
-                  if (serviceId === 'srv-m-spa') defaultPrice = 250;
-                  else if (serviceId === 'srv-m-dry-clean') defaultPrice = 80;
-                  else if (serviceId === 'srv-m-steam-iron') defaultPrice = 20;
-                  else if (serviceId === 'srv-m-wash-iron') defaultPrice = 49;
-                  else if (serviceId === 'srv-m-wash-fold') defaultPrice = 35;
-
+                const normCat = (cloth.categoryTag || '').toUpperCase().replace(/[^A-Z0-9]/g, '_');
+                const rule = CATEGORY_SERVICES_RULES[normCat] || CATEGORY_SERVICES_RULES.MENS;
+                clothServices = rule.defaultServices.map((d) => {
+                  const meta = getServiceMeta(d.serviceId);
                   return {
-                    serviceId,
+                    serviceId: d.serviceId,
                     name: meta.name,
                     icon: meta.icon,
-                    price: defaultPrice,
+                    price: d.defaultPrice,
                   };
                 });
               }
@@ -1767,12 +1789,24 @@ export function UnifiedCatalogManager({
 
                 addClothType(newCloth);
 
-                const newPriceItems: ServicePriceItem[] = [
-                  { id: `pr-${newId}-si`, clothTypeId: newId, clothName: name, clothIcon: icon, categoryTag: cat, serviceId: 'srv-m-steam-iron', serviceName: 'Iron Only (Steam Press)', price: si, expressPrice: Math.round(si * 1.5), turnaroundHours: 18, isActive: true },
-                  { id: `pr-${newId}-dc`, clothTypeId: newId, clothName: name, clothIcon: icon, categoryTag: cat, serviceId: 'srv-m-dry-clean', serviceName: 'Dry Cleaning', price: dc, expressPrice: Math.round(dc * 1.5), turnaroundHours: 48, isActive: true },
-                  { id: `pr-${newId}-wi`, clothTypeId: newId, clothName: name, clothIcon: icon, categoryTag: cat, serviceId: 'srv-m-wash-iron', serviceName: 'Wash & Steam Iron', price: wi, expressPrice: Math.round(wi * 1.5), turnaroundHours: 36, isActive: true },
-                  { id: `pr-${newId}-wf`, clothTypeId: newId, clothName: name, clothIcon: icon, categoryTag: cat, serviceId: 'srv-m-wash-fold', serviceName: 'Wash & Fold', price: wf, expressPrice: Math.round(wf * 1.5), turnaroundHours: 24, isActive: true },
-                ];
+                const newPriceItems: ServicePriceItem[] = addCategoryRule.defaultServices.map((defSrv) => {
+                  const inputVal = (form.elements.namedItem(`srvPrice_${defSrv.serviceId}`) as HTMLInputElement)?.value;
+                  const price = Number(inputVal) || defSrv.defaultPrice;
+                  return {
+                    id: `pr-${newId}-${defSrv.serviceId}`,
+                    clothTypeId: newId,
+                    clothName: name,
+                    clothIcon: icon,
+                    categoryTag: cat,
+                    serviceId: defSrv.serviceId,
+                    serviceName: defSrv.name,
+                    price,
+                    expressPrice: Math.round(price * 1.5),
+                    turnaroundHours: defSrv.serviceId === 'srv-m-express' ? 12 : defSrv.serviceId === 'srv-m-spa' ? 48 : 24,
+                    isActive: true,
+                    isAvailable: true,
+                  };
+                });
 
                 newPriceItems.forEach((p) => upsertPriceItem(p));
 
@@ -1934,45 +1968,22 @@ export function UnifiedCatalogManager({
 
               <div>
                 <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                  Default Service Prices (₹)
+                  Default Rates for {addGarmentCategory === 'FOOTWEAR' ? 'Footwear' : addGarmentCategory === 'ACCESSORIES' ? 'Bags & Accessories' : 'Garment'} (₹)
                 </label>
-                <div className="grid grid-cols-4 gap-2">
-                  <div>
-                    <span className="text-[10px] text-[var(--text-secondary)] block">Iron Only</span>
-                    <input
-                      name="siPrice"
-                      type="number"
-                      defaultValue={20}
-                      className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-center"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-[var(--text-secondary)] block">Wash & Fold</span>
-                    <input
-                      name="wfPrice"
-                      type="number"
-                      defaultValue={35}
-                      className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-center"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-[var(--text-secondary)] block">Wash & Iron</span>
-                    <input
-                      name="wiPrice"
-                      type="number"
-                      defaultValue={49}
-                      className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-center"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-[var(--text-secondary)] block">Dry Clean</span>
-                    <input
-                      name="dcPrice"
-                      type="number"
-                      defaultValue={80}
-                      className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-center"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {addCategoryRule.defaultServices.map((defSrv) => (
+                    <div key={defSrv.serviceId}>
+                      <span className="text-[10px] text-[var(--text-secondary)] block truncate font-medium" title={defSrv.name}>
+                        {defSrv.name}
+                      </span>
+                      <input
+                        name={`srvPrice_${defSrv.serviceId}`}
+                        type="number"
+                        defaultValue={defSrv.defaultPrice}
+                        className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-center"
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -2245,14 +2256,14 @@ export function UnifiedCatalogManager({
                     <span>2. Services Linked to this Product (Appears in Mobile App)</span>
                   </div>
                   <span className="text-[11px] text-slate-500 font-medium">
-                    {priceMatrix.filter((p) => p.clothTypeId === editingCloth.id && p.isActive !== false && Number(p.price) > 0).length} services active
+                    {priceMatrix.filter((p) => p.clothTypeId === editingCloth.id && p.isActive !== false && Number(p.price) > 0 && isServiceAllowedForCategory(editingCloth.categoryTag, p.serviceId)).length} services active
                   </span>
                 </div>
 
                 {/* List of current services */}
                 <div className="space-y-2">
                   {priceMatrix
-                    .filter((p) => p.clothTypeId === editingCloth.id && p.isActive !== false && Number(p.price) > 0)
+                    .filter((p) => p.clothTypeId === editingCloth.id && p.isActive !== false && Number(p.price) > 0 && isServiceAllowedForCategory(editingCloth.categoryTag, p.serviceId))
                     .map((item) => {
                       const meta = getServiceMeta(item.serviceId);
                       return (
@@ -2325,7 +2336,7 @@ export function UnifiedCatalogManager({
                       <span>Add Another Service to {editingCloth.name}</span>
                     </span>
                     <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">
-                      (e.g. Starch, Saree Polishing, Express...)
+                      (Category: {editingCloth.categoryTag})
                     </span>
                   </div>
 
@@ -2347,11 +2358,13 @@ export function UnifiedCatalogManager({
                         }}
                         className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none"
                       >
-                        {servicesList.map((srv) => (
-                          <option key={srv.id} value={srv.id}>
-                            {srv.icon} {srv.name}
-                          </option>
-                        ))}
+                        {servicesList
+                          .filter((srv) => isServiceAllowedForCategory(editingCloth.categoryTag, srv.id))
+                          .map((srv) => (
+                            <option key={srv.id} value={srv.id}>
+                              {srv.icon} {srv.name}
+                            </option>
+                          ))}
                       </select>
                     </div>
 
