@@ -60,6 +60,7 @@ const currencyFormatter = new Intl.NumberFormat('en-IN', {
 });
 
 const dateFormatter = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata',
   day: '2-digit',
   month: 'short',
   year: 'numeric',
@@ -70,7 +71,12 @@ function getReportTab(value: string | null): ReportTab {
 }
 
 function getDate(value?: string) {
-  const date = value ? new Date(value) : null;
+  if (!value) return null;
+  let str = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/.test(str)) {
+    str = str.replace(' ', 'T') + 'Z';
+  }
+  const date = new Date(str);
   return date && !Number.isNaN(date.getTime()) ? date : null;
 }
 

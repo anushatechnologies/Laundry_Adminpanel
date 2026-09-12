@@ -1,6 +1,6 @@
 /**
  * Official AWS S3 public photos for Categories and Subcategories.
- * Bucket: laundry-storage-2026 (ap-south-1).
+ * Bucket: anjanilaundry (ap-south-2).
  * Every image is authentic, unique, and verified.
  */
 
@@ -38,7 +38,7 @@ export const SUBCATEGORY_DEFAULT_PHOTOS: Record<string, string> = {
   'jeans & denim': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-jeans.jpg',
   jeans: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-jeans.jpg',
   denim: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-jeans.jpg',
-  'ethnic wear': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-ethnic.jpg',
+  'ethnic wear': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-sherwani.jpg',
   'suits & blazers': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-suits.jpg',
   suits: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-suits.jpg',
   blazers: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-suits.jpg',
