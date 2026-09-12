@@ -22,6 +22,10 @@ import {
   Video,
   Film,
   Play,
+  Smartphone,
+  Monitor,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import {
   getAdminBanners,
@@ -72,6 +76,11 @@ export default function AdminBannersPage() {
   const [videoInputMode, setVideoInputMode] = useState<'FILE' | 'URL'>('FILE');
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
+  // Customer Mobile App Simulator State
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [previewDevice, setPreviewDevice] = useState<'MOBILE' | 'DESKTOP'>('MOBILE');
+  const [isAutoCycling, setIsAutoCycling] = useState(true);
+
   // Form State
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
@@ -100,6 +109,16 @@ export default function AdminBannersPage() {
   useEffect(() => {
     fetchBanners();
   }, []);
+
+  // Auto-cycle through active banners in the Customer App Simulator
+  useEffect(() => {
+    const activeBanners = banners.filter((b) => b.isActive);
+    if (!isAutoCycling || activeBanners.length <= 1) return;
+    const interval = setInterval(() => {
+      setPreviewIndex((prev) => (prev + 1) % activeBanners.length);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [banners, isAutoCycling]);
 
   const openCreateModal = () => {
     setEditingBanner(null);
@@ -304,7 +323,8 @@ export default function AdminBannersPage() {
     }
   };
 
-  const activeCount = banners.filter((b) => b.isActive).length;
+  const activeBannersList = banners.filter((b) => b.isActive);
+  const activeCount = activeBannersList.length;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -368,6 +388,241 @@ export default function AdminBannersPage() {
           </p>
         </div>
       </div>
+
+      {/* Customer Mobile App Live Banner Simulator */}
+      {activeBannersList.length > 0 && (
+        <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] overflow-hidden shadow-xs">
+          <div className="p-4 border-b border-[var(--border-color)] bg-[var(--bg-hover)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                <Smartphone className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-black text-[var(--text-primary)] flex items-center gap-2">
+                  Customer App Live Banner Simulator
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    Live Mobile Carousel
+                  </span>
+                </h2>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  Preview how customers experience video and image promotions in real time on the LaundryFresh Customer App.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center bg-[var(--bg-page)] rounded-lg p-0.5 border border-[var(--border-color)]">
+                <button
+                  type="button"
+                  onClick={() => setPreviewDevice('MOBILE')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                    previewDevice === 'MOBILE'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  <Smartphone className="w-3 h-3" /> Mobile View
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDevice('DESKTOP')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                    previewDevice === 'DESKTOP'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  <Monitor className="w-3 h-3" /> Wide View
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAutoCycling(!isAutoCycling)}
+                className={`px-2.5 py-1 rounded-lg border border-[var(--border-color)] text-[11px] font-bold transition-all ${
+                  isAutoCycling
+                    ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+                }`}
+                title="Pause / Resume auto cycle"
+              >
+                {isAutoCycling ? '⏸ Auto-Cycle ON' : '▶ Paused'}
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 flex flex-col lg:flex-row items-center justify-center gap-8 bg-gradient-to-b from-[var(--bg-card)] to-[var(--bg-page)]">
+            {/* The Device Mockup Frame */}
+            <div className={`transition-all duration-300 ${
+              previewDevice === 'MOBILE' ? 'w-full max-w-[380px]' : 'w-full max-w-[720px]'
+            }`}>
+              <div className="relative rounded-[2.5rem] p-3.5 bg-slate-900 shadow-2xl border-4 border-slate-800">
+                {/* Mobile Top Speaker & Dynamic Island */}
+                {previewDevice === 'MOBILE' && (
+                  <div className="flex justify-between items-center px-4 py-1 text-[10px] font-semibold text-slate-400 mb-2">
+                    <span>9:41</span>
+                    <div className="w-16 h-3 bg-black rounded-full mx-auto" />
+                    <span>5G • 100%</span>
+                  </div>
+                )}
+
+                {/* Customer App Content Mockup Header */}
+                <div className="bg-slate-950 rounded-xl p-2.5 mb-2.5 flex items-center justify-between border border-slate-800/80">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-black">
+                      🧺
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black text-white leading-none">LaundryFresh</p>
+                      <p className="text-[9px] text-slate-400">Doorstep Express Care</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                    Customer App View
+                  </span>
+                </div>
+
+                {/* Hero Banner Carousel Component (Exact Customer Appearance) */}
+                <div className="relative rounded-2xl overflow-hidden shadow-lg border border-slate-800/80 bg-slate-950">
+                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-black">
+                    {activeBannersList[previewIndex]?.mediaType === 'VIDEO' &&
+                    (activeBannersList[previewIndex]?.videoUrl || activeBannersList[previewIndex]?.imageUrl?.endsWith('.mp4')) ? (
+                      <video
+                        key={activeBannersList[previewIndex]?.id}
+                        src={activeBannersList[previewIndex]?.videoUrl || activeBannersList[previewIndex]?.imageUrl}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        key={activeBannersList[previewIndex]?.id}
+                        src={activeBannersList[previewIndex]?.imageUrl}
+                        alt={activeBannersList[previewIndex]?.title}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+
+                    {/* Media Type Badge */}
+                    {activeBannersList[previewIndex]?.mediaType === 'VIDEO' && (
+                      <div className="absolute top-2.5 left-2.5">
+                        <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-purple-600/90 backdrop-blur-xs text-white flex items-center gap-1 shadow-md border border-white/20">
+                          <Film className="w-2.5 h-2.5" /> VIDEO BANNER
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Carousel Arrow Controls */}
+                    <button
+                      type="button"
+                      onClick={() => setPreviewIndex((prev) => (prev - 1 + activeBannersList.length) % activeBannersList.length)}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center transition-all shadow-md backdrop-blur-xs"
+                      title="Previous banner"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewIndex((prev) => (prev + 1) % activeBannersList.length)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center transition-all shadow-md backdrop-blur-xs"
+                      title="Next banner"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Pagination Indicators (Exact Mobile Customer Style) */}
+                  <div className="py-2.5 flex items-center justify-center gap-1.5 bg-slate-950">
+                    {activeBannersList.map((b, i) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setPreviewIndex(i)}
+                        className={`transition-all duration-300 rounded-full ${
+                          i === previewIndex
+                            ? 'w-5 h-1.5 bg-[#FF6B0B]'
+                            : 'w-1.5 h-1.5 bg-slate-700 hover:bg-slate-500'
+                        }`}
+                        title={`Slide ${i + 1}: ${b.title}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Current Banner Details & Inspector */}
+            {activeBannersList[previewIndex] && (
+              <div className="w-full max-w-sm space-y-3">
+                <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                      Slide #{previewIndex + 1} of {activeBannersList.length}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live on Customer App
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-black text-[var(--text-primary)] leading-snug">
+                      {activeBannersList[previewIndex]?.title}
+                    </h3>
+                    {activeBannersList[previewIndex]?.subtitle && (
+                      <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                        {activeBannersList[previewIndex]?.subtitle}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 text-xs text-[var(--text-secondary)]">
+                    <div className="flex items-center justify-between">
+                      <span>Format:</span>
+                      <span className="font-bold text-[var(--text-primary)] flex items-center gap-1">
+                        {activeBannersList[previewIndex]?.mediaType === 'VIDEO' ? '🎥 Autoplay Looping Video (MP4)' : '🖼️ Static Photo'}
+                      </span>
+                    </div>
+                    {activeBannersList[previewIndex]?.couponCode && (
+                      <div className="flex items-center justify-between">
+                        <span>Coupon Attached:</span>
+                        <span className="font-bold text-amber-500 flex items-center gap-1">
+                          <Tag className="w-3 h-3" /> {activeBannersList[previewIndex]?.couponCode} ({activeBannersList[previewIndex]?.discountPercent}% OFF)
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span>Action on Tap:</span>
+                      <span className="font-bold text-[var(--text-primary)]">
+                        {activeBannersList[previewIndex]?.actionType} {activeBannersList[previewIndex]?.actionTarget ? `(${activeBannersList[previewIndex]?.actionTarget})` : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2.5 border-t border-[var(--border-color)] flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(activeBannersList[previewIndex])}
+                      className="flex-1 py-1.5 px-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" /> Edit Banner
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggle(activeBannersList[previewIndex].id)}
+                      className="py-1.5 px-3 rounded-lg border border-[var(--border-color)] text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-all"
+                    >
+                      Deactivate
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
 
       {/* Banners Grid */}
       {loading ? (
