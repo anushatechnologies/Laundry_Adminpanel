@@ -7076,6 +7076,14 @@ class LaundryDatabase {
     }
   }
 
+  deletePriceItem(id: string): boolean {
+    const idx = this.priceMatrix.findIndex((p) => p.id === id);
+    if (idx === -1) return false;
+    this.priceMatrix.splice(idx, 1);
+    this.persist();
+    return true;
+  }
+
   // --- Reset to Complete Master 54-Garment Catalog ---
   public resetToMasterCatalog(): { clothTypes: ClothType[]; serviceMasters: ServiceMaster[]; priceMatrix: ServicePriceItem[] } {
     if (typeof window !== 'undefined') {

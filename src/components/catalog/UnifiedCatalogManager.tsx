@@ -228,6 +228,7 @@ export function UnifiedCatalogManager({
     updateClothType,
     deleteClothType,
     upsertPriceItem,
+    deletePriceItem,
     showToast 
   } = useApp();
 
@@ -477,19 +478,14 @@ export function UnifiedCatalogManager({
     showToast(`Added ${srvMeta.name} (₹${newPriceItem.price}) to ${editingCloth.name}!`, 'success');
   };
 
-  const handleRemoveServiceFromCloth = (priceItemId: string, serviceName: string) => {
-    if (!editingCloth) return;
-    upsertPriceItem({
-      id: priceItemId,
-      clothTypeId: editingCloth.id,
-      clothName: editingCloth.name,
-      serviceId: '',
-      serviceName: '',
-      price: 0,
-      isActive: false,
-      isAvailable: false,
-    } as any);
-    showToast(`Removed ${serviceName} from ${editingCloth.name}.`, 'info');
+  const handleRemoveServiceFromCloth = async (priceItemId: string, serviceName: string, clothItem?: ClothType) => {
+    const targetCloth = clothItem || editingCloth;
+    if (priceItemId) {
+      await deletePriceItem(priceItemId);
+    }
+    if (targetCloth) {
+      showToast(`Removed ${serviceName} from ${targetCloth.name}.`, 'info');
+    }
   };
 
   const handleDeleteCloth = () => {
@@ -1277,32 +1273,54 @@ export function UnifiedCatalogManager({
             {filteredClothes.map((cloth) => {
               const isUploadingThis = uploadingId === cloth.id;
 
-              // Gather all services configured for this cloth
+              // Gather only services that are ACTUALLY configured for this cloth in the database
               const configuredForCloth = priceMatrix.filter(
                 (p) => p.clothTypeId === cloth.id && p.isActive !== false && Number(p.price) > 0
               );
-              const coreServiceIds = ['srv-m-dry-clean', 'srv-m-steam-iron', 'srv-m-wash-iron', 'srv-m-wash-fold'];
-              const allServiceIds = Array.from(
-                new Set([...coreServiceIds, ...configuredForCloth.map((p) => p.serviceId)])
-              );
 
-              const clothServices = allServiceIds.map((serviceId) => {
-                const priceItem = priceMatrix.find((p) => p.clothTypeId === cloth.id && p.serviceId === serviceId);
-                const meta = getServiceMeta(serviceId);
-                let defaultPrice = 50;
-                if (serviceId === 'srv-m-dry-clean') defaultPrice = 80;
-                else if (serviceId === 'srv-m-steam-iron') defaultPrice = 20;
-                else if (serviceId === 'srv-m-wash-iron') defaultPrice = 49;
-                else if (serviceId === 'srv-m-wash-fold') defaultPrice = 35;
-                else if (serviceId === 'srv-m-starch') defaultPrice = 30;
+              let clothServices: Array<{
+                serviceId: string;
+                name: string;
+                icon: string;
+                price: number;
+                priceItemId?: string;
+              }> = [];
 
-                return {
-                  serviceId,
-                  name: meta.name,
-                  icon: meta.icon,
-                  price: priceItem?.price ?? defaultPrice,
-                };
-              });
+              if (configuredForCloth.length > 0) {
+                clothServices = configuredForCloth.map((p) => {
+                  const meta = getServiceMeta(p.serviceId);
+                  return {
+                    serviceId: p.serviceId,
+                    name: meta.name,
+                    icon: meta.icon,
+                    price: Number(p.price),
+                    priceItemId: p.id,
+                  };
+                });
+              } else {
+                // If garment has no service prices saved yet, provide category-specific defaults
+                const isShoeOrBag = cloth.categoryTag === 'FOOTWEAR' || cloth.categoryTag === 'ACCESSORIES';
+                const defaultIds = isShoeOrBag
+                  ? ['srv-m-spa', 'srv-m-dry-clean']
+                  : ['srv-m-dry-clean', 'srv-m-steam-iron', 'srv-m-wash-iron', 'srv-m-wash-fold'];
+
+                clothServices = defaultIds.map((serviceId) => {
+                  const meta = getServiceMeta(serviceId);
+                  let defaultPrice = 50;
+                  if (serviceId === 'srv-m-spa') defaultPrice = 250;
+                  else if (serviceId === 'srv-m-dry-clean') defaultPrice = 80;
+                  else if (serviceId === 'srv-m-steam-iron') defaultPrice = 20;
+                  else if (serviceId === 'srv-m-wash-iron') defaultPrice = 49;
+                  else if (serviceId === 'srv-m-wash-fold') defaultPrice = 35;
+
+                  return {
+                    serviceId,
+                    name: meta.name,
+                    icon: meta.icon,
+                    price: defaultPrice,
+                  };
+                });
+              }
 
               return (
                 <div
@@ -1377,6 +1395,19 @@ export function UnifiedCatalogManager({
                           <button
                             type="button"
                             onClick={() => {
+                              if (window.confirm(`Are you sure you want to permanently delete "${cloth.name}"?`)) {
+                                deleteClothType(cloth.id);
+                              }
+                            }}
+                            className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-all cursor-pointer backdrop-blur-xs flex items-center gap-1 text-xs font-bold shadow-xs"
+                            title={`Delete ${cloth.name}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
                               setEditingUrlTarget({ 
                                 type: 'CLOTH', 
                                 id: cloth.id, 
@@ -1413,15 +1444,30 @@ export function UnifiedCatalogManager({
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => setEditingCloth(cloth)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/80 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0"
-                          title="Edit Garment Details & Services"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                          <span>Edit</span>
-                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setEditingCloth(cloth)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/80 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                            title="Edit Garment Details & Services"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to permanently delete "${cloth.name}"? This removes the garment and its rates from the catalog.`)) {
+                                deleteClothType(cloth.id);
+                              }
+                            }}
+                            className="p-1 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-rose-200 dark:border-rose-900/60 cursor-pointer transition-all shadow-2xs"
+                            title={`Delete ${cloth.name}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
                       {cloth.description && (
@@ -1452,23 +1498,43 @@ export function UnifiedCatalogManager({
 
                     <div className="grid grid-cols-2 gap-1.5">
                       {clothServices.map((srv) => (
-                        <button
+                        <div
                           key={srv.serviceId}
-                          type="button"
-                          onClick={() => handleOpenPriceModal(cloth, srv.serviceId)}
-                          className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                          className={`group/srv p-1.5 px-2 rounded-xl border text-left transition-all flex items-center justify-between ${
                             activeServiceFocus === srv.serviceId
                               ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                               : 'bg-white dark:bg-slate-900 border-[var(--border-color)] hover:border-blue-300'
                           }`}
-                          title={`Click to edit ${srv.name} rate for ${cloth.name}`}
                         >
-                          <span className="text-[11px] font-bold flex items-center gap-1 truncate pr-1">
-                            <span>{srv.icon}</span>
-                            <span className="truncate">{srv.name}</span>
-                          </span>
-                          <span className="text-xs font-black shrink-0">₹{srv.price}</span>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPriceModal(cloth, srv.serviceId)}
+                            className="flex items-center justify-between flex-1 min-w-0 pr-1 cursor-pointer text-left"
+                            title={`Click to edit ${srv.name} rate for ${cloth.name}`}
+                          >
+                            <span className="text-[11px] font-bold flex items-center gap-1 truncate pr-1">
+                              <span>{srv.icon}</span>
+                              <span className="truncate">{srv.name}</span>
+                            </span>
+                            <span className="text-xs font-black shrink-0">₹{srv.price}</span>
+                          </button>
+
+                          {srv.priceItemId && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`Remove ${srv.name} service from ${cloth.name}?`)) {
+                                  handleRemoveServiceFromCloth(srv.priceItemId!, srv.name, cloth);
+                                }
+                              }}
+                              className="p-0.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-md opacity-0 group-hover/srv:opacity-100 transition-opacity cursor-pointer shrink-0 ml-0.5"
+                              title={`Remove ${srv.name}`}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>

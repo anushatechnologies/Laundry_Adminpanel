@@ -151,6 +151,7 @@ interface AppContextType {
   deleteClothType: (id: string) => void;
   updatePriceItem: (id: string, data: Partial<ServicePriceItem>) => void;
   upsertPriceItem: (data: ServicePriceItem) => void;
+  deletePriceItem: (id: string) => Promise<void>;
   addBulkPrice: (item: BulkPricingItem) => void;
   updateBulkPrice: (id: string, updates: Partial<BulkPricingItem>) => void;
   deleteBulkPrice: (id: string) => void;
@@ -849,6 +850,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const deletePriceItem = async (id: string) => {
+    try {
+      await adminApi(`/services/pricing-matrix/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+    } catch {}
+    db.deletePriceItem(id);
+    setPriceMatrix([...db.getPriceMatrix()]);
+    showToast('Service removed from product.', 'info');
+  };
+
   const updatePricingSettings = async (settings: Partial<PricingSettings>) => {
     try {
       const updated = await adminApi<PricingSettings>('/services/settings', {
@@ -1371,6 +1383,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteClothType,
         updatePriceItem,
         upsertPriceItem,
+        deletePriceItem,
         addBulkPrice: (item: BulkPricingItem) => {
           db.addBulkPrice(item);
           setBulkPricing([...db.getBulkPricing()]);
