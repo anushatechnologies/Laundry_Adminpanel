@@ -19,6 +19,9 @@ import {
   Percent,
   Upload,
   Link as LinkIcon,
+  Video,
+  Film,
+  Play,
 } from 'lucide-react';
 import {
   getAdminBanners,
@@ -64,7 +67,9 @@ export default function AdminBannersPage() {
   const [uploadingS3, setUploadingS3] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+  const [mediaType, setMediaType] = useState<'IMAGE' | 'VIDEO'>('IMAGE');
   const [imageInputMode, setImageInputMode] = useState<'FILE' | 'URL'>('FILE');
+  const [videoInputMode, setVideoInputMode] = useState<'FILE' | 'URL'>('FILE');
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
   // Form State
@@ -72,6 +77,7 @@ export default function AdminBannersPage() {
   const [subtitle, setSubtitle] = useState('');
   const [badgeText, setBadgeText] = useState('SPECIAL OFFER');
   const [imageUrl, setImageUrl] = useState(PRESET_IMAGES[0].url);
+  const [videoUrl, setVideoUrl] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [discountPercent, setDiscountPercent] = useState<number>(0);
   const [actionType, setActionType] = useState<'BOOK' | 'CATEGORY' | 'SERVICE' | 'OFFER' | 'URL'>('BOOK');
@@ -100,7 +106,9 @@ export default function AdminBannersPage() {
     setTitle('');
     setSubtitle('');
     setBadgeText('SPECIAL OFFER');
+    setMediaType('IMAGE');
     setImageUrl(PRESET_IMAGES[0].url);
+    setVideoUrl('');
     setCouponCode('');
     setDiscountPercent(0);
     setActionType('BOOK');
@@ -116,7 +124,9 @@ export default function AdminBannersPage() {
     setTitle(banner.title);
     setSubtitle(banner.subtitle || '');
     setBadgeText(banner.badgeText || 'SPECIAL OFFER');
+    setMediaType(banner.mediaType || (banner.videoUrl ? 'VIDEO' : 'IMAGE'));
     setImageUrl(banner.imageUrl);
+    setVideoUrl(banner.videoUrl || '');
     setCouponCode(banner.couponCode || '');
     setDiscountPercent(banner.discountPercent || 0);
     setActionType(banner.actionType || 'BOOK');
@@ -159,36 +169,64 @@ export default function AdminBannersPage() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const isVideoFile = file.type.startsWith('video/') || file.name.endsWith('.mp4') || file.name.endsWith('.webm') || file.name.endsWith('.mov');
       setSelectedFileName(file.name);
       setUploadingS3(true);
       try {
-        const compressedDataUrl = await compressImageFile(file);
-        setImageUrl(compressedDataUrl);
+        if (isVideoFile) {
+          if (file.size > 30 * 1024 * 1024) {
+            throw new Error('Video file is larger than 30MB. Please select an optimized MP4 under 15MB for fast mobile loading.');
+          }
 
-        console.log('[Banner] Uploading to S3:', file.name);
-        const res = await fetch('/api/upload-s3', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: compressedDataUrl, fileName: `banner-${Date.now()}-${file.name}` }),
-        });
-        
-        if (!res.ok) {
-          console.error('[Banner] S3 upload failed:', res.status, res.statusText);
-          throw new Error(`Upload failed: ${res.statusText}`);
-        }
-        
-        const uploadData = await res.json();
-        console.log('[Banner] S3 upload response:', uploadData);
-        
-        if (uploadData.success && uploadData.data?.s3Url) {
-          console.log('[Banner] S3 URL received:', uploadData.data.s3Url);
-          setImageUrl(uploadData.data.s3Url);
+          const reader = new FileReader();
+          const videoDataUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+
+          console.log('[Banner] Uploading video to S3:', file.name);
+          const res = await fetch('/api/upload-s3', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileBase64: videoDataUrl, fileName: `banner-video-${Date.now()}-${file.name}` }),
+          });
+
+          if (!res.ok) {
+            throw new Error(`Video upload failed: ${res.statusText}`);
+          }
+
+          const uploadData = await res.json();
+          if (uploadData.success && uploadData.data?.s3Url) {
+            setVideoUrl(uploadData.data.s3Url);
+            setMediaType('VIDEO');
+          } else {
+            setVideoUrl(videoDataUrl);
+          }
         } else {
-          console.warn('[Banner] No S3 URL in response, using preview');
+          const compressedDataUrl = await compressImageFile(file);
+          setImageUrl(compressedDataUrl);
+
+          console.log('[Banner] Uploading to S3:', file.name);
+          const res = await fetch('/api/upload-s3', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: compressedDataUrl, fileName: `banner-${Date.now()}-${file.name}` }),
+          });
+          
+          if (!res.ok) {
+            console.error('[Banner] S3 upload failed:', res.status, res.statusText);
+            throw new Error(`Upload failed: ${res.statusText}`);
+          }
+          
+          const uploadData = await res.json();
+          if (uploadData.success && uploadData.data?.s3Url) {
+            setImageUrl(uploadData.data.s3Url);
+          }
         }
       } catch (err: any) {
         console.error('[Banner] Upload error:', err);
-        alert(`Upload failed: ${err.message}\nThe image preview will be used instead.`);
+        alert(`Upload error: ${err.message}`);
       } finally {
         setUploadingS3(false);
       }
@@ -197,12 +235,18 @@ export default function AdminBannersPage() {
 
   const handleSaveBanner = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !imageUrl.trim()) {
-      alert('Title and Image URL are required.');
+    if (!title.trim()) {
+      alert('Banner Title is required.');
       return;
     }
-
-    console.log('[Banner] Saving banner with imageUrl:', imageUrl);
+    if (mediaType === 'VIDEO' && !videoUrl.trim() && !imageUrl.trim()) {
+      alert('Please upload a video or provide a Video URL for video banners.');
+      return;
+    }
+    if (mediaType === 'IMAGE' && !imageUrl.trim()) {
+      alert('Banner image is required.');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -210,7 +254,9 @@ export default function AdminBannersPage() {
         title: title.trim(),
         subtitle: subtitle.trim(),
         badgeText: badgeText.trim(),
-        imageUrl: imageUrl.trim(),
+        mediaType,
+        videoUrl: mediaType === 'VIDEO' ? (videoUrl.trim() || imageUrl.trim()) : undefined,
+        imageUrl: imageUrl.trim() || videoUrl.trim() || PRESET_IMAGES[0].url,
         couponCode: couponCode.trim().toUpperCase(),
         discountPercent: Number(discountPercent) || 0,
         actionType,
@@ -354,14 +400,33 @@ export default function AdminBannersPage() {
                   : 'border-slate-800/40 opacity-70'
               }`}
             >
-              {/* Pure Banner Image Display (No Dark Scrim or Text Covering Image) */}
-              <div className="relative h-48 w-full overflow-hidden bg-slate-900">
-                <img
-                  src={banner.imageUrl || PRESET_IMAGES[index % PRESET_IMAGES.length].url}
-                  alt={banner.title}
-                  onError={(e) => { e.currentTarget.src = PRESET_IMAGES[index % PRESET_IMAGES.length].url; }}
-                  className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
-                />
+              {/* Pure Banner Image / Video Display */}
+              <div className="relative h-48 w-full overflow-hidden bg-slate-950">
+                {banner.mediaType === 'VIDEO' && (banner.videoUrl || banner.imageUrl?.endsWith('.mp4') || banner.imageUrl?.endsWith('.webm')) ? (
+                  <video
+                    src={banner.videoUrl || banner.imageUrl}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
+                  />
+                ) : (
+                  <img
+                    src={banner.imageUrl || PRESET_IMAGES[index % PRESET_IMAGES.length].url}
+                    alt={banner.title}
+                    onError={(e) => { e.currentTarget.src = PRESET_IMAGES[index % PRESET_IMAGES.length].url; }}
+                    className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
+                  />
+                )}
+                {/* Media Type Badge */}
+                {banner.mediaType === 'VIDEO' && (
+                  <div className="absolute top-3 left-3">
+                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-purple-600 text-white flex items-center gap-1 shadow-md">
+                      <Film className="w-3 h-3" /> VIDEO
+                    </span>
+                  </div>
+                )}
                 {/* Order Tag Badge */}
                 <div className="absolute top-3 right-3">
                   <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-black/75 backdrop-blur-xs text-white border border-white/10 shadow-sm">
@@ -511,93 +576,228 @@ export default function AdminBannersPage() {
                 </div>
               </div>
 
-              {/* Image Input Options: Upload to S3 vs URL vs Presets */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block font-bold text-[var(--text-primary)]">
-                    Banner Photo (AWS S3 Cloud / URL) *
-                  </label>
-                  <div className="flex bg-[var(--bg-hover)] p-0.5 rounded-lg border border-[var(--border-color)]">
-                    <button
-                      type="button"
-                      onClick={() => setImageInputMode('FILE')}
-                      className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
-                        imageInputMode === 'FILE'
-                          ? 'bg-purple-600 text-white shadow-xs'
-                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                      }`}
-                    >
-                      <Upload className="w-3 h-3" /> Upload Device Image to S3
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImageInputMode('URL')}
-                      className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
-                        imageInputMode === 'URL'
-                          ? 'bg-purple-600 text-white shadow-xs'
-                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                      }`}
-                    >
-                      <LinkIcon className="w-3 h-3" /> Direct S3 / Image Link
-                    </button>
-                  </div>
-                </div>
-
-                {imageInputMode === 'FILE' ? (
-                  <div className="border-2 border-dashed border-[var(--border-color)] rounded-xl p-4 text-center hover:border-purple-500/50 transition-colors bg-[var(--bg-page)]">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      id="banner-file-upload"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                    <label htmlFor="banner-file-upload" className="cursor-pointer flex flex-col items-center gap-1.5">
-                      <div className="w-9 h-9 rounded-full bg-purple-500/10 text-purple-600 flex items-center justify-center">
-                        <Upload className="w-4 h-4" />
-                      </div>
-                      <span className="font-bold text-[var(--text-primary)] text-xs">
-                        {uploadingS3 ? 'Uploading to AWS S3...' : selectedFileName ? `Uploaded: ${selectedFileName}` : 'Choose banner file to upload directly to S3'}
-                      </span>
-                      <span className="text-[10px] text-[var(--text-secondary)]">
-                        PNG, JPG, WEBP up to 8MB • Automatically stored on AWS S3
-                      </span>
-                    </label>
-                  </div>
-                ) : (
-                  <input
-                    type="url"
-                    required
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="https://anjanilaundry.s3.ap-south-2.amazonaws.com/banners/..."
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-page)] text-[var(--text-primary)] font-mono text-[11px]"
-                  />
-                )}
-
-                {/* Preset Quick Selectors */}
-                <div className="mt-2">
-                  <p className="text-[10px] font-bold text-[var(--text-secondary)] mb-1">
-                    Or select high-res photography preset:
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {PRESET_IMAGES.map((preset) => (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        onClick={() => setImageUrl(preset.url)}
-                        className={`px-2 py-1 rounded-md text-[10px] font-semibold border transition-all ${
-                          imageUrl === preset.url
-                            ? 'bg-purple-600 text-white border-purple-600'
-                            : 'bg-[var(--bg-hover)] text-[var(--text-secondary)] border-[var(--border-color)] hover:text-[var(--text-primary)]'
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
+              {/* Media Type Selector: Image vs Video */}
+              <div className="space-y-3">
+                <label className="block font-bold text-[var(--text-primary)]">
+                  Banner Media Type *
+                </label>
+                <div className="p-1 bg-[var(--bg-hover)] rounded-xl border border-[var(--border-color)] flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setMediaType('IMAGE')}
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      mediaType === 'IMAGE'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>Static Image Banner</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMediaType('VIDEO')}
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      mediaType === 'VIDEO'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <Film className="w-3.5 h-3.5" />
+                    <span>Video Banner (Mobile Looping)</span>
+                  </button>
                 </div>
               </div>
+
+              {/* VIDEO BANNER CONTROLS */}
+              {mediaType === 'VIDEO' && (
+                <div className="space-y-3 p-3.5 bg-purple-500/5 rounded-2xl border border-purple-500/20">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-black text-purple-700 dark:text-purple-300">
+                      🎬 Video Source (MP4 / WebM to S3) *
+                    </label>
+                    <div className="flex bg-[var(--bg-hover)] p-0.5 rounded-lg border border-[var(--border-color)]">
+                      <button
+                        type="button"
+                        onClick={() => setVideoInputMode('FILE')}
+                        className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
+                          videoInputMode === 'FILE'
+                            ? 'bg-purple-600 text-white shadow-xs'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        <Upload className="w-3 h-3" /> Upload Video File
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVideoInputMode('URL')}
+                        className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
+                          videoInputMode === 'URL'
+                            ? 'bg-purple-600 text-white shadow-xs'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        <LinkIcon className="w-3 h-3" /> Direct Video URL
+                      </button>
+                    </div>
+                  </div>
+
+                  {videoInputMode === 'FILE' ? (
+                    <div className="border-2 border-dashed border-purple-400/40 rounded-xl p-4 text-center hover:border-purple-500 transition-colors bg-[var(--bg-page)]">
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,video/quicktime,video/*"
+                        id="banner-video-upload"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <label htmlFor="banner-video-upload" className="cursor-pointer flex flex-col items-center gap-1.5">
+                        <div className="w-10 h-10 rounded-full bg-purple-500/10 text-purple-600 flex items-center justify-center">
+                          <Film className="w-5 h-5" />
+                        </div>
+                        <span className="font-bold text-[var(--text-primary)] text-xs">
+                          {uploadingS3 ? 'Uploading Video to AWS S3...' : selectedFileName ? `Selected: ${selectedFileName}` : 'Choose MP4/WebM video file to upload'}
+                        </span>
+                        <span className="text-[10px] text-[var(--text-secondary)]">
+                          MP4 (H.264), WebM up to 30MB • Stored directly on AWS S3
+                        </span>
+                      </label>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        type="url"
+                        value={videoUrl}
+                        onChange={(e) => setVideoUrl(e.target.value)}
+                        placeholder="https://anjanilaundry.s3.ap-south-2.amazonaws.com/banners/videos/..."
+                        className="w-full px-3 py-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-page)] text-[var(--text-primary)] font-mono text-[11px]"
+                      />
+                    </div>
+                  )}
+
+                  {/* Live Video Preview Player */}
+                  {(videoUrl || (imageUrl && imageUrl.endsWith('.mp4'))) && (
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">
+                        Live Video Banner Preview:
+                      </span>
+                      <div className="relative rounded-xl overflow-hidden bg-black border border-purple-500/30 aspect-video max-h-48 flex items-center justify-center">
+                        <video
+                          src={videoUrl || imageUrl}
+                          controls
+                          autoPlay
+                          muted
+                          loop
+                          playsInline
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mobile Guidelines Box */}
+                  <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20 text-[11px] text-purple-900 dark:text-purple-200 leading-relaxed space-y-1">
+                    <p className="font-bold flex items-center gap-1">
+                      <span>💡 Mobile Video Recommendations:</span>
+                    </p>
+                    <ul className="list-disc pl-4 space-y-0.5 text-[10px] opacity-90">
+                      <li><strong>Size / Ratio:</strong> 16:9 (1280×720) or 2:1 (1200×600) fits mobile carousel perfectly.</li>
+                      <li><strong>Format:</strong> H.264 MP4, 30fps, under 5MB for instant zero-buffering playback.</li>
+                      <li><strong>Duration:</strong> 5–8 seconds seamless loop without audio.</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* STATIC IMAGE BANNER CONTROLS */}
+              {mediaType === 'IMAGE' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-bold text-[var(--text-primary)]">
+                      Banner Photo (AWS S3 Cloud / URL) *
+                    </label>
+                    <div className="flex bg-[var(--bg-hover)] p-0.5 rounded-lg border border-[var(--border-color)]">
+                      <button
+                        type="button"
+                        onClick={() => setImageInputMode('FILE')}
+                        className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
+                          imageInputMode === 'FILE'
+                            ? 'bg-purple-600 text-white shadow-xs'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        <Upload className="w-3 h-3" /> Upload Device Image to S3
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImageInputMode('URL')}
+                        className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
+                          imageInputMode === 'URL'
+                            ? 'bg-purple-600 text-white shadow-xs'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        <LinkIcon className="w-3 h-3" /> Direct S3 / Image Link
+                      </button>
+                    </div>
+                  </div>
+
+                  {imageInputMode === 'FILE' ? (
+                    <div className="border-2 border-dashed border-[var(--border-color)] rounded-xl p-4 text-center hover:border-purple-500/50 transition-colors bg-[var(--bg-page)]">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="banner-file-upload"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <label htmlFor="banner-file-upload" className="cursor-pointer flex flex-col items-center gap-1.5">
+                        <div className="w-9 h-9 rounded-full bg-purple-500/10 text-purple-600 flex items-center justify-center">
+                          <Upload className="w-4 h-4" />
+                        </div>
+                        <span className="font-bold text-[var(--text-primary)] text-xs">
+                          {uploadingS3 ? 'Uploading to AWS S3...' : selectedFileName ? `Uploaded: ${selectedFileName}` : 'Choose banner file to upload directly to S3'}
+                        </span>
+                        <span className="text-[10px] text-[var(--text-secondary)]">
+                          PNG, JPG, WEBP up to 8MB • Automatically stored on AWS S3
+                        </span>
+                      </label>
+                    </div>
+                  ) : (
+                    <input
+                      type="url"
+                      required
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      placeholder="https://anjanilaundry.s3.ap-south-2.amazonaws.com/banners/..."
+                      className="w-full px-3 py-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-page)] text-[var(--text-primary)] font-mono text-[11px]"
+                    />
+                  )}
+
+                  {/* Preset Quick Selectors */}
+                  <div className="mt-2">
+                    <p className="text-[10px] font-bold text-[var(--text-secondary)] mb-1">
+                      Or select high-res photography preset:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PRESET_IMAGES.map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => setImageUrl(preset.url)}
+                          className={`px-2 py-1 rounded-md text-[10px] font-semibold border transition-all ${
+                            imageUrl === preset.url
+                              ? 'bg-purple-600 text-white border-purple-600'
+                              : 'bg-[var(--bg-hover)] text-[var(--text-secondary)] border-[var(--border-color)] hover:text-[var(--text-primary)]'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Coupon & Discount */}
               <div className="grid grid-cols-2 gap-3">

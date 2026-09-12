@@ -195,7 +195,17 @@ function compressImage(file: File, maxWidth = 1200, quality = 0.85): Promise<str
   });
 }
 
-export function UnifiedCatalogManager() {
+export interface UnifiedCatalogManagerProps {
+  initialMode?: 'GARMENTS' | 'CATEGORIES' | 'SUBCATEGORIES' | 'SERVICES';
+  lockedMode?: 'GARMENTS' | 'CATEGORIES' | 'SUBCATEGORIES' | 'SERVICES';
+  hideModeTabs?: boolean;
+}
+
+export function UnifiedCatalogManager({
+  initialMode,
+  lockedMode,
+  hideModeTabs = false,
+}: UnifiedCatalogManagerProps = {}) {
   const { 
     clothTypes, 
     serviceMasters, 
@@ -208,7 +218,9 @@ export function UnifiedCatalogManager() {
   } = useApp();
 
   // Top-level Navigation Mode: Garments | Categories | Subcategories | Services
-  const [viewMode, setViewMode] = useState<'GARMENTS' | 'CATEGORIES' | 'SUBCATEGORIES' | 'SERVICES'>('GARMENTS');
+  const [viewMode, setViewMode] = useState<'GARMENTS' | 'CATEGORIES' | 'SUBCATEGORIES' | 'SERVICES'>(
+    lockedMode || initialMode || 'GARMENTS'
+  );
 
   // Master Categories State (with live photo overrides)
   const [categories, setCategories] = useState(INITIAL_MASTER_CATEGORIES);
@@ -219,8 +231,12 @@ export function UnifiedCatalogManager() {
   // Category & Subcategory Management Modal
   const [showCatSubModal, setShowCatSubModal] = useState(false);
 
-  // Read URL query parameter for tab
+  // Read URL query parameter for tab (if not locked)
   useEffect(() => {
+    if (lockedMode) {
+      setViewMode(lockedMode);
+      return;
+    }
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get('tab');
@@ -234,7 +250,7 @@ export function UnifiedCatalogManager() {
         setViewMode('SERVICES');
       }
     }
-  }, []);
+  }, [lockedMode]);
 
   // Load live categories and service masters from API & S3
   const loadLiveCatalog = async () => {
@@ -724,26 +740,46 @@ export function UnifiedCatalogManager() {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-black text-[var(--heading-color)]">
-              Garments & Services Catalog
+              {viewMode === 'CATEGORIES'
+                ? 'Master Categories & Photography'
+                : viewMode === 'SUBCATEGORIES'
+                ? 'Subcategories Management'
+                : viewMode === 'SERVICES'
+                ? 'Garment Services Photography & Rates'
+                : 'Products & Cloth Types Catalog'}
             </h2>
             <span className="text-xs font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 px-2.5 py-0.5 rounded-full border border-blue-300">
-              {clothTypes.length} Core Items • 4 Categories • 8 Services
+              {viewMode === 'CATEGORIES'
+                ? `${categories.length} Master Categories`
+                : viewMode === 'SUBCATEGORIES'
+                ? 'Dedicated Manager'
+                : viewMode === 'SERVICES'
+                ? `${servicesList.length} Active Services`
+                : `${clothTypes.length} Products`}
             </span>
           </div>
           <p className="text-xs text-[var(--text-secondary)] mt-1">
-            Manage your clean commercial laundry catalog, upload high-res photography to AWS S3 for Products, Categories and Services.
+            {viewMode === 'CATEGORIES'
+              ? 'Manage core laundry categories and upload direct high-definition photography to AWS S3 for customer app cards.'
+              : viewMode === 'SUBCATEGORIES'
+              ? 'Organize taxonomy, upload AWS S3 photography, and control customer app grouping.'
+              : viewMode === 'SERVICES'
+              ? 'Manage commercial service turnaround times, pricing types (per item / per kg), and high-resolution service photography.'
+              : 'Manage commercial laundry garments catalog, search items, upload high-res photography to AWS S3, and organize by subcategories.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setShowCatSubModal(true)}
-            className="px-3.5 py-2 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0 border border-slate-700"
-          >
-            <Layers className="w-3.5 h-3.5 text-amber-400" />
-            <span>Manage Categories & Subcategories</span>
-          </button>
+          {(viewMode === 'CATEGORIES' || (!lockedMode && !hideModeTabs)) && (
+            <button
+              type="button"
+              onClick={() => setShowCatSubModal(true)}
+              className="px-3.5 py-2 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0 border border-slate-700"
+            >
+              <Layers className="w-3.5 h-3.5 text-amber-400" />
+              <span>Taxonomy Structure</span>
+            </button>
+          )}
 
           {viewMode === 'GARMENTS' && (
             <>
@@ -775,83 +811,85 @@ export function UnifiedCatalogManager() {
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <Plus className="w-4 h-4" />
-                <span>Add Garment</span>
+                <span>Add Product</span>
               </button>
             </>
           )}
         </div>
       </div>
 
-      {/* Primary Section Mode Selector: Garments / Categories / Subcategories / Services */}
-      <div className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-[var(--border-color)]">
-        <button
-          type="button"
-          onClick={() => setViewMode('GARMENTS')}
-          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            viewMode === 'GARMENTS'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
-          }`}
-        >
-          <span>👔 Products & Garments</span>
-          <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
-            viewMode === 'GARMENTS' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-          }`}>
-            {clothTypes.length}
-          </span>
-        </button>
+      {/* Primary Section Mode Selector: Only shown when not locked and tabs not hidden */}
+      {!lockedMode && !hideModeTabs && (
+        <div className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-[var(--border-color)]">
+          <button
+            type="button"
+            onClick={() => setViewMode('GARMENTS')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              viewMode === 'GARMENTS'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
+            }`}
+          >
+            <span>👔 Products & Garments</span>
+            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+              viewMode === 'GARMENTS' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+            }`}>
+              {clothTypes.length}
+            </span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setViewMode('CATEGORIES')}
-          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            viewMode === 'CATEGORIES'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
-          }`}
-        >
-          <span>🗂️ Categories</span>
-          <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
-            viewMode === 'CATEGORIES' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-          }`}>
-            {categories.length}
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('CATEGORIES')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              viewMode === 'CATEGORIES'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
+            }`}
+          >
+            <span>🗂️ Categories</span>
+            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+              viewMode === 'CATEGORIES' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+            }`}>
+              {categories.length}
+            </span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setViewMode('SUBCATEGORIES')}
-          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            viewMode === 'SUBCATEGORIES'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
-          }`}
-        >
-          <span>✨ Subcategories</span>
-          <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
-            viewMode === 'SUBCATEGORIES' ? 'bg-white/20 text-white' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
-          }`}>
-            Dedicated
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('SUBCATEGORIES')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              viewMode === 'SUBCATEGORIES'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
+            }`}
+          >
+            <span>✨ Subcategories</span>
+            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+              viewMode === 'SUBCATEGORIES' ? 'bg-white/20 text-white' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+            }`}>
+              Dedicated
+            </span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setViewMode('SERVICES')}
-          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            viewMode === 'SERVICES'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
-          }`}
-        >
-          <span>🧺 Services Photography</span>
-          <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
-            viewMode === 'SERVICES' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-          }`}>
-            {servicesList.length}
-          </span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => setViewMode('SERVICES')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              viewMode === 'SERVICES'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
+            }`}
+          >
+            <span>🧺 Services Photography</span>
+            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+              viewMode === 'SERVICES' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+            }`}>
+              {servicesList.length}
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 1. CATEGORIES PHOTOGRAPHY VIEW */}

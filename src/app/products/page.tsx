@@ -3,10 +3,10 @@
 import React from 'react';
 import { UnifiedCatalogManager } from '@/components/catalog/UnifiedCatalogManager';
 
-export default function AdminServicesPage() {
+export default function AdminProductsPage() {
   return (
     <div className="space-y-6">
-      <UnifiedCatalogManager lockedMode="SERVICES" hideModeTabs />
+      <UnifiedCatalogManager lockedMode="GARMENTS" hideModeTabs />
     </div>
   );
 }

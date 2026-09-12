@@ -61,10 +61,19 @@ function SidebarNavItems({
 
   const checkIsActive = (itemHref: string) => {
     const [basePath, queryStr] = itemHref.split('?');
-    if (pathname !== basePath) return false;
-    if (!queryStr) return !currentTab;
-    const itemTab = new URLSearchParams(queryStr).get('tab');
-    return currentTab === itemTab;
+    if (pathname === basePath && !queryStr && !currentTab) return true;
+    if (pathname === basePath && queryStr) {
+      const itemTab = new URLSearchParams(queryStr).get('tab');
+      return currentTab === itemTab;
+    }
+    // Backward-compatible query alias checks for split catalog routes
+    if (pathname === '/pricing') {
+      if (itemHref === '/categories' && currentTab === 'categories') return true;
+      if (itemHref === '/subcategories' && (currentTab === 'subcategories' || currentTab === 'subcategory')) return true;
+      if (itemHref === '/products' && (currentTab === 'cloths' || currentTab === 'products')) return true;
+      if (itemHref === '/services' && currentTab === 'services') return true;
+    }
+    return false;
   };
 
   return (
@@ -191,9 +200,10 @@ export const AdminNavWrapper: React.FC<{ children: React.ReactNode }> = ({ child
     {
       group: 'CATALOG & PRICING',
       items: [
-        { name: 'Cloth Types', href: '/pricing?tab=cloths', icon: Shirt },
-        { name: 'Subcategories', href: '/pricing?tab=subcategories', icon: Sparkles },
-        { name: 'Services', href: '/services', icon: Layers },
+        { name: 'Categories', href: '/categories', icon: Layers },
+        { name: 'Subcategories', href: '/subcategories', icon: Sparkles },
+        { name: 'Products & Garments', href: '/products', icon: Shirt },
+        { name: 'Services', href: '/services', icon: Sparkles },
         { name: 'Pricing Matrix', href: '/pricing', icon: DollarSign, badge: '2D Grid' },
         { name: 'Bulk / KG Pricing', href: '/pricing/bulk', icon: Scale, badge: 'Slabs' },
         { name: 'Pincodes & Coverage', href: '/pincodes', icon: MapPin },
