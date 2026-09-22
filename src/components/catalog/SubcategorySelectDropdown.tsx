@@ -1,93 +1,42 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronDown, Check, Plus, Search, Sparkles, X } from 'lucide-react';
-import { getAdminSubcategories } from '@/lib/api';
+import { ChevronDown, Check, Plus, Search, Sparkles, X, Loader2 } from 'lucide-react';
+import { getAdminSubcategories, createAdminSubcategory } from '@/lib/api';
 import { getSubcategoryImageUrl } from '@/lib/category-photos';
 import { useApp } from '@/context/AppContext';
 
-// Standard fallback subcategories per category
-const DEFAULT_CATEGORY_SUBCATS: Record<string, string[]> = {
-  MENS: [
-    'Shirts',
-    'T-Shirts & Polos',
-    'Trousers & Chinos',
-    'Jeans & Denim',
-    'Ethnic Wear',
-    'Suits & Blazers',
-    'Jackets & Coats',
-    'Winter Wear',
-    'Sports & Gym',
-    'Shorts',
-    'Nightwear',
-    'Innerwear',
-  ],
-  WOMENS: [
-    'Sarees',
-    'Blouses',
-    'Kurtis & Kurtas',
-    'Salwar & Suits',
-    'Western Dresses',
-    'Tops & Shirts',
-    'Jeans & Pants',
-    'Skirts & Shorts',
-    'Lehengas',
-    'Gowns',
-    'Dupattas & Stoles',
-    'Occasion Wear',
-    'Winter Wear',
-    'Nightwear',
-  ],
-  KIDS: [
-    'Baby Clothing',
-    'Boys Clothing',
-    'Girls Clothing',
-    'School Uniforms',
-    'Party Wear',
-    'Traditional Wear',
-    'Tops & Shirts',
-    'Bottoms',
-    'Winter Wear',
-  ],
-  HOME_TEXTILES: [
-    'Bedsheets',
-    'Bed Covers',
-    'Blankets',
-    'Comforters & Quilts',
-    'Curtains',
-    'Sofa & Cushion Covers',
-    'Towels',
-    'Carpets & Rugs',
-    'Table Linen',
-  ],
-  FOOTWEAR: [
-    'Sneakers',
-    'Formal Shoes',
-    'Sports Shoes',
-    'Boots',
-    'Sandals & Slippers',
-    'Leather Shoes',
-  ],
-  ACCESSORIES: [
-    'Backpacks',
-    'Handbags',
-    'Belts & Wallets',
-    'Caps & Hats',
-    'Luggage & Trolley',
-    'Ties & Scarves',
-  ],
-  SPECIAL: [
-    'Wedding & Bridal',
-    'Leather & Suede Care',
-    'Delicate Embroidery',
-    'Curtain Steam Press',
-  ],
-  BULK: [
-    'Everyday Wash & Fold',
-    'Steam Press Bulk',
-    'Bed Linen Slabs',
-    'Hotel & Commercial',
-  ],
+export const isTagInCat = (subTag: string, catTag: string) => {
+  if (!subTag || !catTag) return false;
+  const s = subTag.trim().toLowerCase();
+  const c = catTag.trim().toLowerCase();
+  if (s === c) return true;
+
+  const MENS_TAGS = ['m', 'cat-1', 'mens', 'men'];
+  const WOMENS_TAGS = ['w', 'cat-2', 'womens', 'women'];
+  const KIDS_TAGS = ['k', 'cat-3', 'kids', 'kid'];
+  const HOME_TAGS = ['cat-4', 'home_textiles', 'home-textiles', 'home'];
+  const FOOT_TAGS = ['cat-5', 'footwear', 'shoes', 'foot'];
+  const ACC_TAGS = ['cat-6', 'accessories', 'bags'];
+  const BRIDAL_TAGS = ['cat-7', 'bridal', 'wedding'];
+  const BULK_TAGS = ['cat-8', 'bulk', 'commercial'];
+
+  const matchesGroup = (tags: string[]) => {
+    const sMatches = tags.some((t) => s === t || s.includes(t));
+    const cMatches = tags.some((t) => c === t || c.includes(t));
+    return sMatches && cMatches;
+  };
+
+  return (
+    matchesGroup(MENS_TAGS) ||
+    matchesGroup(WOMENS_TAGS) ||
+    matchesGroup(KIDS_TAGS) ||
+    matchesGroup(HOME_TAGS) ||
+    matchesGroup(FOOT_TAGS) ||
+    matchesGroup(ACC_TAGS) ||
+    matchesGroup(BRIDAL_TAGS) ||
+    matchesGroup(BULK_TAGS)
+  );
 };
 
 interface SubcategorySelectDropdownProps {
@@ -98,6 +47,7 @@ interface SubcategorySelectDropdownProps {
   required?: boolean;
   placeholder?: string;
   className?: string;
+  onSubcategoryCreated?: (name: string) => void;
 }
 
 export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps> = ({
@@ -108,77 +58,56 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
   required = false,
   placeholder = 'Select a subcategory...',
   className = '',
+  onSubcategoryCreated,
 }) => {
-  const { clothTypes } = useApp();
+  const { clothTypes, showToast } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [customInputMode, setCustomInputMode] = useState(false);
+  const [customText, setCustomText] = useState('');
   const [remoteSubcategories, setRemoteSubcategories] = useState<any[]>([]);
+  const [isCreatingSub, setIsCreatingSub] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Normalize category tag (e.g. MENS, WOMENS, etc.)
-  const normalizedCategory = useMemo(() => {
-    if (!categoryTag) return 'MENS';
-    const upper = categoryTag.toUpperCase().replace(/-/g, '_');
-    if (upper.includes('MEN') && !upper.includes('WOMEN')) return 'MENS';
-    if (upper.includes('WOMEN')) return 'WOMENS';
-    if (upper.includes('KID')) return 'KIDS';
-    if (upper.includes('HOME') || upper.includes('TEXTILE')) return 'HOME_TEXTILES';
-    if (upper.includes('FOOT') || upper.includes('SHOE')) return 'FOOTWEAR';
-    if (upper.includes('ACCESSOR')) return 'ACCESSORIES';
-    return upper;
-  }, [categoryTag]);
-
-  // Load subcategories from API
-  useEffect(() => {
-    let isMounted = true;
+  // Load live subcategories from backend API
+  const loadSubs = () => {
     getAdminSubcategories()
       .then((data) => {
-        if (isMounted && Array.isArray(data)) {
+        if (Array.isArray(data)) {
           setRemoteSubcategories(data);
         }
       })
-      .catch(() => {
-        // Fallback gracefully
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+      .catch(() => {});
+  };
 
-  // Compute available subcategories for this category tag
+  useEffect(() => {
+    loadSubs();
+  }, [categoryTag]);
+
+  // Compute available subcategories for this category tag (from DB and clothTypes only)
   const availableSubcategories = useMemo(() => {
     const list: Array<{ name: string; imageUrl?: string; isRemote?: boolean }> = [];
     const seen = new Set<string>();
 
-    // 1. Remote DB subcategories matching this category
+    // 1. Remote DB subcategories matching this category tag
     remoteSubcategories
       .filter((s) => {
-        const sCat = (s.categoryTag || s.category_tag || '').toUpperCase().replace(/-/g, '_');
-        return sCat === normalizedCategory || sCat === categoryTag.toUpperCase();
+        const sCat = s.categoryTag || s.category_tag || '';
+        return isTagInCat(sCat, categoryTag);
       })
       .forEach((s) => {
-        const trimmed = s.name.trim();
+        const trimmed = (s.name || '').trim();
         if (trimmed && !seen.has(trimmed.toLowerCase())) {
           seen.add(trimmed.toLowerCase());
           list.push({ name: trimmed, imageUrl: s.imageUrl || s.image_url, isRemote: true });
         }
       });
 
-    // 2. Default standard catalog subcategories
-    const defaults = DEFAULT_CATEGORY_SUBCATS[normalizedCategory] || [];
-    defaults.forEach((defName) => {
-      if (!seen.has(defName.toLowerCase())) {
-        seen.add(defName.toLowerCase());
-        list.push({ name: defName });
-      }
-    });
-
-    // 3. Existing subcategories used across clothes in this category
+    // 2. Existing subcategories attached to clothes in this category
     if (Array.isArray(clothTypes)) {
       clothTypes
-        .filter((c) => (c.categoryTag || '').toUpperCase() === categoryTag.toUpperCase())
+        .filter((c) => isTagInCat(c.categoryTag || '', categoryTag))
         .forEach((c) => {
           const sub = (c.subCategory || '').trim();
           if (sub && !seen.has(sub.toLowerCase())) {
@@ -189,14 +118,21 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
     }
 
     return list;
-  }, [remoteSubcategories, normalizedCategory, categoryTag, clothTypes]);
+  }, [remoteSubcategories, categoryTag, clothTypes]);
 
-  // Filtered by search query
+  // Filtered list by search query
   const filteredList = useMemo(() => {
     if (!searchQuery.trim()) return availableSubcategories;
     const q = searchQuery.toLowerCase().trim();
     return availableSubcategories.filter((item) => item.name.toLowerCase().includes(q));
   }, [availableSubcategories, searchQuery]);
+
+  // Auto focus search input on open
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isOpen]);
 
   // Close on outside click
   useEffect(() => {
@@ -209,13 +145,6 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Auto focus search input on open
-  useEffect(() => {
-    if (isOpen && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [isOpen]);
-
   const handleSelect = (subName: string) => {
     onChange(subName);
     setIsOpen(false);
@@ -223,13 +152,31 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
     setCustomInputMode(false);
   };
 
-  const handleAddCustom = () => {
-    if (searchQuery.trim()) {
-      handleSelect(searchQuery.trim());
+  const handleCreateAndSelect = async (nameToCreate: string) => {
+    const trimmed = nameToCreate.trim();
+    if (!trimmed) return;
+
+    setIsCreatingSub(true);
+    try {
+      await createAdminSubcategory({
+        categoryTag: categoryTag || 'MENS',
+        name: trimmed,
+        isActive: true,
+        sortOrder: remoteSubcategories.length + 1,
+      });
+      showToast(`Subcategory "${trimmed}" created in database!`, 'success');
+      loadSubs();
+      onSubcategoryCreated?.(trimmed);
+    } catch {
+      // Still apply to product locally
+      showToast(`Using "${trimmed}" for this product.`, 'info');
+    } finally {
+      setIsCreatingSub(false);
+      handleSelect(trimmed);
     }
   };
 
-  const currentPhoto = value ? getSubcategoryImageUrl(value, normalizedCategory) : null;
+  const currentPhoto = value ? (getSubcategoryImageUrl(value, categoryTag) || undefined) : undefined;
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
@@ -240,45 +187,52 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
             <span>{label}</span>
             {required && <span className="text-rose-500">*</span>}
           </label>
-
           <button
             type="button"
-            onClick={() => setCustomInputMode(!customInputMode)}
-            className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+            onClick={() => {
+              setCustomInputMode(!customInputMode);
+              if (!customInputMode) setCustomText(value || '');
+            }}
+            className="text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer"
           >
-            {customInputMode ? 'Switch to Dropdown' : '+ Type Custom'}
+            {customInputMode ? '← Choose from list' : '+ Type custom'}
           </button>
         </div>
       )}
 
+      {/* Mode A: Direct text input */}
       {customInputMode ? (
         <div className="flex items-center gap-1.5">
           <input
             type="text"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="Type custom subcategory (e.g. Linen Kurtas)..."
-            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-blue-400 text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
             required={required}
+            value={customText}
+            onChange={(e) => {
+              setCustomText(e.target.value);
+              onChange(e.target.value);
+            }}
+            placeholder="Type custom subcategory (e.g. Formal Shirts)..."
+            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="button"
-            onClick={() => setCustomInputMode(false)}
-            className="px-2.5 py-2 text-[10px] font-bold bg-slate-100 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl hover:bg-slate-200 cursor-pointer shrink-0"
+            onClick={() => handleCreateAndSelect(customText)}
+            disabled={!customText.trim() || isCreatingSub}
+            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50 shrink-0"
           >
-            List
+            {isCreatingSub ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
           </button>
         </div>
       ) : (
-        <div>
-          {/* Dropdown trigger button */}
+        /* Mode B: Dropdown Picker */
+        <div className="relative">
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border transition-all text-left cursor-pointer ${
+            className={`w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border transition-all text-left flex items-center justify-between cursor-pointer ${
               isOpen
                 ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-xs'
-                : 'border-[var(--border-color)] hover:border-slate-400 dark:hover:border-slate-600'
+                : 'border-[var(--border-color)] hover:border-slate-400'
             }`}
           >
             <div className="flex items-center gap-2 min-w-0">
@@ -286,7 +240,7 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
                 <>
                   <div className="w-5 h-5 rounded-md overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 border border-slate-300 dark:border-slate-600">
                     <img
-                      src={currentPhoto || 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/mens-wear.jpg'}
+                      src={currentPhoto}
                       alt={value}
                       className="w-full h-full object-cover"
                       onError={(e) => {
@@ -340,7 +294,7 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={`Search ${normalizedCategory.toLowerCase()} subcategories...`}
+                  placeholder="Search subcategory or type new..."
                   className="w-full bg-transparent text-xs font-semibold text-[var(--heading-color)] focus:outline-none placeholder:text-slate-400"
                 />
                 {searchQuery && (
@@ -358,7 +312,7 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
               <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
                 {filteredList.map((item) => {
                   const isSelected = value?.toLowerCase() === item.name.toLowerCase();
-                  const photo = item.imageUrl || getSubcategoryImageUrl(item.name, normalizedCategory);
+                  const photo = item.imageUrl || getSubcategoryImageUrl(item.name, categoryTag);
 
                   return (
                     <button
@@ -393,19 +347,33 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
                 })}
 
                 {/* If search produces no results or user wants to add custom */}
-                {filteredList.length === 0 && (
-                  <div className="p-3 text-center space-y-2">
-                    <p className="text-xs text-[var(--text-secondary)]">
-                      No matching subcategories for &quot;{searchQuery}&quot;
-                    </p>
+                {searchQuery.trim() && !filteredList.some((i) => i.name.toLowerCase() === searchQuery.trim().toLowerCase()) && (
+                  <div className="p-2 border-t border-[var(--border-color)]">
                     <button
                       type="button"
-                      onClick={handleAddCustom}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 mx-auto cursor-pointer shadow-xs"
+                      disabled={isCreatingSub}
+                      onClick={() => handleCreateAndSelect(searchQuery.trim())}
+                      className="w-full px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-dashed border-blue-300 dark:border-blue-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Use &quot;{searchQuery}&quot;</span>
+                      {isCreatingSub ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Plus className="w-3.5 h-3.5" />
+                      )}
+                      <span>Create &quot;{searchQuery.trim()}&quot;</span>
                     </button>
+                  </div>
+                )}
+
+                {/* Empty State */}
+                {availableSubcategories.length === 0 && !searchQuery.trim() && (
+                  <div className="p-4 text-center space-y-2">
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      No subcategories attached to this category yet.
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Type above to create a subcategory on the fly.
+                    </p>
                   </div>
                 )}
               </div>
@@ -413,7 +381,7 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
               {/* Dropdown Footer: Quick Custom Add */}
               <div className="p-2 border-t border-[var(--border-color)] bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between text-[11px]">
                 <span className="text-[var(--text-secondary)] font-medium">
-                  {availableSubcategories.length} available
+                  {availableSubcategories.length} in database
                 </span>
 
                 <button
@@ -421,11 +389,12 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
                   onClick={() => {
                     setCustomInputMode(true);
                     setIsOpen(false);
+                    setCustomText(value || '');
                   }}
                   className="font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   <Plus className="w-3 h-3" />
-                  <span>Custom subcategory</span>
+                  <span>Custom typing</span>
                 </button>
               </div>
             </div>

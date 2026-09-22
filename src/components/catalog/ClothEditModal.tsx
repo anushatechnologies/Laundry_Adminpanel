@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ClothType, ClothCategoryTag, PricingUnit } from '@/types';
 import { X, Image as ImageIcon, Check, UploadCloud, Loader2, Link as LinkIcon } from 'lucide-react';
 import { CATALOG_MAIN_CATEGORIES } from './CatalogCategoryTabs';
-import { adminApi } from '@/lib/api';
+import { adminApi, getAdminCategories } from '@/lib/api';
 import { SubcategorySelectDropdown } from './SubcategorySelectDropdown';
 
 interface ClothEditModalProps {
@@ -70,6 +70,18 @@ export const ClothEditModal: React.FC<ClothEditModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingS3, setUploadingS3] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+
+  const [liveCategories, setLiveCategories] = useState<Array<{ id: string; name: string; icon?: string }>>([]);
+
+  useEffect(() => {
+    getAdminCategories()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setLiveCategories(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [formData, setFormData] = useState<{
     name: string;
@@ -240,11 +252,19 @@ export const ClothEditModal: React.FC<ClothEditModalProps> = ({
                 onChange={(e) => setFormData({ ...formData, categoryTag: e.target.value as ClothCategoryTag })}
                 className="admin-input w-full"
               >
-                {CATALOG_MAIN_CATEGORIES.filter((c) => c.tag !== 'ALL').map((c) => (
-                  <option key={c.tag} value={c.tag}>
-                    {c.icon} {c.label}
-                  </option>
-                ))}
+                {liveCategories.length > 0 ? (
+                  liveCategories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.icon || '👔'} {c.name}
+                    </option>
+                  ))
+                ) : (
+                  CATALOG_MAIN_CATEGORIES.filter((c) => c.tag !== 'ALL').map((c) => (
+                    <option key={c.tag} value={c.tag}>
+                      {c.icon} {c.label}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 

@@ -680,15 +680,40 @@ export function UnifiedCatalogManager({
   // Add Garment Modal Form State
   const [showAddModal, setShowAddModal] = useState(false);
   const [addGarmentCategory, setAddGarmentCategory] = useState('MENS');
-  const [addGarmentSubcategory, setAddGarmentSubcategory] = useState('Shirts');
+  const [addGarmentSubcategory, setAddGarmentSubcategory] = useState('');
   const [addGarmentImageUrl, setAddGarmentImageUrl] = useState('');
   const [addGarmentUploadingS3, setAddGarmentUploadingS3] = useState(false);
+  const [isSubmittingNewProduct, setIsSubmittingNewProduct] = useState(false);
   const addGarmentFileInputRef = useRef<HTMLInputElement>(null);
 
+  const getCategoryKey = (catId: string) => {
+    const upper = (catId || '').toUpperCase().trim();
+    if (upper === 'M' || upper === 'CAT-1' || upper.includes('MEN')) return 'MENS';
+    if (upper === 'W' || upper === 'CAT-2' || upper.includes('WOMEN')) return 'WOMENS';
+    if (upper === 'K' || upper === 'CAT-3' || upper.includes('KID')) return 'KIDS';
+    if (upper === 'CAT-4' || upper.includes('HOME') || upper.includes('TEXTILE')) return 'HOME_TEXTILES';
+    if (upper === 'CAT-5' || upper.includes('FOOT') || upper.includes('SHOE')) return 'FOOTWEAR';
+    if (upper === 'CAT-6' || upper.includes('ACCESS')) return 'ACCESSORIES';
+    if (upper === 'CAT-7' || upper.includes('BRIDAL')) return 'BRIDAL';
+    if (upper === 'CAT-8' || upper.includes('BULK')) return 'BULK';
+    return upper;
+  };
+
   const addCategoryRule = useMemo(() => {
-    const normCat = (addGarmentCategory || 'MENS').toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    const normCat = getCategoryKey(addGarmentCategory || 'MENS');
     return CATEGORY_SERVICES_RULES[normCat] || CATEGORY_SERVICES_RULES.MENS;
   }, [addGarmentCategory]);
+
+  const handleOpenAddGarment = () => {
+    const defaultCat = activeCategory !== 'ALL' ? activeCategory : (categories[0]?.id || 'M');
+    setAddGarmentCategory(defaultCat);
+    const matching = liveSubcategories.filter((s: any) =>
+      isSubInCat(s.categoryTag || s.category_tag || '', { id: defaultCat })
+    );
+    setAddGarmentSubcategory(matching[0]?.name || '');
+    setAddGarmentImageUrl('');
+    setShowAddModal(true);
+  };
 
   // Edit Garment & Manage its Services Modal
   const [editingCloth, setEditingCloth] = useState<ClothType | null>(null);
@@ -1154,18 +1179,7 @@ export function UnifiedCatalogManager({
 
               <button
                 type="button"
-                onClick={() => {
-                  const defaultCat = activeCategory === 'ALL' ? 'MENS' : activeCategory;
-                  setAddGarmentCategory(defaultCat);
-                  if (defaultCat === 'WOMENS') setAddGarmentSubcategory('Sarees');
-                  else if (defaultCat === 'HOME_TEXTILES') setAddGarmentSubcategory('Bedsheets');
-                  else if (defaultCat === 'KIDS') setAddGarmentSubcategory('Baby Clothing');
-                  else if (defaultCat === 'FOOTWEAR') setAddGarmentSubcategory('Sneakers');
-                  else if (defaultCat === 'ACCESSORIES') setAddGarmentSubcategory('Backpacks');
-                  else setAddGarmentSubcategory('Shirts');
-                  setAddGarmentImageUrl('');
-                  setShowAddModal(true);
-                }}
+                onClick={handleOpenAddGarment}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <Plus className="w-4 h-4" />
@@ -1707,158 +1721,221 @@ export function UnifiedCatalogManager({
       {/* ========================================================================= */}
       {viewMode === 'GARMENTS' && (
         <>
-          {/* Tier 1: Master Category Tabs */}
-          <div className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-3 shadow-xs">
-            <div className="flex items-center justify-between mb-2 px-1">
-              <label className="text-[10px] font-black uppercase text-[var(--text-secondary)] tracking-wider">
-                1. Select Master Category
-              </label>
-              <span className="text-[11px] text-[var(--text-secondary)] font-medium">
-                Click 📷 on any chip to change Category banner photo
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-              {categories.concat([{ id: 'ALL', name: 'All Garments', icon: '✨', imageUrl: '', description: '' }]).map((cat) => {
-                const isSelected = activeCategory === cat.id;
-                const count = categoryCounts[cat.id] || 0;
-                return (
-                  <div
-                    key={cat.id}
-                    className={`p-2.5 rounded-xl transition-all flex items-center justify-between border ${
-                      isSelected
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                        : 'bg-slate-50 dark:bg-slate-800/80 text-[var(--heading-color)] border-[var(--border-color)] hover:border-blue-300'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveCategory(cat.id);
-                        setActiveSubcategory('ALL');
-                      }}
-                      className="flex items-center gap-2 text-left cursor-pointer flex-1 min-w-0"
-                    >
-                      <span className="text-base shrink-0">{cat.icon}</span>
-                      <div className="truncate">
-                        <span className="text-xs font-bold block truncate">{cat.name}</span>
-                        <span className={`text-[10px] font-medium ${isSelected ? 'text-blue-100' : 'text-slate-500'}`}>
-                          {count} items
-                        </span>
-                      </div>
-                    </button>
+          {/* ========================================================= */}
+          {/* UNIFIED COMMAND BAR: Category, Subcategory, & Service Focus */}
+          {/* ========================================================= */}
+          <div className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-4 shadow-xs space-y-3.5">
+            {/* Row 1: Categories & Quick Search & Add Action */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              {/* Category Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveCategory('ALL');
+                    setActiveSubcategory('ALL');
+                  }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 border ${
+                    activeCategory === 'ALL'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20'
+                      : 'bg-slate-50 dark:bg-slate-800 text-[var(--heading-color)] border-[var(--border-color)] hover:border-blue-300'
+                  }`}
+                >
+                  <span className="text-sm">✨</span>
+                  <span>All Garments</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                    activeCategory === 'ALL' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                  }`}>
+                    {clothTypes.length}
+                  </span>
+                </button>
 
-                    {cat.id !== 'ALL' && (
+                {categories.map((cat) => {
+                  const isSelected = activeCategory === cat.id;
+                  const count = categoryCounts[cat.id] || 0;
+                  return (
+                    <div key={cat.id} className="relative flex items-center shrink-0">
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleTriggerUpload('CATEGORY', cat.id, cat.name);
+                        onClick={() => {
+                          setActiveCategory(cat.id);
+                          setActiveSubcategory('ALL');
                         }}
-                        className={`p-1.5 rounded-lg transition-all ml-1 ${
-                          isSelected 
-                            ? 'bg-white/20 hover:bg-white/30 text-white' 
-                            : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500'
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20'
+                            : 'bg-slate-50 dark:bg-slate-800 text-[var(--heading-color)] border-[var(--border-color)] hover:border-blue-300'
                         }`}
-                        title={`Upload Photo for ${cat.name}`}
                       >
-                        <Camera className="w-3 h-3" />
+                        <span className="text-sm">{cat.icon || '👔'}</span>
+                        <span>{cat.name}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                        }`}>
+                          {count}
+                        </span>
                       </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                    </div>
+                  );
+                })}
+              </div>
 
-          {/* Tier 2: Subcategory Pills Filter */}
-          {availableSubcategories.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-3 shadow-xs">
-              <label className="text-[10px] font-black uppercase text-[var(--text-secondary)] tracking-wider block mb-2 px-1">
-                2. Filter by Subcategory
-              </label>
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+              {/* Search & Actions */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search products..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-7 py-2 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl text-xs font-medium focus:outline-none focus:border-blue-500"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleOpenAddGarment}
+                  className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Product</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Row 2: Subcategory Pills & Service Focus Selector */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t border-[var(--border-color)]">
+              {/* Subcategories Filter Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none flex-wrap">
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider mr-1 shrink-0">
+                  Subcategory:
+                </span>
+
                 <button
                   type="button"
                   onClick={() => setActiveSubcategory('ALL')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     activeSubcategory === 'ALL'
-                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
+                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xs'
                       : 'bg-slate-100 dark:bg-slate-800 text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
                   }`}
                 >
-                  All Subcategories ({filteredClothes.length})
+                  All ({filteredClothes.length})
                 </button>
+
                 {availableSubcategories.map((sub) => {
                   const subCount = clothTypes.filter(
-                    (c) => (activeCategory === 'ALL' || c.categoryTag === activeCategory) && c.subCategory === sub
+                    (c) => (activeCategory === 'ALL' || isSubInCat(c.categoryTag, { id: activeCategory })) && c.subCategory === sub
                   ).length;
+                  const isSelected = activeSubcategory === sub;
+
                   return (
                     <button
                       key={sub}
                       type="button"
                       onClick={() => setActiveSubcategory(sub)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
-                        activeSubcategory === sub
-                          ? 'bg-blue-600 text-white shadow-xs'
-                          : 'bg-slate-100 dark:bg-slate-800 text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        isSelected
+                          ? 'bg-purple-600 text-white shadow-2xs'
+                          : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/40 hover:bg-purple-100'
                       }`}
                     >
-                      <span>{sub}</span>
+                      <span>🏷️ {sub}</span>
                       <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        activeSubcategory === sub ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600'
+                        isSelected ? 'bg-white/20 text-white' : 'bg-purple-200/70 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200'
                       }`}>
                         {subCount}
                       </span>
                     </button>
                   );
                 })}
+
+                {availableSubcategories.length === 0 && (
+                  <span className="text-xs text-slate-400 italic">No subcategories attached yet</span>
+                )}
               </div>
-            </div>
-          )}
 
-          {/* Tier 3: Service Focus Mode */}
-          <div className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <label className="text-[10px] font-black uppercase text-[var(--text-secondary)] tracking-wider block mb-1 px-1">
-                3. Service Focus Mode
-              </label>
-              <p className="text-[11px] text-[var(--text-secondary)]">
-                Select a service to highlight its rates and enable 1-click price edits across all garments
-              </p>
-            </div>
-
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-              {serviceFocusOptions.map((srv) => {
-                const isSelected = activeServiceFocus === srv.id;
-                return (
-                  <button
-                    key={srv.id}
-                    type="button"
-                    onClick={() => setActiveServiceFocus(srv.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer border ${
-                      isSelected
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                        : 'bg-slate-50 dark:bg-slate-800 border-[var(--border-color)] text-[var(--heading-color)] hover:border-blue-300'
-                    }`}
-                  >
-                    <span>{srv.icon}</span>
-                    <span>{srv.name}</span>
-                    {srv.badge && (
-                      <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-black uppercase tracking-wider ${
-                        isSelected ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700'
-                      }`}>
-                        {srv.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+              {/* Service Focus Mode Selector */}
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0 scrollbar-none shrink-0">
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider mr-1 shrink-0">
+                  Highlight:
+                </span>
+                {serviceFocusOptions.map((srv) => {
+                  const isSelected = activeServiceFocus === srv.id;
+                  return (
+                    <button
+                      key={srv.id}
+                      type="button"
+                      onClick={() => setActiveServiceFocus(srv.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer border ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                          : 'bg-slate-50 dark:bg-slate-800 border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
+                      }`}
+                    >
+                      <span>{srv.icon}</span>
+                      <span>{srv.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Garments Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {/* Garments Cards Grid or Modern Empty State */}
+          {filteredClothes.length === 0 ? (
+            <div className="py-20 text-center space-y-4 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-6 shadow-xs">
+              <div className="mx-auto w-16 h-16 rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950/60 dark:to-indigo-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-inner text-2xl">
+                <span>👔</span>
+              </div>
+              <div className="space-y-1 max-w-md mx-auto">
+                <h3 className="text-base font-black text-[var(--heading-color)]">
+                  {clothTypes.length === 0
+                    ? 'No products in your catalog yet'
+                    : `No products found matching "${searchQuery || activeSubcategory}"`}
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                  {clothTypes.length === 0
+                    ? 'Add products to your catalog with high-resolution AWS S3 photography and customized rates per laundry service.'
+                    : 'Try clearing your subcategory or search query to view other products.'}
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleOpenAddGarment}
+                  className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black inline-flex items-center gap-2 cursor-pointer shadow-md transition-transform hover:scale-102"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Create Your First Product</span>
+                </button>
+                {(searchQuery || activeSubcategory !== 'ALL' || activeCategory !== 'ALL') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setActiveSubcategory('ALL');
+                      setActiveCategory('ALL');
+                    }}
+                    className="px-4 py-2.5 border border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold rounded-xl text-[var(--heading-color)] cursor-pointer"
+                  >
+                    Reset Filters
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredClothes.map((cloth) => {
               const isUploadingThis = uploadingId === cloth.id;
 
@@ -2140,8 +2217,9 @@ export function UnifiedCatalogManager({
               );
             })}
           </div>
-        </>
-      )}
+        )}
+      </>
+    )}
 
       {/* ========================================================================= */}
       {/* MODAL: Manual Image URL Input (Supports Cloth, Category & Service) */}
@@ -2337,57 +2415,69 @@ export function UnifiedCatalogManager({
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
-                const name = (form.elements.namedItem('name') as HTMLInputElement).value;
-                const icon = (form.elements.namedItem('icon') as HTMLInputElement).value || '👔';
+                const name = (form.elements.namedItem('name') as HTMLInputElement).value.trim();
+                if (!name) {
+                  showToast('Garment name is required', 'error');
+                  return;
+                }
+                const icon = (form.elements.namedItem('icon') as HTMLInputElement).value.trim() || '👔';
                 const cat = addGarmentCategory;
-                const sub = addGarmentSubcategory || 'General';
-                const si = Number((form.elements.namedItem('siPrice') as HTMLInputElement).value) || 20;
-                const dc = Number((form.elements.namedItem('dcPrice') as HTMLInputElement).value) || 80;
-                const wi = Number((form.elements.namedItem('wiPrice') as HTMLInputElement).value) || 49;
-                const wf = Number((form.elements.namedItem('wfPrice') as HTMLInputElement).value) || 35;
+                const sub = addGarmentSubcategory.trim() || 'General';
 
-                const newId = `cloth-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`;
-                const newCloth: ClothType = {
-                  id: newId,
-                  name,
-                  icon,
-                  categoryTag: cat,
-                  categoryLabel: cat === 'MENS' ? "Men's Clothing" : cat === 'WOMENS' ? "Women's Clothing" : cat === 'KIDS' ? "Kids & Baby" : cat === 'FOOTWEAR' ? 'Footwear' : cat === 'ACCESSORIES' ? 'Accessories' : "Home Textiles",
-                  subCategory: sub,
-                  description: `${name} laundry care & finishing.`,
-                  imageUrl: addGarmentImageUrl || getLocalFallbackPhoto(name, cat),
-                  isActive: true,
-                  sortOrder: 99,
-                };
+                setIsSubmittingNewProduct(true);
+                try {
+                  const catMatch = categories.find((c) => c.id === cat);
+                  const categoryLabel = catMatch ? catMatch.name : (cat === 'MENS' ? "Men's Clothing" : "Commercial Garments");
 
-                addClothType(newCloth);
-
-                const newPriceItems: ServicePriceItem[] = addCategoryRule.defaultServices.map((defSrv) => {
-                  const inputVal = (form.elements.namedItem(`srvPrice_${defSrv.serviceId}`) as HTMLInputElement)?.value;
-                  const price = Number(inputVal) || defSrv.defaultPrice;
-                  return {
-                    id: `pr-${newId}-${defSrv.serviceId}`,
-                    clothTypeId: newId,
-                    clothName: name,
-                    clothIcon: icon,
+                  const newId = `cloth-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`;
+                  const newCloth: ClothType = {
+                    id: newId,
+                    name,
+                    icon,
                     categoryTag: cat,
-                    serviceId: defSrv.serviceId,
-                    serviceName: defSrv.name,
-                    price,
-                    expressPrice: Math.round(price * 1.5),
-                    turnaroundHours: defSrv.serviceId === 'srv-m-express' ? 12 : defSrv.serviceId === 'srv-m-spa' ? 48 : 24,
+                    categoryLabel,
+                    subCategory: sub,
+                    description: `${name} laundry care & finishing.`,
+                    imageUrl: addGarmentImageUrl || getLocalFallbackPhoto(name, cat),
                     isActive: true,
-                    isAvailable: true,
+                    sortOrder: 99,
                   };
-                });
 
-                newPriceItems.forEach((p) => upsertPriceItem(p));
+                  await addClothType(newCloth);
 
-                showToast(`Added ${name} to catalog!`, 'success');
-                setShowAddModal(false);
+                  const newPriceItems: ServicePriceItem[] = addCategoryRule.defaultServices.map((defSrv) => {
+                    const inputVal = (form.elements.namedItem(`srvPrice_${defSrv.serviceId}`) as HTMLInputElement)?.value;
+                    const price = Number(inputVal) || defSrv.defaultPrice;
+                    return {
+                      id: `pr-${newId}-${defSrv.serviceId}`,
+                      clothTypeId: newId,
+                      clothName: name,
+                      clothIcon: icon,
+                      categoryTag: cat,
+                      serviceId: defSrv.serviceId,
+                      serviceName: defSrv.name,
+                      price,
+                      expressPrice: Math.round(price * 1.5),
+                      turnaroundHours: defSrv.serviceId === 'srv-m-express' ? 12 : defSrv.serviceId === 'srv-m-spa' ? 48 : 24,
+                      isActive: true,
+                      isAvailable: true,
+                    };
+                  });
+
+                  for (const p of newPriceItems) {
+                    await upsertPriceItem(p);
+                  }
+
+                  showToast(`Added "${name}" to catalog!`, 'success');
+                  setShowAddModal(false);
+                } catch (err: any) {
+                  showToast('Failed to add product: ' + (err.message || 'Error'), 'error');
+                } finally {
+                  setIsSubmittingNewProduct(false);
+                }
               }}
               className="mt-4 space-y-3.5"
             >
@@ -2425,22 +2515,22 @@ export function UnifiedCatalogManager({
                     onChange={(e) => {
                       const newCat = e.target.value;
                       setAddGarmentCategory(newCat);
-                      if (newCat === 'WOMENS') setAddGarmentSubcategory('Sarees');
-                      else if (newCat === 'HOME_TEXTILES') setAddGarmentSubcategory('Bedsheets');
-                      else if (newCat === 'KIDS') setAddGarmentSubcategory('Baby Clothing');
-                      else if (newCat === 'FOOTWEAR') setAddGarmentSubcategory('Sneakers');
-                      else if (newCat === 'ACCESSORIES') setAddGarmentSubcategory('Backpacks');
-                      else setAddGarmentSubcategory('Shirts');
+                      const matching = liveSubcategories.filter((s: any) =>
+                        isSubInCat(s.categoryTag || s.category_tag || '', { id: newCat })
+                      );
+                      setAddGarmentSubcategory(matching[0]?.name || '');
                     }}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="MENS">👔 Men&apos;s Wear</option>
-                    <option value="WOMENS">👗 Women&apos;s Wear</option>
-                    <option value="KIDS">🧸 Kids & Baby</option>
-                    <option value="HOME_TEXTILES">🛏️ Home Textiles</option>
-                    <option value="FOOTWEAR">👟 Footwear</option>
-                    <option value="ACCESSORIES">🎒 Accessories</option>
-                    <option value="BULK">🧺 Bulk Laundry</option>
+                    {categories.length > 0 ? (
+                      categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.icon || '👔'} {c.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="MENS">👔 Men&apos;s Wear</option>
+                    )}
                   </select>
                 </div>
 
@@ -2450,6 +2540,9 @@ export function UnifiedCatalogManager({
                     value={addGarmentSubcategory}
                     onChange={setAddGarmentSubcategory}
                     required
+                    onSubcategoryCreated={() => {
+                      loadLiveCatalog();
+                    }}
                   />
                 </div>
               </div>
