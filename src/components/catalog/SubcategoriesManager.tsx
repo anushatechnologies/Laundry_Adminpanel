@@ -25,9 +25,20 @@ import {
   updateAdminSubcategory,
   deleteAdminSubcategory,
   seedAdminSubcategories,
+  getAdminCategories,
 } from '@/lib/api';
 import { getSubcategoryImageUrl } from '@/lib/category-photos';
 import { useApp } from '@/context/AppContext';
+
+interface CategoryItem {
+  id: string;
+  name: string;
+  slug?: string;
+  icon?: string;
+  imageUrl?: string;
+  description?: string;
+  isActive?: boolean;
+}
 
 interface SubcategoryItem {
   id: string;
@@ -38,59 +49,11 @@ interface SubcategoryItem {
   sortOrder: number;
 }
 
-const CATEGORY_TABS = [
-  { tag: 'ALL', label: 'All Subcategories', icon: '✨' },
-  { tag: 'MENS', label: "Men's Wear", icon: '👔' },
-  { tag: 'WOMENS', label: "Women's Wear", icon: '👗' },
-  { tag: 'KIDS', label: 'Kids & Baby', icon: '🧸' },
-  { tag: 'HOME_TEXTILES', label: 'Home Textiles', icon: '🛏️' },
-  { tag: 'FOOTWEAR', label: 'Footwear', icon: '👟' },
-  { tag: 'ACCESSORIES', label: 'Accessories', icon: '🎒' },
-  { tag: 'BULK', label: 'Bulk Laundry', icon: '🧺' },
-];
-
-const DEFAULT_SEEDED_SUBCATEGORIES: Array<{ tag: string; name: string; sortOrder: number }> = [
-  { tag: 'MENS', name: 'Shirts', sortOrder: 1 },
-  { tag: 'MENS', name: 'T-Shirts & Polos', sortOrder: 2 },
-  { tag: 'MENS', name: 'Trousers & Chinos', sortOrder: 3 },
-  { tag: 'MENS', name: 'Jeans & Denim', sortOrder: 4 },
-  { tag: 'MENS', name: 'Ethnic Wear', sortOrder: 5 },
-  { tag: 'MENS', name: 'Suits & Blazers', sortOrder: 6 },
-  { tag: 'MENS', name: 'Jackets & Coats', sortOrder: 7 },
-  { tag: 'MENS', name: 'Winter Wear', sortOrder: 8 },
-  { tag: 'WOMENS', name: 'Sarees', sortOrder: 1 },
-  { tag: 'WOMENS', name: 'Blouses', sortOrder: 2 },
-  { tag: 'WOMENS', name: 'Kurtis & Kurtas', sortOrder: 3 },
-  { tag: 'WOMENS', name: 'Salwar & Suits', sortOrder: 4 },
-  { tag: 'WOMENS', name: 'Western Dresses', sortOrder: 5 },
-  { tag: 'WOMENS', name: 'Tops & Shirts', sortOrder: 6 },
-  { tag: 'WOMENS', name: 'Lehengas', sortOrder: 7 },
-  { tag: 'WOMENS', name: 'Gowns', sortOrder: 8 },
-  { tag: 'WOMENS', name: 'Dupattas & Stoles', sortOrder: 9 },
-  { tag: 'KIDS', name: 'Baby Clothing', sortOrder: 1 },
-  { tag: 'KIDS', name: 'Boys Clothing', sortOrder: 2 },
-  { tag: 'KIDS', name: 'Girls Clothing', sortOrder: 3 },
-  { tag: 'KIDS', name: 'School Uniforms', sortOrder: 4 },
-  { tag: 'KIDS', name: 'Party Wear', sortOrder: 5 },
-  { tag: 'HOME_TEXTILES', name: 'Bedsheets', sortOrder: 1 },
-  { tag: 'HOME_TEXTILES', name: 'Bed Covers', sortOrder: 2 },
-  { tag: 'HOME_TEXTILES', name: 'Blankets', sortOrder: 3 },
-  { tag: 'HOME_TEXTILES', name: 'Comforters & Quilts', sortOrder: 4 },
-  { tag: 'HOME_TEXTILES', name: 'Curtains', sortOrder: 5 },
-  { tag: 'HOME_TEXTILES', name: 'Sofa & Cushion Covers', sortOrder: 6 },
-  { tag: 'HOME_TEXTILES', name: 'Towels', sortOrder: 7 },
-  { tag: 'FOOTWEAR', name: 'Sneakers', sortOrder: 1 },
-  { tag: 'FOOTWEAR', name: 'Formal Shoes', sortOrder: 2 },
-  { tag: 'FOOTWEAR', name: 'Sports Shoes', sortOrder: 3 },
-  { tag: 'ACCESSORIES', name: 'Backpacks', sortOrder: 1 },
-  { tag: 'ACCESSORIES', name: 'Handbags', sortOrder: 2 },
-  { tag: 'ACCESSORIES', name: 'Belts & Wallets', sortOrder: 3 },
-];
-
 export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> = ({
   onRefreshCatalog,
 }) => {
   const { clothTypes, showToast } = useApp();
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [subcategories, setSubcategories] = useState<SubcategoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('ALL');
@@ -106,7 +69,7 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
   const [editingSub, setEditingSub] = useState<SubcategoryItem | null>(null);
   const [modalForm, setModalForm] = useState({
     name: '',
-    categoryTag: 'MENS',
+    categoryTag: '',
     imageUrl: '',
     isActive: true,
     sortOrder: 1,
@@ -115,16 +78,36 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
   const [isSaving, setIsSaving] = useState(false);
   const modalFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load Subcategories from MySQL
+  // Load Subcategories & Categories from MySQL
   const loadSubcategories = async () => {
     setLoading(true);
     try {
-      const data = await getAdminSubcategories().catch(() => null);
-      if (Array.isArray(data)) {
+      const [subData, catData] = await Promise.all([
+        getAdminSubcategories().catch(() => null),
+        getAdminCategories().catch(() => null),
+      ]);
+
+      if (Array.isArray(catData)) {
+        setCategories(
+          catData.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            slug: c.slug,
+            icon: c.icon,
+            imageUrl: c.imageUrl || c.image,
+            description: c.description,
+            isActive: c.isActive !== false,
+          }))
+        );
+      } else {
+        setCategories([]);
+      }
+
+      if (Array.isArray(subData)) {
         setSubcategories(
-          data.map((item: any) => ({
+          subData.map((item: any) => ({
             id: item.id || `sub-${item.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-            categoryTag: (item.categoryTag || item.category_tag || 'MENS').toUpperCase(),
+            categoryTag: (item.categoryTag || item.category_tag || '').toUpperCase(),
             name: item.name,
             imageUrl: item.imageUrl || item.image_url || '',
             isActive: item.isActive !== false && item.is_active !== 0,
@@ -135,11 +118,44 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
         setSubcategories([]);
       }
     } catch (err) {
-      console.warn('Could not load subcategories:', err);
+      console.warn('Could not load subcategories or categories:', err);
       setSubcategories([]);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper to match a subcategory's categoryTag to a category object
+  const isSubcategoryInCat = (subTag: string, cat: CategoryItem) => {
+    if (!subTag || !cat) return false;
+    const s = subTag.trim().toLowerCase();
+    const id = (cat.id || '').trim().toLowerCase();
+    const slug = (cat.slug || '').trim().toLowerCase();
+    const name = (cat.name || '').trim().toLowerCase();
+
+    if (s === id || s === slug || s === name) return true;
+
+    // Cross-compat aliases
+    if (s === 'mens' && (id === 'm' || id === 'cat-1' || slug.includes('men') || name.includes('men'))) return true;
+    if (s === 'womens' && (id === 'w' || id === 'cat-2' || slug.includes('women') || name.includes('women'))) return true;
+    if (s === 'kids' && (id === 'k' || id === 'cat-3' || slug.includes('kid') || name.includes('kid'))) return true;
+    if (s === 'home_textiles' && (id === 'cat-4' || slug.includes('home') || slug.includes('textile') || name.includes('home'))) return true;
+    if (s === 'footwear' && (id === 'cat-5' || slug.includes('foot') || slug.includes('shoe') || name.includes('foot'))) return true;
+    if (s === 'accessories' && (id === 'cat-6' || slug.includes('access') || slug.includes('bag') || name.includes('access'))) return true;
+    if (s === 'bridal' && (id === 'cat-7' || slug.includes('bridal') || slug.includes('wedding') || name.includes('bridal'))) return true;
+    if (s === 'bulk' && (id === 'cat-8' || slug.includes('bulk') || name.includes('bulk'))) return true;
+
+    // Inverse check
+    if ((id === 'mens' || slug.includes('men') || name.includes('men')) && (s === 'm' || s === 'cat-1' || s === 'mens')) return true;
+    if ((id === 'womens' || slug.includes('women') || name.includes('women')) && (s === 'w' || s === 'cat-2' || s === 'womens')) return true;
+
+    return false;
+  };
+
+  const getCategoryName = (subTag: string): string => {
+    const found = categories.find((c) => isSubcategoryInCat(subTag, c));
+    return found ? found.name : subTag;
   };
 
   const [isSeeding, setIsSeeding] = useState(false);
@@ -269,9 +285,15 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
   // Open Create Modal
   const handleOpenCreateModal = () => {
     setEditingSub(null);
+    const defaultTag =
+      activeCategoryFilter !== 'ALL'
+        ? activeCategoryFilter
+        : categories.length > 0
+        ? categories[0].id
+        : '';
     setModalForm({
       name: '',
-      categoryTag: activeCategoryFilter === 'ALL' ? 'MENS' : activeCategoryFilter,
+      categoryTag: defaultTag,
       imageUrl: '',
       isActive: true,
       sortOrder: subcategories.length + 1,
@@ -282,9 +304,10 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
   // Open Edit Modal
   const handleOpenEditModal = (sub: SubcategoryItem) => {
     setEditingSub(sub);
+    const matched = categories.find((c) => isSubcategoryInCat(sub.categoryTag, c));
     setModalForm({
       name: sub.name,
-      categoryTag: sub.categoryTag,
+      categoryTag: matched ? matched.id : sub.categoryTag,
       imageUrl: sub.imageUrl || '',
       isActive: sub.isActive,
       sortOrder: sub.sortOrder,
@@ -408,24 +431,45 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
     return subcategories.filter((sub) => {
       const matchesCategory =
         activeCategoryFilter === 'ALL' ||
+        categories.some(
+          (c) => c.id === activeCategoryFilter && isSubcategoryInCat(sub.categoryTag, c)
+        ) ||
         sub.categoryTag.toUpperCase() === activeCategoryFilter.toUpperCase();
+
+      const catName = getCategoryName(sub.categoryTag).toLowerCase();
       const matchesSearch =
         !searchQuery.trim() ||
         sub.name.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-        sub.categoryTag.toLowerCase().includes(searchQuery.toLowerCase().trim());
+        sub.categoryTag.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+        catName.includes(searchQuery.toLowerCase().trim());
+
       return matchesCategory && matchesSearch;
     });
-  }, [subcategories, activeCategoryFilter, searchQuery]);
+  }, [subcategories, activeCategoryFilter, searchQuery, categories]);
 
-  // Counts per Category Tab
+  // Dynamic category tabs based only on categories created in database
+  const categoryTabs = useMemo(() => {
+    const tabs: Array<{ tag: string; label: string; icon: string }> = [
+      { tag: 'ALL', label: 'All Subcategories', icon: '✨' },
+    ];
+    categories.forEach((cat) => {
+      tabs.push({
+        tag: cat.id,
+        label: cat.name,
+        icon: cat.icon || '🏷️',
+      });
+    });
+    return tabs;
+  }, [categories]);
+
+  // Counts per Category Tab dynamically
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = { ALL: subcategories.length };
-    subcategories.forEach((s) => {
-      const tag = s.categoryTag.toUpperCase();
-      counts[tag] = (counts[tag] || 0) + 1;
+    categories.forEach((cat) => {
+      counts[cat.id] = subcategories.filter((s) => isSubcategoryInCat(s.categoryTag, cat)).length;
     });
     return counts;
-  }, [subcategories]);
+  }, [categories, subcategories]);
 
   return (
     <div className="space-y-4">
@@ -493,9 +537,9 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
         </div>
       </div>
 
-      {/* Category Filter Pills Bar */}
+      {/* Category Filter Pills Bar - DYNAMIC BASED ON CREATED CATEGORIES */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {CATEGORY_TABS.map((tab) => {
+        {categoryTabs.map((tab) => {
           const isSelected = activeCategoryFilter === tab.tag;
           const count = categoryCounts[tab.tag] || 0;
 
@@ -630,7 +674,7 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
                   <div>
                     <div className="flex items-center justify-between gap-1 mb-1">
                       <span className="text-[9px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/70 px-2 py-0.5 rounded-md">
-                        {sub.categoryTag}
+                        {getCategoryName(sub.categoryTag)}
                       </span>
 
                       <span className="text-[10px] text-[var(--text-secondary)] font-mono">
@@ -753,13 +797,15 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
                     onChange={(e) => setModalForm({ ...modalForm, categoryTag: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="MENS">Men&apos;s Wear</option>
-                    <option value="WOMENS">Women&apos;s Wear</option>
-                    <option value="KIDS">Kids & Baby</option>
-                    <option value="HOME_TEXTILES">Home Textiles</option>
-                    <option value="FOOTWEAR">Footwear</option>
-                    <option value="ACCESSORIES">Accessories</option>
-                    <option value="BULK">Bulk Laundry</option>
+                    {categories.length === 0 ? (
+                      <option value="">No categories created yet</option>
+                    ) : (
+                      categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
 

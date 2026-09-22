@@ -87,6 +87,9 @@ export const CategorySubcategoryModal: React.FC<CategorySubcategoryModalProps> =
 
       if (Array.isArray(cats)) {
         setCategories(cats);
+        if (cats.length > 0) {
+          setNewSubCategoryTag((prev) => (prev === 'MENS' || !prev ? cats[0].id : prev));
+        }
       }
       if (Array.isArray(subs)) {
         setSubcategories(subs);
@@ -251,9 +254,32 @@ export const CategorySubcategoryModal: React.FC<CategorySubcategoryModalProps> =
     }
   };
 
-  const filteredSubcategories = subcategories.filter(
-    (s) => selectedCatFilter === 'ALL' || s.categoryTag.toUpperCase() === selectedCatFilter.toUpperCase()
-  );
+  const isSubcategoryInCat = (subTag: string, cat: CategoryItem) => {
+    if (!subTag || !cat) return false;
+    const s = subTag.trim().toLowerCase();
+    const id = (cat.id || '').trim().toLowerCase();
+    const slug = (cat.slug || '').trim().toLowerCase();
+    const name = (cat.name || '').trim().toLowerCase();
+    if (s === id || s === slug || s === name) return true;
+    if (s === 'mens' && (id === 'm' || id === 'cat-1' || slug.includes('men') || name.includes('men'))) return true;
+    if (s === 'womens' && (id === 'w' || id === 'cat-2' || slug.includes('women') || name.includes('women'))) return true;
+    if (s === 'kids' && (id === 'k' || id === 'cat-3' || slug.includes('kid') || name.includes('kid'))) return true;
+    if (s === 'home_textiles' && (id === 'cat-4' || slug.includes('home') || slug.includes('textile') || name.includes('home'))) return true;
+    if (s === 'footwear' && (id === 'cat-5' || slug.includes('foot') || slug.includes('shoe') || name.includes('foot'))) return true;
+    if (s === 'accessories' && (id === 'cat-6' || slug.includes('access') || slug.includes('bag') || name.includes('access'))) return true;
+    if (s === 'bridal' && (id === 'cat-7' || slug.includes('bridal') || slug.includes('wedding') || name.includes('bridal'))) return true;
+    if (s === 'bulk' && (id === 'cat-8' || slug.includes('bulk') || name.includes('bulk'))) return true;
+    if ((id === 'mens' || slug.includes('men') || name.includes('men')) && (s === 'm' || s === 'cat-1' || s === 'mens')) return true;
+    return false;
+  };
+
+  const filteredSubcategories = subcategories.filter((s) => {
+    if (selectedCatFilter === 'ALL') return true;
+    return (
+      categories.some((c) => c.id === selectedCatFilter && isSubcategoryInCat(s.categoryTag, c)) ||
+      s.categoryTag.toUpperCase() === selectedCatFilter.toUpperCase()
+    );
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
@@ -354,13 +380,15 @@ export const CategorySubcategoryModal: React.FC<CategorySubcategoryModalProps> =
               onChange={(e) => setNewSubCategoryTag(e.target.value)}
               className="admin-input py-1 px-2.5 text-xs bg-white dark:bg-slate-900"
             >
-              <option value="MENS">Men's Wear</option>
-              <option value="WOMENS">Women's Wear</option>
-              <option value="KIDS">Kids & Baby</option>
-              <option value="HOME_TEXTILES">Home Textiles</option>
-              <option value="FOOTWEAR">Footwear</option>
-              <option value="ACCESSORIES">Accessories</option>
-              <option value="BULK">Bulk Laundry</option>
+              {categories.length === 0 ? (
+                <option value="">No categories created</option>
+              ) : (
+                categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))
+              )}
             </select>
             <input
               type="text"
@@ -500,25 +528,28 @@ export const CategorySubcategoryModal: React.FC<CategorySubcategoryModalProps> =
             <div className="space-y-4">
               {/* Category Filter Pills for Subcategories */}
               <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {[
-                  { tag: 'ALL', label: 'All Subcategories' },
-                  { tag: 'MENS', label: "Men's" },
-                  { tag: 'WOMENS', label: "Women's" },
-                  { tag: 'KIDS', label: 'Kids & Baby' },
-                  { tag: 'HOME_TEXTILES', label: 'Home Textiles' },
-                  { tag: 'FOOTWEAR', label: 'Footwear' },
-                  { tag: 'ACCESSORIES', label: 'Accessories' },
-                ].map((c) => (
+                <button
+                  key="ALL"
+                  onClick={() => setSelectedCatFilter('ALL')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer shrink-0 ${
+                    selectedCatFilter === 'ALL'
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent shadow-xs'
+                      : 'bg-[var(--bg-secondary-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:text-[var(--heading-color)]'
+                  }`}
+                >
+                  All Subcategories
+                </button>
+                {categories.map((c) => (
                   <button
-                    key={c.tag}
-                    onClick={() => setSelectedCatFilter(c.tag)}
+                    key={c.id}
+                    onClick={() => setSelectedCatFilter(c.id)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer shrink-0 ${
-                      selectedCatFilter === c.tag
+                      selectedCatFilter === c.id
                         ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent shadow-xs'
                         : 'bg-[var(--bg-secondary-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:text-[var(--heading-color)]'
                     }`}
                   >
-                    {c.label}
+                    {c.name}
                   </button>
                 ))}
               </div>
