@@ -121,7 +121,7 @@ export default function AdminLoginPage() {
             </svg>
           </div>
           <h1 className="text-[28px] font-black text-white tracking-tight">LaundryFresh Admin</h1>
-          <p className="text-xs text-white/35 tracking-widest uppercase font-semibold">Operations Console · Anusha Technologies</p>
+          <p className="text-xs text-white/35 tracking-widest uppercase font-semibold">Operations Console · Anusha Bazaar Technologies</p>
         </div>
 
         {/* Glass Card */}
@@ -267,7 +267,7 @@ export default function AdminLoginPage() {
         </div>
 
         <p className="text-center text-[10px] text-white/18 mt-5 font-mono tracking-widest uppercase">
-          256-bit encrypted · Anusha Technologies © {new Date().getFullYear()}
+          256-bit encrypted · Anusha Bazaar Technologies © {new Date().getFullYear()}
         </p>
       </div>
     </div>

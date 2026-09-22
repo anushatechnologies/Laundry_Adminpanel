@@ -228,6 +228,25 @@ const defaultAddresses: Address[] = [
   },
 ];
 
+function deduplicatePriceMatrix(items: ServicePriceItem[]): ServicePriceItem[] {
+  const map = new Map<string, ServicePriceItem>();
+  for (const item of items) {
+    if (!item.clothTypeId || !item.serviceId) continue;
+    const key = `${item.clothTypeId}::${item.serviceId}`;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, item);
+    } else {
+      const existingScore = (existing.clothName ? 2 : 0) + (existing.id?.includes('srv-m') ? 1 : 0);
+      const newScore = (item.clothName ? 2 : 0) + (item.id?.includes('srv-m') ? 1 : 0);
+      if (newScore > existingScore) {
+        map.set(key, item);
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -299,7 +318,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWallet(db.getWallet());
     setClothTypes(db.getClothTypes());
     setServiceMasters(db.getServiceMasters());
-    setPriceMatrix(db.getPriceMatrix().filter((p) => isServiceAllowedForCategory(p.categoryTag, p.serviceId)));
+    setPriceMatrix(deduplicatePriceMatrix(db.getPriceMatrix().filter((p) => isServiceAllowedForCategory(p.categoryTag, p.serviceId))));
     setBulkPricing(db.getBulkPricing());
     setPricingSettings(db.getPricingSettings());
 
@@ -356,20 +375,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const remotePrices = Array.isArray(catalog.priceMatrix) ? catalog.priceMatrix : (catalog.data?.priceMatrix || []);
         if (Array.isArray(remotePrices) && remotePrices.length > 0) {
           const sanitizedRemote = remotePrices.filter((p: any) => isServiceAllowedForCategory(p.categoryTag, p.serviceId));
-          if (sanitizedRemote.length < localMasterPrices.length) {
-            const remotePriceMap = new Map(sanitizedRemote.map((p: any) => [`${p.clothTypeId}-${p.serviceId}`, p]));
+          const dedupedRemote = deduplicatePriceMatrix(sanitizedRemote);
+          if (dedupedRemote.length < localMasterPrices.length) {
+            const remotePriceMap = new Map(dedupedRemote.map((p: any) => [`${p.clothTypeId}-${p.serviceId}`, p]));
             const mergedPrices = localMasterPrices
               .filter((p) => isServiceAllowedForCategory(p.categoryTag, p.serviceId))
               .map((p) => {
                 const r = remotePriceMap.get(`${p.clothTypeId}-${p.serviceId}`);
                 return r ? { ...p, ...r } : p;
               });
-            setPriceMatrix(mergedPrices);
+            setPriceMatrix(deduplicatePriceMatrix(mergedPrices));
           } else {
-            setPriceMatrix(sanitizedRemote);
+            setPriceMatrix(dedupedRemote);
           }
         } else {
-          setPriceMatrix(localMasterPrices.filter((p) => isServiceAllowedForCategory(p.categoryTag, p.serviceId)));
+          setPriceMatrix(deduplicatePriceMatrix(localMasterPrices.filter((p) => isServiceAllowedForCategory(p.categoryTag, p.serviceId))));
         }
 
         if (catalog.bulkPricing && Array.isArray(catalog.bulkPricing) && catalog.bulkPricing.length > 0) {
@@ -831,11 +851,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify(data),
       });
       db.updatePriceItem(id, data);
-      setPriceMatrix([...db.getPriceMatrix()]);
+      setPriceMatrix(deduplicatePriceMatrix(db.getPriceMatrix()));
       showToast('Price updated in database.', 'success');
     } catch {
       db.updatePriceItem(id, data);
-      setPriceMatrix([...db.getPriceMatrix()]);
+      setPriceMatrix(deduplicatePriceMatrix(db.getPriceMatrix()));
     }
   };
 
@@ -846,11 +866,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify(data),
       });
       db.upsertPriceItem(data);
-      setPriceMatrix([...db.getPriceMatrix()]);
+      setPriceMatrix(deduplicatePriceMatrix(db.getPriceMatrix()));
       showToast('Price rule saved in database.', 'success');
     } catch {
       db.upsertPriceItem(data);
-      setPriceMatrix([...db.getPriceMatrix()]);
+      setPriceMatrix(deduplicatePriceMatrix(db.getPriceMatrix()));
     }
   };
 

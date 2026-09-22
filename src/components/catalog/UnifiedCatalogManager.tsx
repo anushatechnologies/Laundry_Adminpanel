@@ -7,11 +7,13 @@ import { ClothType, ServicePriceItem } from '@/types';
 import { 
   Search, Plus, Camera, Edit2, X, 
   RefreshCw, ShieldCheck, Link2, ExternalLink, Layers, Sparkles, Tag, Clock, ArrowRight, Settings,
-  Trash2, Check, CheckCircle2, Loader2, UploadCloud
+  Trash2, Check, CheckCircle2, Loader2, UploadCloud, Eye, EyeOff, AlertTriangle, FolderPlus, ArrowUpRight
 } from 'lucide-react';
 import { 
   getAdminCategories, 
+  createAdminCategory,
   updateAdminCategory, 
+  deleteAdminCategory,
   updateAdminServiceMaster, 
   getAdminCatalog 
 } from '@/lib/api';
@@ -25,7 +27,17 @@ import {
   CATEGORY_SERVICES_RULES 
 } from '@/lib/catalogCategoryServices';
 
-const INITIAL_MASTER_CATEGORIES = [
+export interface MasterCategoryItem {
+  id: string;
+  name: string;
+  icon: string;
+  imageUrl: string;
+  description: string;
+  slug?: string;
+  isActive?: boolean;
+}
+
+const INITIAL_MASTER_CATEGORIES: MasterCategoryItem[] = [
   { 
     id: 'MENS', 
     name: "Men's Wear", 
@@ -243,7 +255,7 @@ export function UnifiedCatalogManager({
   );
 
   // Master Categories State (with live photo overrides)
-  const [categories, setCategories] = useState(INITIAL_MASTER_CATEGORIES);
+  const [categories, setCategories] = useState<MasterCategoryItem[]>(INITIAL_MASTER_CATEGORIES);
 
   // Services State (with live photo overrides)
   const [servicesList, setServicesList] = useState(INITIAL_SERVICES_MASTERS);
@@ -299,12 +311,50 @@ export function UnifiedCatalogManager({
           return {
             id: localMatch?.id || rc.id,
             name: rc.name || localMatch?.name || 'Category',
+            slug: rc.slug || localMatch?.id?.toLowerCase().replace(/_/g, '-') || '',
             icon: rc.icon || localMatch?.icon || '🧺',
             imageUrl: rc.imageUrl || rc.image || localMatch?.imageUrl || '',
             description: rc.description || localMatch?.description || '',
+            isActive: rc.isActive !== false,
           };
         });
-        setCategories(mapped);
+
+        // Deduplicate categories by ID
+        const catMap = new Map<string, any>();
+        for (const cat of mapped) {
+          catMap.set(cat.id, cat);
+        }
+        setCategories(Array.from(catMap.values()));
+      }
+
+      // Sync cloud overrides for categories & services
+      try {
+        const ovRes = await fetch('/api/catalog-overrides?t=' + Date.now(), { cache: 'no-store' });
+        if (ovRes.ok) {
+          const ovJson = await ovRes.json();
+          const ovData = ovJson?.data || ovJson;
+          const { fullCategoryOverrides, deletedCategoryIds, categoryOverrides } = ovData || {};
+          
+          setCategories((prev) => {
+            let list = prev;
+            if (deletedCategoryIds && Array.isArray(deletedCategoryIds) && deletedCategoryIds.length > 0) {
+              const delSet = new Set(deletedCategoryIds);
+              list = list.filter((c) => !delSet.has(c.id));
+            }
+            return list.map((c) => {
+              let updated = { ...c };
+              if (categoryOverrides && categoryOverrides[c.id]) {
+                updated.imageUrl = categoryOverrides[c.id];
+              }
+              if (fullCategoryOverrides && fullCategoryOverrides[c.id]) {
+                updated = { ...updated, ...fullCategoryOverrides[c.id] };
+              }
+              return updated;
+            });
+          });
+        }
+      } catch (err) {
+        console.warn('Could not sync S3 category overrides', err);
       }
 
       if (catalogRes.status === 'fulfilled' && catalogRes.value) {
@@ -335,6 +385,232 @@ export function UnifiedCatalogManager({
   const [activeSubcategory, setActiveSubcategory] = useState<string>('ALL');
   const [activeServiceFocus, setActiveServiceFocus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Category Search & Filter State
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
+
+  // Category Add / Edit Modal State
+  const [editingCategory, setEditingCategory] = useState<{
+    id: string;
+    name: string;
+    slug?: string;
+    icon?: string;
+    description?: string;
+    imageUrl?: string;
+    isActive?: boolean;
+  } | null>(null);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [categoryForm, setCategoryForm] = useState<{
+    id: string;
+    name: string;
+    slug: string;
+    icon: string;
+    description: string;
+    imageUrl: string;
+    isActive: boolean;
+  }>({
+    id: '',
+    name: '',
+    slug: '',
+    icon: '👔',
+    description: '',
+    imageUrl: '',
+    isActive: true,
+  });
+  const [categoryUploadingS3, setCategoryUploadingS3] = useState(false);
+  const categoryFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Category Delete Confirmation Modal State
+  const [deletingCategory, setDeletingCategory] = useState<{
+    id: string;
+    name: string;
+    icon?: string;
+  } | null>(null);
+  const [isDeletingCategoryLoading, setIsDeletingCategoryLoading] = useState(false);
+
+  // Filtered categories for Categories View
+  const filteredCategories = useMemo(() => {
+    if (!categorySearchQuery.trim()) return categories;
+    const q = categorySearchQuery.toLowerCase();
+    return categories.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.description || '').toLowerCase().includes(q) ||
+        c.id.toLowerCase().includes(q) ||
+        (c.slug || '').toLowerCase().includes(q)
+    );
+  }, [categories, categorySearchQuery]);
+
+  const handleOpenAddCategory = () => {
+    setIsAddingCategory(true);
+    setEditingCategory(null);
+    setCategoryForm({
+      id: '',
+      name: '',
+      slug: '',
+      icon: '👔',
+      description: '',
+      imageUrl: '',
+      isActive: true,
+    });
+  };
+
+  const handleOpenEditCategory = (cat: any) => {
+    setEditingCategory(cat);
+    setIsAddingCategory(false);
+    setCategoryForm({
+      id: cat.id,
+      name: cat.name,
+      slug: cat.slug || cat.id.toLowerCase().replace(/_/g, '-'),
+      icon: cat.icon || '👔',
+      description: cat.description || '',
+      imageUrl: cat.imageUrl || '',
+      isActive: cat.isActive !== false,
+    });
+  };
+
+  const handleCategoryModalUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCategoryUploadingS3(true);
+    try {
+      const compressedBase64 = await compressImage(file, 1200, 0.85);
+      const cleanName = (categoryForm.name || 'category').toLowerCase().replace(/[^a-z0-9]/g, '-');
+      const fileName = `category-${cleanName}-${Date.now()}.jpg`;
+      const res = await fetch('/api/upload-s3', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folder: 'categories',
+          fileName,
+          imageBase64: compressedBase64,
+          contentType: 'image/jpeg',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Upload failed');
+      setCategoryForm((prev) => ({ ...prev, imageUrl: data.url }));
+      showToast('Cover photo uploaded to AWS S3!', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to upload category image', 'error');
+    } finally {
+      setCategoryUploadingS3(false);
+      if (categoryFileInputRef.current) categoryFileInputRef.current.value = '';
+    }
+  };
+
+  const handleSaveCategory = async () => {
+    if (!categoryForm.name.trim()) {
+      showToast('Category name is required', 'error');
+      return;
+    }
+
+    const catId = isAddingCategory
+      ? (categoryForm.id.trim() || categoryForm.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, '_'))
+      : editingCategory!.id;
+
+    const catData = {
+      id: catId,
+      name: categoryForm.name.trim(),
+      slug: categoryForm.slug.trim() || categoryForm.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      icon: categoryForm.icon.trim() || '👔',
+      description: categoryForm.description.trim(),
+      imageUrl: categoryForm.imageUrl.trim(),
+      isActive: categoryForm.isActive !== false,
+    };
+
+    // 1. Optimistic update
+    if (isAddingCategory) {
+      setCategories((prev) => [...prev.filter((c) => c.id !== catId), catData]);
+    } else {
+      setCategories((prev) => prev.map((c) => (c.id === catId ? { ...c, ...catData } : c)));
+    }
+
+    // 2. Call backend API
+    try {
+      if (isAddingCategory) {
+        await createAdminCategory(catData);
+      } else {
+        await updateAdminCategory(catId, catData);
+      }
+    } catch (err) {
+      console.warn('Could not sync category to backend API', err);
+    }
+
+    // 3. Sync to S3 cloud overrides
+    try {
+      await fetch('/api/catalog-overrides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categoryId: catId,
+          categoryData: catData,
+          categoryTag: catId,
+          categoryImageUrl: catData.imageUrl,
+        }),
+      });
+    } catch (err) {}
+
+    showToast(`Category "${catData.name}" ${isAddingCategory ? 'created' : 'updated'} successfully!`, 'success');
+    setEditingCategory(null);
+    setIsAddingCategory(false);
+  };
+
+  const handleToggleCategoryActive = async (cat: any) => {
+    const newActive = cat.isActive === false;
+    setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, isActive: newActive } : c)));
+    try {
+      await updateAdminCategory(cat.id, { isActive: newActive });
+    } catch (err) {}
+    try {
+      await fetch('/api/catalog-overrides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categoryId: cat.id,
+          categoryData: { isActive: newActive },
+        }),
+      });
+    } catch (err) {}
+    showToast(`Category "${cat.name}" is now ${newActive ? 'Active' : 'Hidden'}.`, 'info');
+  };
+
+  const handleConfirmDeleteCategory = async () => {
+    if (!deletingCategory) return;
+    const catId = deletingCategory.id;
+    setIsDeletingCategoryLoading(true);
+
+    // 1. Optimistic update
+    setCategories((prev) => prev.filter((c) => c.id !== catId));
+
+    // 2. Call backend API
+    try {
+      await deleteAdminCategory(catId);
+    } catch (err) {
+      console.warn('Could not delete category via backend API', err);
+    }
+
+    // 3. Sync deletion to S3 cloud overrides
+    try {
+      await fetch('/api/catalog-overrides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categoryId: catId,
+          isCategoryDeleted: true,
+        }),
+      });
+    } catch (err) {}
+
+    showToast(`Category "${deletingCategory.name}" deleted.`, 'success');
+    setIsDeletingCategoryLoading(false);
+    setDeletingCategory(null);
+  };
+
+  const handleJumpToGarments = (categoryId: string) => {
+    setActiveCategory(categoryId);
+    setViewMode('GARMENTS');
+  };
 
   const serviceFocusOptions = useMemo(
     () => getCategoryServiceFocusOptions(activeCategory),
@@ -933,103 +1209,286 @@ export function UnifiedCatalogManager({
       )}
 
       {/* ========================================================================= */}
-      {/* 1. CATEGORIES PHOTOGRAPHY VIEW */}
+      {/* 1. CATEGORIES MANAGEMENT & PHOTOGRAPHY VIEW */}
       {/* ========================================================================= */}
       {viewMode === 'CATEGORIES' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <div>
-              <h3 className="text-sm font-black text-[var(--heading-color)]">
-                Master Category Banners & Photography
-              </h3>
-              <p className="text-xs text-[var(--text-secondary)]">
-                Upload direct high-definition photography to AWS S3 for customer app home category cards.
-              </p>
+        <div className="space-y-5">
+          {/* Top Header Card */}
+          <div className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800/80 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 shadow-2xs">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-[var(--heading-color)]">
+                  Master Categories & Taxonomy
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                  Organize customer app categories, manage high-res S3 photography, edit metadata, and control visibility.
+                </p>
+              </div>
             </div>
-            <span className="text-xs font-bold text-slate-500">
-              {categories.length} Master Categories
-            </span>
+
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {/* Search Filter */}
+              <div className="relative min-w-[200px]">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search categories..."
+                  value={categorySearchQuery}
+                  onChange={(e) => setCategorySearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-7 py-2 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl text-xs font-medium focus:outline-hidden focus:border-blue-500"
+                />
+                {categorySearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setCategorySearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Add Master Category Button */}
+              <button
+                type="button"
+                onClick={handleOpenAddCategory}
+                className="py-2 px-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Category</span>
+              </button>
+
+              {/* Refresh Button */}
+              <button
+                type="button"
+                onClick={loadLiveCatalog}
+                className="p-2 border border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--heading-color)] rounded-xl transition-all cursor-pointer shadow-2xs"
+                title="Reload Categories from API"
+              >
+                <RefreshCw className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
           </div>
 
+          {/* Metrics summary */}
+          <div className="flex items-center justify-between text-xs text-[var(--text-secondary)] px-1">
+            <div className="flex items-center gap-2.5 font-bold">
+              <span className="text-[var(--heading-color)]">
+                Showing {filteredCategories.length} of {categories.length} Categories
+              </span>
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+              <span className="text-slate-500 font-medium">
+                {clothTypes.length} Total Garments in Catalog
+              </span>
+            </div>
+          </div>
+
+          {/* Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {categories.map((cat) => (
-              <div 
-                key={cat.id}
-                className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col"
-              >
-                {/* Image Header with Live S3 Tag */}
-                <div className="relative h-48 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden group">
-                  {cat.imageUrl ? (
-                    <img
-                      src={cat.imageUrl}
-                      alt={cat.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-4xl">
-                      {cat.icon}
-                    </div>
-                  )}
+            {filteredCategories.map((cat) => {
+              const garmentsCount = categoryCounts[cat.id] || 0;
+              const subcategoriesForCat = Array.from(
+                new Set(clothTypes.filter((c) => c.categoryTag === cat.id && c.subCategory).map((c) => c.subCategory))
+              );
+              const subCount = subcategoriesForCat.length;
+              const isUploadingThis = uploadingId === cat.id;
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent flex flex-col justify-between p-3.5">
-                    <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/90 text-white flex items-center gap-1 backdrop-blur-xs">
-                        <ShieldCheck className="w-3 h-3" /> AWS S3 Live
-                      </span>
-                      <span className="text-2xl drop-shadow-md">{cat.icon}</span>
+              return (
+                <div
+                  key={cat.id}
+                  className={`bg-white dark:bg-slate-900 border rounded-2xl overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between group hover:-translate-y-1 ${
+                    cat.isActive === false
+                      ? 'opacity-70 border-dashed border-slate-300 dark:border-slate-700'
+                      : 'border-[var(--border-color)]'
+                  }`}
+                >
+                  <div>
+                    {/* Image Header with Scrim and Floating Badges */}
+                    <div className="relative h-52 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      {cat.imageUrl ? (
+                        <img
+                          src={cat.imageUrl}
+                          alt={cat.name}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-108"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-4xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900">
+                          <span className="text-5xl">{cat.icon || '🧺'}</span>
+                          <span className="text-[10px] font-bold text-slate-400 mt-2">No Photo Set</span>
+                        </div>
+                      )}
+
+                      {/* Gradient Scrim for text readability */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/35 to-transparent flex flex-col justify-between p-3.5">
+                        {/* Top Badges */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/95 text-white flex items-center gap-1.5 shadow-sm backdrop-blur-md border border-white/10">
+                            <ShieldCheck className="w-3.5 h-3.5" /> AWS S3 Live
+                          </span>
+
+                          <div className="flex items-center gap-1.5">
+                            {/* Active / Hidden Status Pill */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCategoryActive(cat)}
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold cursor-pointer transition-all shadow-sm backdrop-blur-md border border-white/20 flex items-center gap-1 ${
+                                cat.isActive !== false
+                                  ? 'bg-emerald-600/90 hover:bg-emerald-700 text-white'
+                                  : 'bg-amber-600/90 hover:bg-amber-700 text-white'
+                              }`}
+                              title="Click to toggle Category visibility in customer app"
+                            >
+                              {cat.isActive !== false ? (
+                                <>
+                                  <Check className="w-3 h-3" /> Active
+                                </>
+                              ) : (
+                                <>
+                                  <EyeOff className="w-3 h-3" /> Hidden
+                                </>
+                              )}
+                            </button>
+
+                            {/* Category Icon Badge */}
+                            <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-lg shadow-sm">
+                              {cat.icon || '👔'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Bottom Title & Description */}
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <h4 className="text-lg font-black text-white tracking-tight drop-shadow-sm">
+                              {cat.name}
+                            </h4>
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-white/20 backdrop-blur-md text-slate-100 border border-white/20 uppercase tracking-wider">
+                              {cat.id}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-200 line-clamp-2 font-medium drop-shadow-xs leading-relaxed">
+                            {cat.description || 'Master category in the commercial laundry catalog.'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-lg font-black text-white drop-shadow-sm">{cat.name}</h4>
-                      <p className="text-[11px] text-slate-200 font-medium line-clamp-1">{cat.description}</p>
+
+                    {/* Metrics Section */}
+                    <div className="p-4 space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleJumpToGarments(cat.id)}
+                          className="p-2.5 rounded-xl bg-blue-50/70 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-950/80 border border-blue-200/70 dark:border-blue-800/60 text-left transition-all cursor-pointer group/stat"
+                          title={`View all ${garmentsCount} garments in ${cat.name}`}
+                        >
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300 block mb-0.5">
+                            Active Garments
+                          </span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-black text-blue-950 dark:text-blue-100">
+                              {garmentsCount} Products
+                            </span>
+                            <ArrowUpRight className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 group-hover/stat:translate-x-0.5 group-hover/stat:-translate-y-0.5 transition-transform" />
+                          </div>
+                        </button>
+
+                        <div className="p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200/70 dark:border-purple-800/60 text-left">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 block mb-0.5">
+                            Subcategories
+                          </span>
+                          <span className="text-sm font-black text-purple-950 dark:text-purple-100">
+                            {subCount} Groups
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Subcategory Tags Preview */}
+                      {subcategoriesForCat.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                          {subcategoriesForCat.slice(0, 3).map((sub) => (
+                            <span
+                              key={sub}
+                              className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                            >
+                              {sub}
+                            </span>
+                          ))}
+                          {subcategoriesForCat.length > 3 && (
+                            <span className="text-[10px] font-bold text-slate-400 px-1">
+                              +{subcategoriesForCat.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card Actions Footer */}
+                  <div className="p-4 pt-0">
+                    <div className="flex items-center gap-2 pt-3 border-t border-[var(--border-color)]">
+                      {/* Edit Category Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditCategory(cat)}
+                        className="flex-1 py-2 px-3 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-600 dark:hover:text-white rounded-xl text-xs font-bold transition-all border border-blue-200 dark:border-blue-800 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                        title={`Edit ${cat.name}`}
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+
+                      {/* Delete Category Button */}
+                      <button
+                        type="button"
+                        onClick={() => setDeletingCategory(cat)}
+                        className="p-2 rounded-xl text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-rose-200 dark:border-rose-900/60 transition-all cursor-pointer shadow-2xs"
+                        title={`Delete ${cat.name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Direct Upload Photo Button */}
+                      <button
+                        type="button"
+                        disabled={isUploadingThis}
+                        onClick={() => handleTriggerUpload('CATEGORY', cat.id, cat.name)}
+                        className="p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[var(--border-color)] transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                        title="Upload Cover Photo from Computer"
+                      >
+                        <Camera className="w-3.5 h-3.5 text-blue-600" />
+                      </button>
+
+                      {/* Paste Image URL Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingUrlTarget({
+                            type: 'CATEGORY',
+                            id: cat.id,
+                            name: cat.name,
+                            icon: cat.icon,
+                            currentUrl: cat.imageUrl || '',
+                          });
+                          setManualImageUrl(cat.imageUrl || '');
+                        }}
+                        className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[var(--border-color)] transition-all cursor-pointer shadow-2xs"
+                        title="Paste direct Image URL"
+                      >
+                        <Link2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
-
-                {/* Details & Actions */}
-                <div className="p-4 flex-1 flex flex-col justify-between gap-3">
-                  <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
-                    <span className="font-bold">Active Garments:</span>
-                    <span className="font-black text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                      {categoryCounts[cat.id] || 0} Products
-                    </span>
-                  </div>
-
-                  {/* Photo Action Buttons */}
-                  <div className="flex items-center gap-2 pt-2 border-t border-[var(--border-color)]">
-                    <button
-                      type="button"
-                      disabled={uploadingId === cat.id}
-                      onClick={() => handleTriggerUpload('CATEGORY', cat.id, cat.name)}
-                      className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      <span>{uploadingId === cat.id ? 'Uploading S3...' : 'Upload Photo'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingUrlTarget({ 
-                          type: 'CATEGORY', 
-                          id: cat.id, 
-                          name: cat.name, 
-                          icon: cat.icon,
-                          currentUrl: cat.imageUrl || '' 
-                        });
-                        setManualImageUrl(cat.imageUrl || '');
-                      }}
-                      className="p-2 border border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--heading-color)] rounded-xl transition-all cursor-pointer"
-                      title="Paste Image URL"
-                    >
-                      <Link2 className="w-3.5 h-3.5 text-slate-500" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -1310,6 +1769,22 @@ export function UnifiedCatalogManager({
                        isServiceAllowedForCategory(cloth.categoryTag, p.serviceId)
               );
 
+              // Deduplicate by serviceId so duplicate DB entries never produce double service rates
+              const uniqueServiceMap = new Map<string, typeof priceMatrix[0]>();
+              for (const p of configuredForCloth) {
+                const existing = uniqueServiceMap.get(p.serviceId);
+                if (!existing) {
+                  uniqueServiceMap.set(p.serviceId, p);
+                } else {
+                  const existingScore = (existing.clothName ? 2 : 0) + (existing.id?.includes('srv-m') ? 1 : 0);
+                  const newScore = (p.clothName ? 2 : 0) + (p.id?.includes('srv-m') ? 1 : 0);
+                  if (newScore > existingScore) {
+                    uniqueServiceMap.set(p.serviceId, p);
+                  }
+                }
+              }
+              const dedupedConfigured = Array.from(uniqueServiceMap.values());
+
               let clothServices: Array<{
                 serviceId: string;
                 name: string;
@@ -1318,8 +1793,8 @@ export function UnifiedCatalogManager({
                 priceItemId?: string;
               }> = [];
 
-              if (configuredForCloth.length > 0) {
-                clothServices = configuredForCloth.map((p) => {
+              if (dedupedConfigured.length > 0) {
+                clothServices = dedupedConfigured.map((p) => {
                   const meta = getServiceMeta(p.serviceId);
                   return {
                     serviceId: p.serviceId,
@@ -2448,6 +2923,307 @@ export function UnifiedCatalogManager({
                   <span>Save Product Details</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: Add / Edit Master Category */}
+      {/* ========================================================================= */}
+      {(editingCategory || isAddingCategory) && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-[var(--border-color)] max-w-lg w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-[var(--border-color)]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                  {isAddingCategory ? <FolderPlus className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-[var(--heading-color)]">
+                    {isAddingCategory ? 'Add Master Category' : `Edit Category: ${editingCategory?.name}`}
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Configure name, emoji icon, customer app cover photo, and status.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingCategory(null);
+                  setIsAddingCategory(false);
+                }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveCategory(); }} className="mt-4 space-y-4">
+              {/* Category Name & Tag */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                    Category Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Men's Wear"
+                    value={categoryForm.name}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      setCategoryForm((prev) => ({
+                        ...prev,
+                        name,
+                        slug: prev.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                        id: isAddingCategory && !prev.id ? name.toUpperCase().replace(/[^A-Z0-9]/g, '_') : prev.id,
+                      }));
+                    }}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl text-xs font-bold focus:outline-hidden focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                    Category ID / Code *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    disabled={!isAddingCategory}
+                    placeholder="e.g. MENS or ETHNIC"
+                    value={categoryForm.id}
+                    onChange={(e) =>
+                      setCategoryForm((prev) => ({
+                        ...prev,
+                        id: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''),
+                      }))
+                    }
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl text-xs font-bold disabled:opacity-60 focus:outline-hidden focus:border-blue-500 uppercase tracking-wider"
+                  />
+                </div>
+              </div>
+
+              {/* Icon Picker with Suggestions */}
+              <div>
+                <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                  Category Icon (Emoji) *
+                </label>
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="text"
+                    required
+                    value={categoryForm.icon}
+                    onChange={(e) => setCategoryForm((prev) => ({ ...prev, icon: e.target.value }))}
+                    className="w-16 text-center text-xl py-1.5 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl focus:outline-hidden focus:border-blue-500"
+                  />
+                  <span className="text-[11px] text-[var(--text-secondary)]">
+                    Pick a preset emoji or paste custom symbol
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-[var(--border-color)]">
+                  {['👔', '👗', '👶', '🛏️', '👟', '🎒', '💍', '🧺', '✨', '🧥', '🥻', '🧵', '🧼', '🌸', '🥋', '🧦'].map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setCategoryForm((prev) => ({ ...prev, icon: emoji }))}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center text-base transition-all cursor-pointer ${
+                        categoryForm.icon === emoji
+                          ? 'bg-blue-600 text-white shadow-xs scale-110'
+                          : 'hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                  Description
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Short summary for customer app cards (e.g. Shirts, T-Shirts, Trousers...)"
+                  value={categoryForm.description}
+                  onChange={(e) => setCategoryForm((prev) => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl text-xs font-medium focus:outline-hidden focus:border-blue-500 leading-relaxed"
+                />
+              </div>
+
+              {/* Cover Photo: Upload or URL */}
+              <div>
+                <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                  Cover Photo (AWS S3)
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="w-20 h-16 rounded-xl bg-slate-100 dark:bg-slate-800 border border-[var(--border-color)] overflow-hidden shrink-0 flex items-center justify-center">
+                    {categoryForm.imageUrl ? (
+                      <img
+                        src={categoryForm.imageUrl}
+                        alt="Category Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-2xl">{categoryForm.icon || '🧺'}</span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-2">
+                    <input
+                      type="file"
+                      ref={categoryFileInputRef}
+                      accept="image/*"
+                      onChange={handleCategoryModalUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      disabled={categoryUploadingS3}
+                      onClick={() => categoryFileInputRef.current?.click()}
+                      className="w-full py-1.5 px-3 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-200 dark:border-blue-800 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {categoryUploadingS3 ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Uploading S3...</span>
+                        </>
+                      ) : (
+                        <>
+                          <UploadCloud className="w-3.5 h-3.5" />
+                          <span>Upload New Photo (S3)</span>
+                        </>
+                      )}
+                    </button>
+
+                    <input
+                      type="url"
+                      placeholder="Or paste direct image URL https://..."
+                      value={categoryForm.imageUrl}
+                      onChange={(e) => setCategoryForm((prev) => ({ ...prev, imageUrl: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl text-xs font-mono focus:outline-hidden focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Status Checkbox */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-[var(--border-color)]">
+                <div>
+                  <span className="text-xs font-bold text-[var(--heading-color)] block">
+                    Category Visibility
+                  </span>
+                  <span className="text-[11px] text-[var(--text-secondary)]">
+                    When active, category appears in customer mobile app
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCategoryForm((prev) => ({ ...prev, isActive: !prev.isActive }))}
+                  className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-all ${
+                    categoryForm.isActive
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {categoryForm.isActive ? 'Active' : 'Hidden'}
+                </button>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-color)]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingCategory(null);
+                    setIsAddingCategory(false);
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-black text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isAddingCategory ? 'Create Category' : 'Save Changes'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: Delete Category Confirmation */}
+      {/* ========================================================================= */}
+      {deletingCategory && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-[var(--border-color)] max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 pb-4 border-b border-[var(--border-color)]">
+              <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 border border-rose-200 dark:border-rose-900/60">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-[var(--heading-color)]">
+                  Delete Category
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Permanent action affecting catalog navigation.
+                </p>
+              </div>
+            </div>
+
+            <div className="my-4 space-y-3">
+              <p className="text-xs text-[var(--heading-color)] font-medium leading-relaxed">
+                Are you sure you want to permanently delete <span className="font-black text-rose-600">"{deletingCategory.name}"</span> ({deletingCategory.id})?
+              </p>
+
+              {(categoryCounts[deletingCategory.id] || 0) > 0 && (
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-200 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Linked Garments Warning</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    There are currently <strong>{categoryCounts[deletingCategory.id]} garments</strong> assigned to this category. Deleting this category will remove it from customer navigation.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-color)]">
+              <button
+                type="button"
+                disabled={isDeletingCategoryLoading}
+                onClick={() => setDeletingCategory(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingCategoryLoading}
+                onClick={handleConfirmDeleteCategory}
+                className="px-4 py-2 text-xs font-black text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                {isDeletingCategoryLoading ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Yes, Delete Category</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

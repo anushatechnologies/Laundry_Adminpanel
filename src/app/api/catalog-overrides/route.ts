@@ -75,6 +75,9 @@ export async function POST(req: NextRequest) {
       clothId,
       data,
       isDeleted,
+      categoryId,
+      categoryData,
+      isCategoryDeleted,
       categoryTag,
       categoryImageUrl,
       serviceId,
@@ -86,12 +89,33 @@ export async function POST(req: NextRequest) {
     const current = await fetchOverridesFromS3();
     const clothOverrides = current.clothOverrides || {};
     const categoryOverrides = current.categoryOverrides || {};
+    const fullCategoryOverrides = current.fullCategoryOverrides || {};
     const serviceOverrides = current.serviceOverrides || {};
     const subcategoryOverrides = current.subcategoryOverrides || {};
     const deletedClothIds = Array.isArray(current.deletedClothIds) ? current.deletedClothIds : [];
+    const deletedCategoryIds = Array.isArray(current.deletedCategoryIds) ? current.deletedCategoryIds : [];
 
     if (categoryTag && categoryImageUrl) {
       categoryOverrides[categoryTag.toUpperCase()] = categoryImageUrl;
+    }
+
+    if (categoryId) {
+      if (isCategoryDeleted) {
+        if (!deletedCategoryIds.includes(categoryId)) {
+          deletedCategoryIds.push(categoryId);
+        }
+        delete fullCategoryOverrides[categoryId];
+        delete categoryOverrides[categoryId.toUpperCase()];
+      } else if (categoryData) {
+        fullCategoryOverrides[categoryId] = { ...(fullCategoryOverrides[categoryId] || {}), ...categoryData };
+        if (categoryData.imageUrl) {
+          categoryOverrides[categoryId.toUpperCase()] = categoryData.imageUrl;
+        }
+        const idx = deletedCategoryIds.indexOf(categoryId);
+        if (idx !== -1) {
+          deletedCategoryIds.splice(idx, 1);
+        }
+      }
     }
 
     if (serviceId && serviceImageUrl) {
@@ -117,7 +141,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Strip base64 from clothOverrides before writing (prevents massive JSON / 500)
+    // Strip base64 from clothOverrides and categoryOverrides before writing (prevents massive JSON / 500)
     const cleanOverrides: Record<string, any> = {};
     for (const [k, v] of Object.entries(clothOverrides)) {
       const entry = v as any;
@@ -132,12 +156,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const cleanCatOverrides: Record<string, any> = {};
+    for (const [k, v] of Object.entries(fullCategoryOverrides)) {
+      const entry = v as any;
+      if (entry && typeof entry === 'object') {
+        const cleaned = { ...entry };
+        if (cleaned.imageUrl && !String(cleaned.imageUrl).startsWith('http')) {
+          delete cleaned.imageUrl;
+        }
+        cleanCatOverrides[k] = cleaned;
+      } else {
+        cleanCatOverrides[k] = v;
+      }
+    }
+
     const payload = {
       clothOverrides: cleanOverrides,
       categoryOverrides,
+      fullCategoryOverrides: cleanCatOverrides,
       serviceOverrides,
       subcategoryOverrides,
       deletedClothIds,
+      deletedCategoryIds,
       updatedAt: new Date().toISOString(),
     };
 
