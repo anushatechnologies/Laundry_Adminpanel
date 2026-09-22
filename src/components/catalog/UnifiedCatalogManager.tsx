@@ -2536,6 +2536,7 @@ export function UnifiedCatalogManager({
 
                 <div>
                   <SubcategorySelectDropdown
+                    label="Subcategory"
                     categoryTag={addGarmentCategory}
                     value={addGarmentSubcategory}
                     onChange={setAddGarmentSubcategory}

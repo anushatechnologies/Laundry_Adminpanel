@@ -182,8 +182,7 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
     <div className={`relative ${className}`} ref={dropdownRef}>
       {label && (
         <div className="flex items-center justify-between mb-1">
-          <label className="text-xs font-bold text-[var(--heading-color)] flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-amber-500" />
+          <label className="text-xs font-black uppercase tracking-wider text-[var(--heading-color)] flex items-center gap-1.5">
             <span>{label}</span>
             {required && <span className="text-rose-500">*</span>}
           </label>
