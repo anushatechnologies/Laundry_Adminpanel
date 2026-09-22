@@ -24,6 +24,7 @@ import {
   createAdminSubcategory,
   updateAdminSubcategory,
   deleteAdminSubcategory,
+  seedAdminSubcategories,
 } from '@/lib/api';
 import { getSubcategoryImageUrl } from '@/lib/category-photos';
 import { useApp } from '@/context/AppContext';
@@ -118,8 +119,8 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
   const loadSubcategories = async () => {
     setLoading(true);
     try {
-      const data = await getAdminSubcategories().catch(() => []);
-      if (Array.isArray(data) && data.length > 0) {
+      const data = await getAdminSubcategories().catch(() => null);
+      if (Array.isArray(data)) {
         setSubcategories(
           data.map((item: any) => ({
             id: item.id || `sub-${item.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
@@ -131,21 +132,30 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
           }))
         );
       } else {
-        // Fallback seed
-        const seeded: SubcategoryItem[] = DEFAULT_SEEDED_SUBCATEGORIES.map((s, idx) => ({
-          id: `sub-seed-${idx + 1}`,
-          categoryTag: s.tag,
-          name: s.name,
-          imageUrl: getSubcategoryImageUrl(s.name, s.tag),
-          isActive: true,
-          sortOrder: s.sortOrder,
-        }));
-        setSubcategories(seeded);
+        setSubcategories([]);
       }
     } catch (err) {
       console.warn('Could not load subcategories:', err);
+      setSubcategories([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  const handleSeedDefaults = async () => {
+    if (!window.confirm('Restore and save all default subcategories to the cloud database?')) return;
+    setIsSeeding(true);
+    try {
+      await seedAdminSubcategories();
+      await loadSubcategories();
+      showToast('Default subcategories restored successfully.', 'success');
+      onRefreshCatalog?.();
+    } catch (err: any) {
+      showToast('Failed to restore defaults: ' + err.message, 'error');
+    } finally {
+      setIsSeeding(false);
     }
   };
 
@@ -369,9 +379,9 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
   const handleDeleteSubcategory = async (sub: SubcategoryItem) => {
     if (!window.confirm(`Are you sure you want to delete subcategory "${sub.name}"?`)) return;
 
-    setSubcategories((prev) => prev.filter((s) => s.id !== sub.id));
     try {
       await deleteAdminSubcategory(sub.id);
+      setSubcategories((prev) => prev.filter((s) => s.id !== sub.id));
       showToast(`Deleted subcategory "${sub.name}".`, 'info');
       onRefreshCatalog?.();
     } catch (err: any) {
@@ -523,18 +533,43 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
           <p className="text-xs font-semibold">Loading subcategories from cloud database...</p>
         </div>
       ) : filteredSubcategories.length === 0 ? (
-        <div className="py-16 text-center space-y-3 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl">
-          <p className="text-xs text-[var(--text-secondary)]">
-            No subcategories found matching your filter &quot;{searchQuery || activeCategoryFilter}&quot;
-          </p>
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Create New Subcategory</span>
-          </button>
+        <div className="py-16 text-center space-y-4 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-6">
+          <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center">
+            <Sparkles className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-[var(--heading-color)]">
+              {subcategories.length === 0
+                ? 'No subcategories in your catalog'
+                : `No subcategories found matching "${searchQuery || activeCategoryFilter}"`}
+            </h3>
+            <p className="text-xs text-[var(--text-secondary)] max-w-sm mx-auto">
+              {subcategories.length === 0
+                ? 'All subcategories have been deleted or none exist in the database yet. You can create custom ones or restore defaults.'
+                : 'Try adjusting your search query or switching category tabs.'}
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleOpenCreateModal}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Create New Subcategory</span>
+            </button>
+            {subcategories.length === 0 && (
+              <button
+                type="button"
+                onClick={handleSeedDefaults}
+                disabled={isSeeding}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                {isSeeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                <span>Restore Default Subcategories</span>
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

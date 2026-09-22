@@ -148,6 +148,10 @@ export const deleteAdminSubcategory = (id: string) =>
   adminApi<any>(`/services/subcategories/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
+export const seedAdminSubcategories = () =>
+  adminApi<any[]>('/services/subcategories/seed-defaults', {
+    method: 'POST',
+  });
 
 // Operational & Financial Settings
 export const getAdminSettings = () => adminApi<any>('/services/settings');

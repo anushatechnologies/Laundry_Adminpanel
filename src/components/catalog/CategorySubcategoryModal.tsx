@@ -85,10 +85,10 @@ export const CategorySubcategoryModal: React.FC<CategorySubcategoryModalProps> =
         getAdminSubcategories().catch(() => []),
       ]);
 
-      if (Array.isArray(cats) && cats.length > 0) {
+      if (Array.isArray(cats)) {
         setCategories(cats);
       }
-      if (Array.isArray(subs) && subs.length > 0) {
+      if (Array.isArray(subs)) {
         setSubcategories(subs);
       }
     } catch (err: any) {
