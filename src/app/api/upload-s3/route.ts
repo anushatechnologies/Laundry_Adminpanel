@@ -82,7 +82,17 @@ export async function POST(req: NextRequest) {
       }
 
       ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
-      folder = fileName?.includes('banner-') ? 'banners' : 'services';
+      if (fileName?.includes('banner-')) {
+        folder = 'banners';
+      } else if (fileName?.includes('subcat-') || fileName?.includes('subcategory')) {
+        folder = 'subcategories';
+      } else if (fileName?.includes('cat-') || fileName?.includes('category')) {
+        folder = 'categories';
+      } else if (fileName?.includes('cloth-') || fileName?.includes('garment')) {
+        folder = 'garments';
+      } else {
+        folder = 'services';
+      }
     }
 
     // Strip any existing extension BEFORE sanitizing
