@@ -103,17 +103,25 @@ export async function POST(req: NextRequest) {
       categoryOverrides[categoryTag.toUpperCase()] = categoryImageUrl;
     }
 
+    const PROTECTED_CORE_CATS = new Set([
+      'MENS', 'WOMENS', 'KIDS', 'HOME_TEXTILES', 'FOOTWEAR', 'ACCESSORIES', 'BRIDAL', 'SPECIAL',
+      'CAT-1', 'CAT-2', 'CAT-3', 'CAT-4', 'CAT-5', 'CAT-6', 'CAT-7', 'CAT-8', 'M'
+    ]);
+
     if (categoryId) {
+      const upperCatId = categoryId.toUpperCase();
       if (isCategoryDeleted) {
-        if (!deletedCategoryIds.includes(categoryId)) {
-          deletedCategoryIds.push(categoryId);
+        if (!PROTECTED_CORE_CATS.has(upperCatId)) {
+          if (!deletedCategoryIds.includes(categoryId)) {
+            deletedCategoryIds.push(categoryId);
+          }
+          delete fullCategoryOverrides[categoryId];
+          delete categoryOverrides[upperCatId];
         }
-        delete fullCategoryOverrides[categoryId];
-        delete categoryOverrides[categoryId.toUpperCase()];
       } else if (categoryData) {
         fullCategoryOverrides[categoryId] = { ...(fullCategoryOverrides[categoryId] || {}), ...categoryData };
         if (categoryData.imageUrl) {
-          categoryOverrides[categoryId.toUpperCase()] = categoryData.imageUrl;
+          categoryOverrides[upperCatId] = categoryData.imageUrl;
         }
         const idx = deletedCategoryIds.indexOf(categoryId);
         if (idx !== -1) {

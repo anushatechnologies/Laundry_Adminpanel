@@ -28,6 +28,7 @@ import {
   getAdminCategories,
 } from '@/lib/api';
 import { getSubcategoryImageUrl } from '@/lib/category-photos';
+import { MasterCategorySelectDropdown } from './MasterCategorySelectDropdown';
 import { useApp } from '@/context/AppContext';
 
 interface CategoryItem {
@@ -817,24 +818,12 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-[var(--heading-color)] block mb-1">
-                    Master Category *
-                  </label>
-                  <select
+                  <MasterCategorySelectDropdown
                     value={modalForm.categoryTag}
-                    onChange={(e) => setModalForm({ ...modalForm, categoryTag: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {categories.length === 0 ? (
-                      <option value="">No categories created yet</option>
-                    ) : (
-                      categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))
-                    )}
-                  </select>
+                    onChange={(catId) => setModalForm({ ...modalForm, categoryTag: catId })}
+                    categories={categories}
+                    required
+                  />
                 </div>
 
                 <div>

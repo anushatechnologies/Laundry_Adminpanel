@@ -411,8 +411,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const ovData = ovJson?.data || ovJson;
           const { clothOverrides, deletedClothIds } = ovData;
           if (deletedClothIds && Array.isArray(deletedClothIds) && deletedClothIds.length > 0) {
-            const delSet = new Set(deletedClothIds);
-            setClothTypes((prev) => prev.filter((item) => !delSet.has(item.id)));
+            // Guard: Never allow an accidental bulk wipe (e.g. > 30 items) to purge the entire commercial catalog on page load
+            if (deletedClothIds.length < 30) {
+              const delSet = new Set(deletedClothIds);
+              setClothTypes((prev) => prev.filter((item) => !delSet.has(item.id)));
+            } else {
+              console.warn('[AppContext] Ignored suspicious bulk deletion list of length:', deletedClothIds.length);
+            }
           }
           if (clothOverrides && typeof clothOverrides === 'object') {
             setClothTypes((prev) =>

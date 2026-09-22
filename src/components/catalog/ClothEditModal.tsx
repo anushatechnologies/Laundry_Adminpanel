@@ -6,6 +6,7 @@ import { X, Image as ImageIcon, Check, UploadCloud, Loader2, Link as LinkIcon } 
 import { CATALOG_MAIN_CATEGORIES } from './CatalogCategoryTabs';
 import { adminApi, getAdminCategories } from '@/lib/api';
 import { SubcategorySelectDropdown } from './SubcategorySelectDropdown';
+import { MasterCategorySelectDropdown } from './MasterCategorySelectDropdown';
 
 interface ClothEditModalProps {
   isOpen: boolean;
@@ -246,26 +247,22 @@ export const ClothEditModal: React.FC<ClothEditModalProps> = ({
           {/* Category & Subcategory */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="font-bold text-[var(--heading-color)] block mb-1">Master Category *</label>
-              <select
+              <MasterCategorySelectDropdown
                 value={formData.categoryTag}
-                onChange={(e) => setFormData({ ...formData, categoryTag: e.target.value as ClothCategoryTag })}
-                className="admin-input w-full"
-              >
-                {liveCategories.length > 0 ? (
-                  liveCategories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.icon || '👔'} {c.name}
-                    </option>
-                  ))
-                ) : (
-                  CATALOG_MAIN_CATEGORIES.filter((c) => c.tag !== 'ALL').map((c) => (
-                    <option key={c.tag} value={c.tag}>
-                      {c.icon} {c.label}
-                    </option>
-                  ))
-                )}
-              </select>
+                onChange={(catId) =>
+                  setFormData({ ...formData, categoryTag: catId as ClothCategoryTag })
+                }
+                categories={
+                  liveCategories.length > 0
+                    ? liveCategories
+                    : CATALOG_MAIN_CATEGORIES.filter((c) => c.tag !== 'ALL').map((c) => ({
+                        id: c.tag,
+                        name: c.label,
+                        icon: c.icon,
+                      }))
+                }
+                required
+              />
             </div>
 
             <div>

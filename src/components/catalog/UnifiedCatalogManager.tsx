@@ -24,7 +24,9 @@ import {
 import { CategorySubcategoryModal } from './CategorySubcategoryModal';
 import { getLocalFallbackPhoto } from '@/components/common/GarmentImage';
 import { SubcategorySelectDropdown } from './SubcategorySelectDropdown';
+import { MasterCategorySelectDropdown } from './MasterCategorySelectDropdown';
 import { SubcategoriesManager } from './SubcategoriesManager';
+import { getCategoryImageUrl } from '@/lib/category-photos';
 import { 
   isServiceAllowedForCategory, 
   getCategoryServiceFocusOptions, 
@@ -46,42 +48,42 @@ const INITIAL_MASTER_CATEGORIES: MasterCategoryItem[] = [
     id: 'MENS', 
     name: "Men's Wear", 
     icon: '👔', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-suit-2p.jpg', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/1790066590403-category-mens-wear-1790066590053.jpg', 
     description: 'Shirts, T-Shirts, Trousers, Suits, Blazers & Jackets.' 
   },
   { 
     id: 'WOMENS', 
     name: "Women's Wear", 
     icon: '👗', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-kurti.jpg', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_saree_charak.jpg', 
     description: 'Sarees, Kurtis, Suits, Dresses, Gowns & Tops.' 
   },
   { 
     id: 'KIDS', 
     name: 'Kids & Baby', 
     icon: '👦', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-school-uniforms.jpg', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/1790066590403-category-mens-wear-1790066590053.jpg', 
     description: 'School Uniforms, Frocks, Baby Rompers & Daily Wear.' 
   },
   { 
     id: 'HOME_TEXTILES', 
     name: 'Home Textiles', 
     icon: '🏡', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bedsheet-king.jpg', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_home_textiles.jpg', 
     description: 'Bedsheets, Mink Blankets, Razais, Comforters, Curtains & Towels.' 
   },
   { 
     id: 'BRIDAL', 
     name: 'Premium & Bridal', 
     icon: '🥻', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-wedding-silk.jpg', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_saree_charak.jpg', 
     description: 'Bridal Lehengas, Heavy Zari Sarees, Gowns & Sherwanis.' 
   },
   { 
     id: 'SPECIAL', 
     name: 'Deep Treatment', 
     icon: '✨', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-special-treatments.jpg', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg', 
     description: 'Mattress, Carpet, Rug & Sofa Cover Deep Extraction.' 
   },
   { 
@@ -95,7 +97,7 @@ const INITIAL_MASTER_CATEGORIES: MasterCategoryItem[] = [
     id: 'ACCESSORIES', 
     name: 'Bags & Accessories', 
     icon: '🎒', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/accessories.jpg', 
+    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bag-backpack.jpg', 
     description: 'Backpacks, Handbags, Suitcases, Trolley Bags & Leather Accessories.' 
   },
 ];
@@ -376,19 +378,33 @@ export function UnifiedCatalogManager({
         fullServiceOverrides,
         deletedServiceIds,
       } = ovData || {};
+      // Core categories are protected and can never be wiped out by stale cloud override deletion lists
+      const PROTECTED_CORE_CATS = new Set([
+        'MENS', 'WOMENS', 'KIDS', 'HOME_TEXTILES', 'FOOTWEAR', 'ACCESSORIES', 'BRIDAL', 'SPECIAL',
+        'CAT-1', 'CAT-2', 'CAT-3', 'CAT-4', 'CAT-5', 'CAT-6', 'CAT-7', 'CAT-8', 'M'
+      ]);
       const delSet = new Set(
         Array.isArray(deletedCategoryIds)
-          ? deletedCategoryIds.map((id: string) => String(id).trim().toUpperCase())
+          ? deletedCategoryIds
+              .map((id: string) => String(id).trim().toUpperCase())
+              .filter((id: string) => !PROTECTED_CORE_CATS.has(id))
           : []
       );
-      if (delSet.has('MENS')) delSet.add('CAT-1');
-      if (delSet.has('WOMENS')) delSet.add('CAT-2');
-      if (delSet.has('KIDS')) delSet.add('CAT-3');
-      if (delSet.has('HOME_TEXTILES')) delSet.add('CAT-4');
-      if (delSet.has('FOOTWEAR')) delSet.add('CAT-5');
-      if (delSet.has('ACCESSORIES')) delSet.add('CAT-6');
-      if (delSet.has('BRIDAL')) delSet.add('CAT-7');
-      if (delSet.has('SPECIAL')) delSet.add('CAT-8');
+
+      // Deduplicate categories by uppercase ID and ensure initial master categories are always seeded
+      const catMap = new Map<string, any>();
+      for (const initCat of INITIAL_MASTER_CATEGORIES) {
+        const upperId = String(initCat.id).toUpperCase();
+        const customImg =
+          categoryOverrides?.[upperId] ||
+          categoryOverrides?.[initCat.id] ||
+          (fullCategoryOverrides?.[initCat.id]?.imageUrl) ||
+          initCat.imageUrl;
+        catMap.set(upperId, {
+          ...initCat,
+          imageUrl: getCategoryImageUrl(upperId, customImg),
+        });
+      }
 
       if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value)) {
         const remoteCats = catsRes.value;
@@ -402,31 +418,29 @@ export function UnifiedCatalogManager({
           isActive: rc.isActive !== false,
         }));
 
-        // Deduplicate categories by uppercase ID and filter deleted
-        const catMap = new Map<string, any>();
-        // Seed default master categories first so the 8 standard categories are never dropped
-        for (const initCat of INITIAL_MASTER_CATEGORIES) {
-          const upperId = String(initCat.id).toUpperCase();
-          if (!delSet.has(upperId)) {
-            catMap.set(upperId, { ...initCat });
-          }
-        }
         for (const cat of mapped) {
           const upperId = String(cat.id || '').trim().toUpperCase();
           const upperSlug = String(cat.slug || '').trim().toUpperCase();
           if (delSet.has(upperId) || delSet.has(upperSlug)) continue;
 
           let updated = { ...cat };
-          if (categoryOverrides && categoryOverrides[cat.id]) {
-            updated.imageUrl = categoryOverrides[cat.id];
+          const overrideImg =
+            categoryOverrides?.[cat.id] ||
+            categoryOverrides?.[upperId] ||
+            categoryOverrides?.[upperSlug];
+          if (overrideImg) {
+            updated.imageUrl = overrideImg;
           }
           if (fullCategoryOverrides && fullCategoryOverrides[cat.id]) {
             updated = { ...updated, ...fullCategoryOverrides[cat.id] };
           }
+          if (!updated.imageUrl) {
+            updated.imageUrl = getCategoryImageUrl(upperId);
+          }
           catMap.set(upperId, { ...(catMap.get(upperId) || {}), ...updated });
         }
-        setCategories(Array.from(catMap.values()));
       }
+      setCategories(Array.from(catMap.values()));
 
       // Load and merge live service masters
       const delServiceSet = new Set(
@@ -2445,7 +2459,17 @@ export function UnifiedCatalogManager({
                             : 'bg-slate-50 dark:bg-slate-800 text-[var(--heading-color)] border-[var(--border-color)] hover:border-blue-300'
                         }`}
                       >
-                        <span className="text-sm">{cat.icon || '👔'}</span>
+                        <div className="w-5 h-5 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 border border-white/40 shadow-2xs flex items-center justify-center">
+                          {cat.imageUrl ? (
+                            <img
+                              src={cat.imageUrl}
+                              alt={cat.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-xs">{cat.icon || '👔'}</span>
+                          )}
+                        </div>
                         <span>{cat.name}</span>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
                           isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
@@ -3174,24 +3198,12 @@ export function UnifiedCatalogManager({
               {/* Master Category & Subcategory */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                    Master Category *
-                  </label>
-                  <select
+                  <MasterCategorySelectDropdown
                     value={addGarmentCategory}
-                    onChange={(e) => handleAddGarmentCategoryChange(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {categories.length > 0 ? (
-                      categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.icon || '👔'} {c.name}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="MENS">👔 Men&apos;s Wear</option>
-                    )}
-                  </select>
+                    onChange={handleAddGarmentCategoryChange}
+                    categories={categories}
+                    required
+                  />
                 </div>
 
                 <div>
@@ -3534,20 +3546,14 @@ export function UnifiedCatalogManager({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                      Master Category *
-                    </label>
-                    <select
+                    <MasterCategorySelectDropdown
                       value={editingClothForm.categoryTag}
-                      onChange={(e) => setEditingClothForm({ ...editingClothForm, categoryTag: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.icon} {cat.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(catId) =>
+                        setEditingClothForm({ ...editingClothForm, categoryTag: catId })
+                      }
+                      categories={categories}
+                      required
+                    />
                   </div>
 
                   <div>
