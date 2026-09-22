@@ -488,8 +488,9 @@ export function UnifiedCatalogManager({
         }),
       });
       const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || 'Upload failed');
-      setCategoryForm((prev) => ({ ...prev, imageUrl: data.url }));
+      if (!res.ok || !data.success) throw new Error(data.message || data.error || 'Upload failed');
+      const s3Url = data.data?.s3Url || data.url || data.s3Url;
+      setCategoryForm((prev) => ({ ...prev, imageUrl: s3Url }));
       showToast('Cover photo uploaded to AWS S3!', 'success');
     } catch (err: any) {
       showToast(err.message || 'Failed to upload category image', 'error');
@@ -500,22 +501,23 @@ export function UnifiedCatalogManager({
   };
 
   const handleSaveCategory = async () => {
-    if (!categoryForm.name.trim()) {
+    const rawName = (categoryForm.name || '').trim();
+    if (!rawName) {
       showToast('Category name is required', 'error');
       return;
     }
 
     const catId = isAddingCategory
-      ? (categoryForm.id.trim() || categoryForm.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, '_'))
+      ? ((categoryForm.id || '').trim() || rawName.toUpperCase().replace(/[^A-Z0-9]/g, '_'))
       : editingCategory!.id;
 
     const catData = {
       id: catId,
-      name: categoryForm.name.trim(),
-      slug: categoryForm.slug.trim() || categoryForm.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      icon: categoryForm.icon.trim() || '👔',
-      description: categoryForm.description.trim(),
-      imageUrl: categoryForm.imageUrl.trim(),
+      name: rawName,
+      slug: (categoryForm.slug || '').trim() || rawName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      icon: (categoryForm.icon || '').trim() || '👔',
+      description: (categoryForm.description || '').trim(),
+      imageUrl: (categoryForm.imageUrl || '').trim(),
       isActive: categoryForm.isActive !== false,
     };
 
@@ -2944,7 +2946,7 @@ export function UnifiedCatalogManager({
                     {isAddingCategory ? 'Add Master Category' : `Edit Category: ${editingCategory?.name}`}
                   </h3>
                   <p className="text-xs text-[var(--text-secondary)]">
-                    Configure name, emoji icon, customer app cover photo, and status.
+                    Configure name, category ID, customer app cover photo, and status.
                   </p>
                 </div>
               </div>
@@ -3006,41 +3008,6 @@ export function UnifiedCatalogManager({
                 </div>
               </div>
 
-              {/* Icon Picker with Suggestions */}
-              <div>
-                <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                  Category Icon (Emoji) *
-                </label>
-                <div className="flex items-center gap-2 mb-2">
-                  <input
-                    type="text"
-                    required
-                    value={categoryForm.icon}
-                    onChange={(e) => setCategoryForm((prev) => ({ ...prev, icon: e.target.value }))}
-                    className="w-16 text-center text-xl py-1.5 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl focus:outline-hidden focus:border-blue-500"
-                  />
-                  <span className="text-[11px] text-[var(--text-secondary)]">
-                    Pick a preset emoji or paste custom symbol
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 flex-wrap p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-[var(--border-color)]">
-                  {['👔', '👗', '👶', '🛏️', '👟', '🎒', '💍', '🧺', '✨', '🧥', '🥻', '🧵', '🧼', '🌸', '🥋', '🧦'].map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => setCategoryForm((prev) => ({ ...prev, icon: emoji }))}
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center text-base transition-all cursor-pointer ${
-                        categoryForm.icon === emoji
-                          ? 'bg-blue-600 text-white shadow-xs scale-110'
-                          : 'hover:bg-slate-200 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Description */}
               <div>
                 <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
@@ -3058,10 +3025,10 @@ export function UnifiedCatalogManager({
               {/* Cover Photo: Upload or URL */}
               <div>
                 <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                  Cover Photo (AWS S3)
+                  Category Cover Photo (AWS S3)
                 </label>
                 <div className="flex items-center gap-3">
-                  <div className="w-20 h-16 rounded-xl bg-slate-100 dark:bg-slate-800 border border-[var(--border-color)] overflow-hidden shrink-0 flex items-center justify-center">
+                  <div className="w-24 h-20 rounded-xl bg-slate-100 dark:bg-slate-800 border border-[var(--border-color)] overflow-hidden shrink-0 flex items-center justify-center">
                     {categoryForm.imageUrl ? (
                       <img
                         src={categoryForm.imageUrl}
@@ -3069,7 +3036,10 @@ export function UnifiedCatalogManager({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-2xl">{categoryForm.icon || '🧺'}</span>
+                      <div className="flex flex-col items-center justify-center text-slate-400 p-2 text-center">
+                        <UploadCloud className="w-6 h-6 mb-0.5 text-slate-400" />
+                        <span className="text-[9px] font-bold">No Photo</span>
+                      </div>
                     )}
                   </div>
 
@@ -3085,17 +3055,17 @@ export function UnifiedCatalogManager({
                       type="button"
                       disabled={categoryUploadingS3}
                       onClick={() => categoryFileInputRef.current?.click()}
-                      className="w-full py-1.5 px-3 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-200 dark:border-blue-800 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="w-full py-2 px-3 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-200 dark:border-blue-800 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
                     >
                       {categoryUploadingS3 ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Uploading S3...</span>
+                          <span>Uploading to AWS S3...</span>
                         </>
                       ) : (
                         <>
                           <UploadCloud className="w-3.5 h-3.5" />
-                          <span>Upload New Photo (S3)</span>
+                          <span>Upload Photo from Computer (AWS S3)</span>
                         </>
                       )}
                     </button>

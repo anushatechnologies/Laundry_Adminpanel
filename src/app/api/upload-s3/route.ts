@@ -82,7 +82,9 @@ export async function POST(req: NextRequest) {
       }
 
       ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
-      if (fileName?.includes('banner-')) {
+      if (body.folder) {
+        folder = String(body.folder).replace(/[^a-zA-Z0-9_-]/g, '');
+      } else if (fileName?.includes('banner-')) {
         folder = 'banners';
       } else if (fileName?.includes('subcat-') || fileName?.includes('subcategory')) {
         folder = 'subcategories';
@@ -115,6 +117,8 @@ export async function POST(req: NextRequest) {
       success: true,
       message: `Uploaded directly to public AWS S3 as ${isVideo ? 'video' : 'photo'}!`,
       data: { s3Url, isVideo },
+      url: s3Url,
+      s3Url,
     });
   } catch (err: any) {
     console.error('Direct S3 Upload API Error:', err);
