@@ -78,27 +78,55 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
   const [isSaving, setIsSaving] = useState(false);
   const modalFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load Subcategories & Categories from MySQL
+  // Load Subcategories & Categories from MySQL + Overrides
   const loadSubcategories = async () => {
     setLoading(true);
     try {
-      const [subData, catData] = await Promise.all([
+      const [subData, catData, ovRes] = await Promise.all([
         getAdminSubcategories().catch(() => null),
         getAdminCategories().catch(() => null),
+        fetch('/api/catalog-overrides?t=' + Date.now(), { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
       ]);
 
+      const ovData = ovRes?.data || ovRes;
+      const deletedIds = new Set<string>(
+        Array.isArray(ovData?.deletedCategoryIds)
+          ? ovData.deletedCategoryIds.map((id: string) => String(id).trim().toUpperCase())
+          : []
+      );
+      if (deletedIds.has('MENS')) deletedIds.add('CAT-1');
+      if (deletedIds.has('WOMENS')) deletedIds.add('CAT-2');
+      if (deletedIds.has('KIDS')) deletedIds.add('CAT-3');
+      if (deletedIds.has('HOME_TEXTILES')) deletedIds.add('CAT-4');
+      if (deletedIds.has('FOOTWEAR')) deletedIds.add('CAT-5');
+      if (deletedIds.has('ACCESSORIES')) deletedIds.add('CAT-6');
+      if (deletedIds.has('BRIDAL')) deletedIds.add('CAT-7');
+      if (deletedIds.has('SPECIAL')) deletedIds.add('CAT-8');
+
+      const fullOverrides = ovData?.fullCategoryOverrides || {};
+
       if (Array.isArray(catData)) {
-        setCategories(
-          catData.map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            slug: c.slug,
-            icon: c.icon,
-            imageUrl: c.imageUrl || c.image,
-            description: c.description,
-            isActive: c.isActive !== false,
-          }))
-        );
+        const catMap = new Map<string, CategoryItem>();
+        for (const raw of catData) {
+          const idUpper = String(raw.id || '').trim().toUpperCase();
+          const slugUpper = String(raw.slug || '').trim().toUpperCase();
+          if (deletedIds.has(idUpper) || deletedIds.has(slugUpper)) continue;
+
+          const override = fullOverrides[raw.id] || {};
+          const item: CategoryItem = {
+            id: raw.id,
+            name: override.name || raw.name,
+            slug: override.slug || raw.slug,
+            icon: override.icon || raw.icon,
+            imageUrl: override.imageUrl || raw.imageUrl || raw.image,
+            description: override.description || raw.description,
+            isActive: raw.isActive !== false,
+          };
+          catMap.set(idUpper, item);
+        }
+        setCategories(Array.from(catMap.values()));
       } else {
         setCategories([]);
       }

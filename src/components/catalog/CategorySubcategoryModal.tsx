@@ -80,15 +80,55 @@ export const CategorySubcategoryModal: React.FC<CategorySubcategoryModalProps> =
   const loadData = async () => {
     setLoading(true);
     try {
-      const [cats, subs] = await Promise.all([
+      const [cats, subs, ovRes] = await Promise.all([
         getAdminCategories().catch(() => []),
         getAdminSubcategories().catch(() => []),
+        fetch('/api/catalog-overrides?t=' + Date.now(), { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
       ]);
 
+      const ovData = ovRes?.data || ovRes;
+      const deletedIds = new Set<string>(
+        Array.isArray(ovData?.deletedCategoryIds)
+          ? ovData.deletedCategoryIds.map((id: string) => String(id).trim().toUpperCase())
+          : []
+      );
+      if (deletedIds.has('MENS')) deletedIds.add('CAT-1');
+      if (deletedIds.has('WOMENS')) deletedIds.add('CAT-2');
+      if (deletedIds.has('KIDS')) deletedIds.add('CAT-3');
+      if (deletedIds.has('HOME_TEXTILES')) deletedIds.add('CAT-4');
+      if (deletedIds.has('FOOTWEAR')) deletedIds.add('CAT-5');
+      if (deletedIds.has('ACCESSORIES')) deletedIds.add('CAT-6');
+      if (deletedIds.has('BRIDAL')) deletedIds.add('CAT-7');
+      if (deletedIds.has('SPECIAL')) deletedIds.add('CAT-8');
+
+      const fullOverrides = ovData?.fullCategoryOverrides || {};
+
       if (Array.isArray(cats)) {
-        setCategories(cats);
-        if (cats.length > 0) {
-          setNewSubCategoryTag((prev) => (prev === 'MENS' || !prev ? cats[0].id : prev));
+        const catMap = new Map<string, CategoryItem>();
+        for (const raw of cats) {
+          const idUpper = String(raw.id || '').trim().toUpperCase();
+          const slugUpper = String(raw.slug || '').trim().toUpperCase();
+          if (deletedIds.has(idUpper) || deletedIds.has(slugUpper)) continue;
+
+          const override = fullOverrides[raw.id] || {};
+          const item: CategoryItem = {
+            id: raw.id,
+            name: override.name || raw.name,
+            slug: override.slug || raw.slug,
+            icon: override.icon || raw.icon,
+            imageUrl: override.imageUrl || raw.imageUrl || raw.image,
+            description: override.description || raw.description,
+            color: raw.color,
+            isPopular: raw.isPopular,
+          };
+          catMap.set(idUpper, item);
+        }
+        const validCats = Array.from(catMap.values());
+        setCategories(validCats);
+        if (validCats.length > 0) {
+          setNewSubCategoryTag((prev) => (prev === 'MENS' || !prev ? validCats[0].id : prev));
         }
       }
       if (Array.isArray(subs)) {

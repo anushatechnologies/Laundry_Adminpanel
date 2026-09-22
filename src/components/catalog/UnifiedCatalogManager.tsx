@@ -255,7 +255,8 @@ export function UnifiedCatalogManager({
   );
 
   // Master Categories State (with live photo overrides)
-  const [categories, setCategories] = useState<MasterCategoryItem[]>(INITIAL_MASTER_CATEGORIES);
+  const [categories, setCategories] = useState<MasterCategoryItem[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   // Services State (with live photo overrides)
   const [servicesList, setServicesList] = useState(INITIAL_SERVICES_MASTERS);
@@ -286,75 +287,62 @@ export function UnifiedCatalogManager({
 
   // Load live categories and service masters from API & S3
   const loadLiveCatalog = async () => {
+    setIsLoadingCategories(true);
     try {
-      const [catsRes, catalogRes] = await Promise.allSettled([
+      const [catsRes, catalogRes, ovRes] = await Promise.allSettled([
         getAdminCategories(),
         getAdminCatalog(),
+        fetch('/api/catalog-overrides?t=' + Date.now(), { cache: 'no-store' }).then((r) =>
+          r.ok ? r.json() : null
+        ),
       ]);
 
-      if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value) && catsRes.value.length > 0) {
-        const remoteCats = catsRes.value;
-        const mapped = remoteCats.map((rc: any) => {
-          const localMatch = INITIAL_MASTER_CATEGORIES.find(
-            (c) =>
-              c.id === rc.id ||
-              c.id.toLowerCase().replace(/_/g, '-') === rc.slug ||
-              (c.id === 'MENS' && (rc.slug === 'mens-wear' || rc.id === 'cat-1')) ||
-              (c.id === 'WOMENS' && (rc.slug === 'womens-wear' || rc.id === 'cat-2')) ||
-              (c.id === 'KIDS' && (rc.slug === 'kids-wear' || rc.id === 'cat-3')) ||
-              (c.id === 'HOME_TEXTILES' && (rc.slug === 'home-textiles' || rc.id === 'cat-4')) ||
-              (c.id === 'FOOTWEAR' && (rc.slug === 'footwear' || rc.slug === 'shoes' || rc.id === 'cat-5')) ||
-              (c.id === 'ACCESSORIES' && (rc.slug === 'bags-accessories' || rc.slug === 'accessories' || rc.id === 'cat-6')) ||
-              (c.id === 'BRIDAL' && (rc.slug === 'bridal-wear' || rc.slug === 'wedding-wear' || rc.id === 'cat-7')) ||
-              (c.id === 'SPECIAL' && (rc.slug === 'special-cleaning' || rc.id === 'cat-8'))
-          );
-          return {
-            id: localMatch?.id || rc.id,
-            name: rc.name || localMatch?.name || 'Category',
-            slug: rc.slug || localMatch?.id?.toLowerCase().replace(/_/g, '-') || '',
-            icon: rc.icon || localMatch?.icon || '🧺',
-            imageUrl: rc.imageUrl || rc.image || localMatch?.imageUrl || '',
-            description: rc.description || localMatch?.description || '',
-            isActive: rc.isActive !== false,
-          };
-        });
+      const ovJson = ovRes.status === 'fulfilled' ? ovRes.value : null;
+      const ovData = ovJson?.data || ovJson;
+      const { fullCategoryOverrides, deletedCategoryIds, categoryOverrides } = ovData || {};
+      const delSet = new Set(
+        Array.isArray(deletedCategoryIds)
+          ? deletedCategoryIds.map((id: string) => String(id).trim().toUpperCase())
+          : []
+      );
+      if (delSet.has('MENS')) delSet.add('CAT-1');
+      if (delSet.has('WOMENS')) delSet.add('CAT-2');
+      if (delSet.has('KIDS')) delSet.add('CAT-3');
+      if (delSet.has('HOME_TEXTILES')) delSet.add('CAT-4');
+      if (delSet.has('FOOTWEAR')) delSet.add('CAT-5');
+      if (delSet.has('ACCESSORIES')) delSet.add('CAT-6');
+      if (delSet.has('BRIDAL')) delSet.add('CAT-7');
+      if (delSet.has('SPECIAL')) delSet.add('CAT-8');
 
-        // Deduplicate categories by ID
+      if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value)) {
+        const remoteCats = catsRes.value;
+        const mapped = remoteCats.map((rc: any) => ({
+          id: rc.id,
+          name: rc.name || 'Category',
+          slug: rc.slug || '',
+          icon: rc.icon || '🧺',
+          imageUrl: rc.imageUrl || rc.image || '',
+          description: rc.description || '',
+          isActive: rc.isActive !== false,
+        }));
+
+        // Deduplicate categories by uppercase ID and filter deleted
         const catMap = new Map<string, any>();
         for (const cat of mapped) {
-          catMap.set(cat.id, cat);
+          const upperId = String(cat.id || '').trim().toUpperCase();
+          const upperSlug = String(cat.slug || '').trim().toUpperCase();
+          if (delSet.has(upperId) || delSet.has(upperSlug)) continue;
+
+          let updated = { ...cat };
+          if (categoryOverrides && categoryOverrides[cat.id]) {
+            updated.imageUrl = categoryOverrides[cat.id];
+          }
+          if (fullCategoryOverrides && fullCategoryOverrides[cat.id]) {
+            updated = { ...updated, ...fullCategoryOverrides[cat.id] };
+          }
+          catMap.set(upperId, updated);
         }
         setCategories(Array.from(catMap.values()));
-      }
-
-      // Sync cloud overrides for categories & services
-      try {
-        const ovRes = await fetch('/api/catalog-overrides?t=' + Date.now(), { cache: 'no-store' });
-        if (ovRes.ok) {
-          const ovJson = await ovRes.json();
-          const ovData = ovJson?.data || ovJson;
-          const { fullCategoryOverrides, deletedCategoryIds, categoryOverrides } = ovData || {};
-          
-          setCategories((prev) => {
-            let list = prev;
-            if (deletedCategoryIds && Array.isArray(deletedCategoryIds) && deletedCategoryIds.length > 0) {
-              const delSet = new Set(deletedCategoryIds);
-              list = list.filter((c) => !delSet.has(c.id));
-            }
-            return list.map((c) => {
-              let updated = { ...c };
-              if (categoryOverrides && categoryOverrides[c.id]) {
-                updated.imageUrl = categoryOverrides[c.id];
-              }
-              if (fullCategoryOverrides && fullCategoryOverrides[c.id]) {
-                updated = { ...updated, ...fullCategoryOverrides[c.id] };
-              }
-              return updated;
-            });
-          });
-        }
-      } catch (err) {
-        console.warn('Could not sync S3 category overrides', err);
       }
 
       if (catalogRes.status === 'fulfilled' && catalogRes.value) {
@@ -373,6 +361,8 @@ export function UnifiedCatalogManager({
       }
     } catch (err) {
       console.warn('Could not load live catalog updates', err);
+    } finally {
+      setIsLoadingCategories(false);
     }
   };
 
@@ -1288,9 +1278,43 @@ export function UnifiedCatalogManager({
             </div>
           </div>
 
-          {/* Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredCategories.map((cat) => {
+          {/* Cards Grid or Loading Skeleton */}
+          {isLoadingCategories ? (
+            <div className="py-24 flex flex-col items-center justify-center gap-3 text-slate-400 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              <p className="text-xs font-semibold">Loading categories from database...</p>
+            </div>
+          ) : filteredCategories.length === 0 ? (
+            <div className="py-16 text-center space-y-4 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-6">
+              <div className="mx-auto w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-[var(--heading-color)]">
+                  {categories.length === 0
+                    ? 'No categories in your catalog'
+                    : `No categories found matching "${categorySearchQuery}"`}
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)] max-w-sm mx-auto">
+                  {categories.length === 0
+                    ? 'All default categories were deleted or none exist yet. Click "+ Add Category" above to create one.'
+                    : 'Try adjusting your search query.'}
+                </p>
+              </div>
+              {categories.length === 0 && (
+                <button
+                  type="button"
+                  onClick={handleOpenAddCategory}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Create Category</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredCategories.map((cat) => {
               const garmentsCount = categoryCounts[cat.id] || 0;
               const subcategoriesForCat = Array.from(
                 new Set(clothTypes.filter((c) => c.categoryTag === cat.id && c.subCategory).map((c) => c.subCategory))
@@ -1492,6 +1516,7 @@ export function UnifiedCatalogManager({
               );
             })}
           </div>
+        )}
         </div>
       )}
 
