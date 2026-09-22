@@ -43,64 +43,7 @@ export interface MasterCategoryItem {
   isActive?: boolean;
 }
 
-const INITIAL_MASTER_CATEGORIES: MasterCategoryItem[] = [
-  { 
-    id: 'MENS', 
-    name: "Men's Wear", 
-    icon: '👔', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/1790066590403-category-mens-wear-1790066590053.jpg', 
-    description: 'Shirts, T-Shirts, Trousers, Suits, Blazers & Jackets.' 
-  },
-  { 
-    id: 'WOMENS', 
-    name: "Women's Wear", 
-    icon: '👗', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_saree_charak.jpg', 
-    description: 'Sarees, Kurtis, Suits, Dresses, Gowns & Tops.' 
-  },
-  { 
-    id: 'KIDS', 
-    name: 'Kids & Baby', 
-    icon: '👦', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/1790066590403-category-mens-wear-1790066590053.jpg', 
-    description: 'School Uniforms, Frocks, Baby Rompers & Daily Wear.' 
-  },
-  { 
-    id: 'HOME_TEXTILES', 
-    name: 'Home Textiles', 
-    icon: '🏡', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_home_textiles.jpg', 
-    description: 'Bedsheets, Mink Blankets, Razais, Comforters, Curtains & Towels.' 
-  },
-  { 
-    id: 'BRIDAL', 
-    name: 'Premium & Bridal', 
-    icon: '🥻', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_saree_charak.jpg', 
-    description: 'Bridal Lehengas, Heavy Zari Sarees, Gowns & Sherwanis.' 
-  },
-  { 
-    id: 'SPECIAL', 
-    name: 'Deep Treatment', 
-    icon: '✨', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg', 
-    description: 'Mattress, Carpet, Rug & Sofa Cover Deep Extraction.' 
-  },
-  { 
-    id: 'FOOTWEAR', 
-    name: 'Footwear & Shoes', 
-    icon: '👟', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg', 
-    description: 'Sneakers, Formal Leather Shoes, Boots, Suede Spa & Sports Shoes.' 
-  },
-  { 
-    id: 'ACCESSORIES', 
-    name: 'Bags & Accessories', 
-    icon: '🎒', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bag-backpack.jpg', 
-    description: 'Backpacks, Handbags, Suitcases, Trolley Bags & Leather Accessories.' 
-  },
-];
+const INITIAL_MASTER_CATEGORIES: MasterCategoryItem[] = [];
 
 export interface ServiceMasterItem {
   id: string;
@@ -116,83 +59,7 @@ export interface ServiceMasterItem {
   isActive?: boolean;
 }
 
-const INITIAL_SERVICES_MASTERS: ServiceMasterItem[] = [
-  { 
-    id: 'srv-m-steam-iron', 
-    name: 'Iron Only (Steam Press)', 
-    icon: '🔥', 
-    pricingType: 'PER_ITEM', 
-    turnaroundHours: 18, 
-    description: 'High-pressure wrinkle removal, sharp crease setting & crisp hanger finish.', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_steam_press.jpg' 
-  },
-  { 
-    id: 'srv-m-wash-fold', 
-    name: 'Wash & Fold', 
-    icon: '🧺', 
-    pricingType: 'PER_KG', 
-    baseKgPrice: 60, 
-    turnaroundHours: 24, 
-    description: 'Hygienic wash, tumble dry, and neat compact fold for daily garments.', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg' 
-  },
-  { 
-    id: 'srv-m-wash-iron', 
-    name: 'Wash & Steam Iron', 
-    icon: '👔', 
-    pricingType: 'PER_KG', 
-    baseKgPrice: 85, 
-    turnaroundHours: 36, 
-    description: 'Eco-wash + industrial steam pressing on custom hangers.', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_iron.jpg' 
-  },
-  { 
-    id: 'srv-m-dry-clean', 
-    name: 'Dry Cleaning', 
-    icon: '🧥', 
-    pricingType: 'PER_ITEM', 
-    turnaroundHours: 48, 
-    description: 'Hydrocarbon solvent treatment with breathable garment cover & shape retention.', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_dry_cleaning.jpg' 
-  },
-  { 
-    id: 'srv-m-charak', 
-    name: 'Saree Polishing & Charak', 
-    icon: '✨', 
-    pricingType: 'PER_ITEM', 
-    turnaroundHours: 48, 
-    description: 'Traditional starching, roll pressing & zari shine revival for silk sarees.', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-saree-silk.jpg' 
-  },
-  { 
-    id: 'srv-m-starch', 
-    name: 'Starch & Crisp Finish', 
-    icon: '👔', 
-    pricingType: 'PER_ITEM', 
-    turnaroundHours: 24, 
-    description: 'Stiff starching for crisp cotton shirts, dhotis & school uniforms.', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-shirt.jpg' 
-  },
-  { 
-    id: 'srv-m-spa', 
-    name: 'Deep Shoe & Leather Spa', 
-    icon: '👞', 
-    pricingType: 'PER_ITEM', 
-    turnaroundHours: 48, 
-    description: 'Ultrasonic stain treatment and antibacterial ozone sanitization for footwear.', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg' 
-  },
-  { 
-    id: 'srv-m-express', 
-    name: 'Express Emergency Laundry', 
-    icon: '⚡', 
-    pricingType: 'PER_KG', 
-    baseKgPrice: 120, 
-    turnaroundHours: 12, 
-    description: 'Dedicated machine slot with guaranteed same-day 12-hour turnaround.', 
-    imageUrl: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/delivery_van_driver.jpg' 
-  },
-];
+const INITIAL_SERVICES_MASTERS: ServiceMasterItem[] = [];
 
 const SERVICE_FOCUS_OPTIONS = [
   { id: 'ALL', name: 'All Services (Full View)', icon: '✨', badge: null },
@@ -3204,6 +3071,21 @@ export function UnifiedCatalogManager({
                     categories={categories}
                     required
                   />
+                  {categories.length === 0 && (
+                    <div className="mt-1.5 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-between">
+                      <span className="text-[11px] text-amber-700 dark:text-amber-300 font-medium">No categories created yet</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddModal(false);
+                          setViewMode('CATEGORIES');
+                        }}
+                        className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                      >
+                        + Create Category First
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div>
