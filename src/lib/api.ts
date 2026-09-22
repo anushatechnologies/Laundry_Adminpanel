@@ -121,6 +121,11 @@ export const deleteAdminCategory = (id: string) =>
 
 // Service Masters CRUD
 export const getAdminServiceMasters = () => adminApi<any[]>('/services/masters');
+export const createAdminServiceMaster = (data: Record<string, unknown>) =>
+  adminApi<any>('/services/masters', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 export const updateAdminServiceMaster = (id: string, data: Record<string, unknown>) =>
   adminApi<any>(`/services/masters/${encodeURIComponent(id)}`, {
     method: 'PUT',

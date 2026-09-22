@@ -14,7 +14,10 @@ import {
   createAdminCategory,
   updateAdminCategory, 
   deleteAdminCategory,
+  getAdminServiceMasters,
+  createAdminServiceMaster,
   updateAdminServiceMaster, 
+  deleteAdminServiceMaster,
   getAdminCatalog,
   getAdminSubcategories,
 } from '@/lib/api';
@@ -97,7 +100,21 @@ const INITIAL_MASTER_CATEGORIES: MasterCategoryItem[] = [
   },
 ];
 
-const INITIAL_SERVICES_MASTERS = [
+export interface ServiceMasterItem {
+  id: string;
+  name: string;
+  icon?: string;
+  slug?: string;
+  pricingType?: 'PER_ITEM' | 'PER_KG' | string;
+  baseKgPrice?: number;
+  minOrderKg?: number;
+  turnaroundHours?: number;
+  description?: string;
+  imageUrl?: string;
+  isActive?: boolean;
+}
+
+const INITIAL_SERVICES_MASTERS: ServiceMasterItem[] = [
   { 
     id: 'srv-m-steam-iron', 
     name: 'Iron Only (Steam Press)', 
@@ -297,7 +314,7 @@ export function UnifiedCatalogManager({
   };
 
   // Services State (with live photo overrides)
-  const [servicesList, setServicesList] = useState(INITIAL_SERVICES_MASTERS);
+  const [servicesList, setServicesList] = useState<ServiceMasterItem[]>(INITIAL_SERVICES_MASTERS);
 
   // Category & Subcategory Management Modal
   const [showCatSubModal, setShowCatSubModal] = useState(false);
@@ -327,13 +344,14 @@ export function UnifiedCatalogManager({
   const loadLiveCatalog = async () => {
     setIsLoadingCategories(true);
     try {
-      const [catsRes, catalogRes, ovRes, subsRes] = await Promise.allSettled([
+      const [catsRes, catalogRes, ovRes, subsRes, mastersRes] = await Promise.allSettled([
         getAdminCategories(),
         getAdminCatalog(),
         fetch('/api/catalog-overrides?t=' + Date.now(), { cache: 'no-store' }).then((r) =>
           r.ok ? r.json() : null
         ),
         getAdminSubcategories(),
+        getAdminServiceMasters(),
       ]);
 
       if (subsRes.status === 'fulfilled' && Array.isArray(subsRes.value)) {
@@ -342,7 +360,14 @@ export function UnifiedCatalogManager({
 
       const ovJson = ovRes.status === 'fulfilled' ? ovRes.value : null;
       const ovData = ovJson?.data || ovJson;
-      const { fullCategoryOverrides, deletedCategoryIds, categoryOverrides } = ovData || {};
+      const {
+        fullCategoryOverrides,
+        deletedCategoryIds,
+        categoryOverrides,
+        serviceOverrides,
+        fullServiceOverrides,
+        deletedServiceIds,
+      } = ovData || {};
       const delSet = new Set(
         Array.isArray(deletedCategoryIds)
           ? deletedCategoryIds.map((id: string) => String(id).trim().toUpperCase())
@@ -388,20 +413,43 @@ export function UnifiedCatalogManager({
         setCategories(Array.from(catMap.values()));
       }
 
-      if (catalogRes.status === 'fulfilled' && catalogRes.value) {
-        const catData = catalogRes.value;
-        if (Array.isArray(catData.serviceMasters) && catData.serviceMasters.length > 0) {
-          setServicesList((prev) => {
-            return prev.map((localSrv) => {
-              const found = catData.serviceMasters.find((sm: any) => sm.id === localSrv.id);
-              if (found && (found.imageUrl || found.image)) {
-                return { ...localSrv, imageUrl: found.imageUrl || found.image };
-              }
-              return localSrv;
-            });
-          });
+      // Load and merge live service masters
+      const delServiceSet = new Set(
+        Array.isArray(deletedServiceIds)
+          ? deletedServiceIds.map((id: string) => String(id).trim())
+          : []
+      );
+
+      let remoteServices: any[] = [];
+      if (mastersRes.status === 'fulfilled' && Array.isArray(mastersRes.value) && mastersRes.value.length > 0) {
+        remoteServices = mastersRes.value;
+      } else if (catalogRes.status === 'fulfilled' && Array.isArray(catalogRes.value?.serviceMasters) && catalogRes.value.serviceMasters.length > 0) {
+        remoteServices = catalogRes.value.serviceMasters;
+      } else {
+        remoteServices = INITIAL_SERVICES_MASTERS;
+      }
+
+      const srvMap = new Map<string, any>();
+      for (const s of remoteServices) {
+        if (delServiceSet.has(s.id)) continue;
+        let srv = { ...s };
+        if (serviceOverrides && serviceOverrides[s.id]) {
+          srv.imageUrl = serviceOverrides[s.id];
+        }
+        if (fullServiceOverrides && fullServiceOverrides[s.id]) {
+          srv = { ...srv, ...fullServiceOverrides[s.id] };
+        }
+        srvMap.set(s.id, srv);
+      }
+      if (fullServiceOverrides && typeof fullServiceOverrides === 'object') {
+        for (const [sId, sData] of Object.entries(fullServiceOverrides)) {
+          if (delServiceSet.has(sId)) continue;
+          if (!srvMap.has(sId) && sData && typeof sData === 'object') {
+            srvMap.set(sId, { id: sId, ...(sData as any) });
+          }
         }
       }
+      setServicesList(Array.from(srvMap.values()));
     } catch (err) {
       console.warn('Could not load live catalog updates', err);
     } finally {
@@ -657,6 +705,278 @@ export function UnifiedCatalogManager({
       setActiveServiceFocus('ALL');
     }
   }, [activeCategory, serviceFocusOptions, activeServiceFocus]);
+
+  // Services Search & Filters State
+  const [serviceSearchQuery, setServiceSearchQuery] = useState('');
+  const [servicePricingFilter, setServicePricingFilter] = useState<'ALL' | 'PER_ITEM' | 'PER_KG'>('ALL');
+  const [serviceStatusFilter, setServiceStatusFilter] = useState<'ALL' | 'ACTIVE' | 'HIDDEN'>('ALL');
+
+  // Service Add / Edit Modal State
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [editingService, setEditingService] = useState<any | null>(null);
+  const [serviceForm, setServiceForm] = useState<{
+    id: string;
+    name: string;
+    slug: string;
+    icon: string;
+    pricingType: 'PER_ITEM' | 'PER_KG';
+    baseKgPrice: number | string;
+    minOrderKg: number | string;
+    turnaroundHours: number;
+    description: string;
+    isActive: boolean;
+    imageUrl: string;
+  }>({
+    id: '',
+    name: '',
+    slug: '',
+    icon: '✨',
+    pricingType: 'PER_ITEM',
+    baseKgPrice: 60,
+    minOrderKg: 3,
+    turnaroundHours: 24,
+    description: '',
+    isActive: true,
+    imageUrl: '',
+  });
+  const [isSavingService, setIsSavingService] = useState(false);
+  const [serviceUploadingS3, setServiceUploadingS3] = useState(false);
+  const serviceFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Service Delete Modal State
+  const [deletingService, setDeletingService] = useState<any | null>(null);
+  const [isDeletingServiceLoading, setIsDeletingServiceLoading] = useState(false);
+
+  const filteredServices = useMemo(() => {
+    return servicesList.filter((srv) => {
+      if (serviceSearchQuery.trim()) {
+        const q = serviceSearchQuery.toLowerCase().trim();
+        const matchesName = (srv.name || '').toLowerCase().includes(q);
+        const matchesDesc = (srv.description || '').toLowerCase().includes(q);
+        const matchesId = (srv.id || '').toLowerCase().includes(q);
+        if (!matchesName && !matchesDesc && !matchesId) return false;
+      }
+      if (servicePricingFilter !== 'ALL') {
+        const srvPricing = srv.pricingType || (srv.baseKgPrice ? 'PER_KG' : 'PER_ITEM');
+        if (srvPricing !== servicePricingFilter) return false;
+      }
+      if (serviceStatusFilter === 'ACTIVE' && srv.isActive === false) return false;
+      if (serviceStatusFilter === 'HIDDEN' && srv.isActive !== false) return false;
+      return true;
+    });
+  }, [servicesList, serviceSearchQuery, servicePricingFilter, serviceStatusFilter]);
+
+  const serviceCounts = useMemo(() => {
+    let perItem = 0;
+    let perKg = 0;
+    let active = 0;
+    for (const s of servicesList) {
+      if (s.isActive !== false) active++;
+      if (s.pricingType === 'PER_KG' || s.baseKgPrice) perKg++;
+      else perItem++;
+    }
+    return { perItem, perKg, active, total: servicesList.length };
+  }, [servicesList]);
+
+  const handleOpenAddService = () => {
+    setEditingService(null);
+    setServiceForm({
+      id: `srv-m-${Date.now()}`,
+      name: '',
+      slug: '',
+      icon: '✨',
+      pricingType: 'PER_ITEM',
+      baseKgPrice: 60,
+      minOrderKg: 3,
+      turnaroundHours: 24,
+      description: '',
+      isActive: true,
+      imageUrl: '',
+    });
+    setIsServiceModalOpen(true);
+  };
+
+  const handleOpenEditService = (srv: any) => {
+    setEditingService(srv);
+    setServiceForm({
+      id: srv.id,
+      name: srv.name || '',
+      slug: srv.slug || srv.id.replace(/^srv-m-|^srv-/, ''),
+      icon: srv.icon || '✨',
+      pricingType: srv.pricingType || (srv.baseKgPrice ? 'PER_KG' : 'PER_ITEM'),
+      baseKgPrice: srv.baseKgPrice || 60,
+      minOrderKg: srv.minOrderKg || 3,
+      turnaroundHours: srv.turnaroundHours || 24,
+      description: srv.description || '',
+      isActive: srv.isActive !== false,
+      imageUrl: srv.imageUrl || '',
+    });
+    setIsServiceModalOpen(true);
+  };
+
+  const handleSaveService = async () => {
+    const rawName = (serviceForm.name || '').trim();
+    if (!rawName) {
+      showToast('Service name is required', 'error');
+      return;
+    }
+
+    const srvId = editingService
+      ? editingService.id
+      : (serviceForm.id.trim() || `srv-m-${Date.now()}`);
+
+    const cleanSlug = (serviceForm.slug || '').trim() || rawName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+    const serviceData = {
+      id: srvId,
+      name: rawName,
+      slug: cleanSlug,
+      icon: serviceForm.icon || '✨',
+      pricingType: serviceForm.pricingType,
+      baseKgPrice: serviceForm.pricingType === 'PER_KG' ? Number(serviceForm.baseKgPrice) || 60 : undefined,
+      minOrderKg: serviceForm.pricingType === 'PER_KG' ? Number(serviceForm.minOrderKg) || 3 : undefined,
+      turnaroundHours: Number(serviceForm.turnaroundHours) || 24,
+      description: serviceForm.description || '',
+      isActive: Boolean(serviceForm.isActive),
+      imageUrl: serviceForm.imageUrl || undefined,
+    };
+
+    setIsSavingService(true);
+
+    try {
+      if (editingService) {
+        await updateAdminServiceMaster(srvId, serviceData);
+        setServicesList((prev) =>
+          prev.map((s) => (s.id === srvId ? { ...s, ...serviceData } : s))
+        );
+        showToast(`Service "${rawName}" updated successfully!`, 'success');
+      } else {
+        await createAdminServiceMaster(serviceData);
+        setServicesList((prev) => [...prev, serviceData]);
+        showToast(`Service "${rawName}" created successfully!`, 'success');
+      }
+
+      await fetch('/api/catalog-overrides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceId: srvId,
+          serviceData,
+        }),
+      }).catch(() => {});
+
+      setIsServiceModalOpen(false);
+      loadLiveCatalog();
+    } catch (err: any) {
+      try {
+        await fetch('/api/catalog-overrides', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            serviceId: srvId,
+            serviceData,
+          }),
+        });
+        if (editingService) {
+          setServicesList((prev) =>
+            prev.map((s) => (s.id === srvId ? { ...s, ...serviceData } : s))
+          );
+        } else {
+          setServicesList((prev) => [...prev, serviceData]);
+        }
+        showToast(`Saved "${rawName}" to cloud overrides`, 'success');
+        setIsServiceModalOpen(false);
+      } catch {
+        showToast(err.message || 'Failed to save service', 'error');
+      }
+    } finally {
+      setIsSavingService(false);
+    }
+  };
+
+  const handleToggleServiceActive = async (srv: any) => {
+    const newActive = srv.isActive === false;
+    setServicesList((prev) =>
+      prev.map((s) => (s.id === srv.id ? { ...s, isActive: newActive } : s))
+    );
+
+    try {
+      await updateAdminServiceMaster(srv.id, { isActive: newActive });
+    } catch (err) {}
+
+    try {
+      await fetch('/api/catalog-overrides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceId: srv.id,
+          serviceData: { isActive: newActive },
+        }),
+      });
+    } catch {}
+
+    showToast(`Service "${srv.name}" is now ${newActive ? 'Active' : 'Hidden'}.`, 'info');
+  };
+
+  const handleConfirmDeleteService = async () => {
+    if (!deletingService) return;
+    const srvId = deletingService.id;
+    setIsDeletingServiceLoading(true);
+
+    setServicesList((prev) => prev.filter((s) => s.id !== srvId));
+
+    try {
+      await deleteAdminServiceMaster(srvId);
+    } catch (err) {
+      console.warn('Could not delete service via backend API', err);
+    }
+
+    try {
+      await fetch('/api/catalog-overrides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceId: srvId,
+          isServiceDeleted: true,
+        }),
+      });
+    } catch {}
+
+    showToast(`Service "${deletingService.name}" deleted.`, 'success');
+    setIsDeletingServiceLoading(false);
+    setDeletingService(null);
+  };
+
+  const handleServiceModalUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setServiceUploadingS3(true);
+    try {
+      const compressedBase64 = await compressImage(file, 1200, 0.85);
+      const cleanName = (serviceForm.name || 'service').toLowerCase().replace(/[^a-z0-9]/g, '-');
+      const fileName = `service-${cleanName}-${Date.now()}.jpg`;
+      const res = await fetch('/api/upload-s3', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folder: 'services',
+          fileName,
+          imageBase64: compressedBase64,
+          contentType: 'image/jpeg',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || data.error || 'Upload failed');
+      const s3Url = data.data?.s3Url || data.url || data.s3Url;
+      setServiceForm((prev) => ({ ...prev, imageUrl: s3Url }));
+      showToast('Cover photo uploaded to AWS S3!', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to upload service image', 'error');
+    } finally {
+      setServiceUploadingS3(false);
+      if (serviceFileInputRef.current) serviceFileInputRef.current.value = '';
+    }
+  };
 
   // Modals & Uploading State
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1187,6 +1507,17 @@ export function UnifiedCatalogManager({
               </button>
             </>
           )}
+
+          {viewMode === 'SERVICES' && (
+            <button
+              type="button"
+              onClick={handleOpenAddService}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Service</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1611,101 +1942,351 @@ export function UnifiedCatalogManager({
       {/* ========================================================================= */}
       {/* 2. SERVICES PHOTOGRAPHY VIEW */}
       {/* ========================================================================= */}
+      {/* ========================================================================= */}
+      {/* 2. SERVICES COMMAND CENTER & MASTERS VIEW */}
+      {/* ========================================================================= */}
       {viewMode === 'SERVICES' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <div>
-              <h3 className="text-sm font-black text-[var(--heading-color)]">
-                Laundry Services Photography & Masters
-              </h3>
-              <p className="text-xs text-[var(--text-secondary)]">
-                Manage high-res cover photos for customer service selection (Dry Clean, Steam Iron, Wash & Fold, etc.)
-              </p>
-            </div>
-            <span className="text-xs font-bold text-slate-500">
-              {servicesList.length} Active Services
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {servicesList.map((srv) => (
-              <div 
-                key={srv.id}
-                className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col"
-              >
-                {/* Image Header with Live S3 Tag */}
-                <div className="relative h-44 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden group">
-                  {srv.imageUrl ? (
-                    <img
-                      src={srv.imageUrl}
-                      alt={srv.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-4xl">
-                      {srv.icon}
-                    </div>
-                  )}
-
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent flex flex-col justify-between p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/90 text-white flex items-center gap-1 backdrop-blur-xs">
-                        <Clock className="w-3 h-3" /> {srv.turnaroundHours}h TAT
-                      </span>
-                      <span className="text-2xl drop-shadow-md">{srv.icon}</span>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-black text-white drop-shadow-sm">{srv.name}</h4>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
-                        {srv.pricingType === 'PER_KG' ? 'Per Kilogram' : 'Per Item'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Details & Actions */}
-                <div className="p-3.5 flex-1 flex flex-col justify-between gap-3">
-                  <p className="text-[11px] text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
-                    {srv.description}
-                  </p>
-
-                  {/* Photo Action Buttons */}
-                  <div className="flex items-center gap-2 pt-2 border-t border-[var(--border-color)]">
-                    <button
-                      type="button"
-                      disabled={uploadingId === srv.id}
-                      onClick={() => handleTriggerUpload('SERVICE', srv.id, srv.name)}
-                      className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      <span>{uploadingId === srv.id ? 'Uploading...' : 'Upload Photo'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingUrlTarget({ 
-                          type: 'SERVICE', 
-                          id: srv.id, 
-                          name: srv.name, 
-                          icon: srv.icon,
-                          currentUrl: srv.imageUrl || '' 
-                        });
-                        setManualImageUrl(srv.imageUrl || '');
-                      }}
-                      className="p-2 border border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--heading-color)] rounded-xl transition-all cursor-pointer"
-                      title="Paste Image URL"
-                    >
-                      <Link2 className="w-3.5 h-3.5 text-slate-500" />
-                    </button>
-                  </div>
+          {/* Services Command Bar */}
+          <div className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-4 shadow-xs space-y-3.5">
+            {/* Row 1: Title, Dynamic Badges & Action CTAs */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-black text-[var(--heading-color)] flex items-center gap-2">
+                  <span>✨</span>
+                  <span>Laundry Services & Masters</span>
+                </h3>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                    {servicesList.length} Total Services
+                  </span>
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-violet-50 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
+                    {serviceCounts.perItem} Per Item
+                  </span>
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                    {serviceCounts.perKg} Per Kg
+                  </span>
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-[var(--border-color)]">
+                    {serviceCounts.active} Active
+                  </span>
                 </div>
               </div>
-            ))}
+
+              {/* Search & Add Service CTA */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search services..."
+                    value={serviceSearchQuery}
+                    onChange={(e) => setServiceSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-7 py-2 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl text-xs font-medium focus:outline-none focus:border-blue-500"
+                  />
+                  {serviceSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setServiceSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleOpenAddService}
+                  className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Service</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Row 2: Pricing Filter Pills & Status Toggle */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-[var(--border-color)]">
+              {/* Pricing Filter Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                <button
+                  type="button"
+                  onClick={() => setServicePricingFilter('ALL')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    servicePricingFilter === 'ALL'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
+                  }`}
+                >
+                  All Pricing ({servicesList.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setServicePricingFilter('PER_ITEM')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    servicePricingFilter === 'PER_ITEM'
+                      ? 'bg-violet-600 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
+                  }`}
+                >
+                  <span>👔</span>
+                  <span>Per Item ({serviceCounts.perItem})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setServicePricingFilter('PER_KG')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    servicePricingFilter === 'PER_KG'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
+                  }`}
+                >
+                  <span>⚖️</span>
+                  <span>Per Kilogram ({serviceCounts.perKg})</span>
+                </button>
+              </div>
+
+              {/* Status Filter */}
+              <div className="flex items-center gap-1 shrink-0 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setServiceStatusFilter('ALL')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                    serviceStatusFilter === 'ALL'
+                      ? 'bg-white dark:bg-slate-900 text-[var(--heading-color)] shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  All Status
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setServiceStatusFilter('ACTIVE')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                    serviceStatusFilter === 'ACTIVE'
+                      ? 'bg-white dark:bg-slate-900 text-emerald-600 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  Active Only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setServiceStatusFilter('HIDDEN')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                    serviceStatusFilter === 'HIDDEN'
+                      ? 'bg-white dark:bg-slate-900 text-amber-600 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  Hidden
+                </button>
+              </div>
+            </div>
           </div>
+
+          {/* Empty State when 0 services match */}
+          {filteredServices.length === 0 ? (
+            <div className="py-20 text-center space-y-4 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-6 shadow-xs">
+              <div className="mx-auto w-16 h-16 rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950/60 dark:to-indigo-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-inner text-2xl">
+                <span>✨</span>
+              </div>
+              <div className="space-y-1 max-w-md mx-auto">
+                <h3 className="text-base font-black text-[var(--heading-color)]">
+                  {servicesList.length === 0
+                    ? 'No laundry services configured yet'
+                    : `No services found matching "${serviceSearchQuery || servicePricingFilter}"`}
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                  {servicesList.length === 0
+                    ? 'Add your first commercial laundry service (e.g. Dry Cleaning, Wash & Fold, Steam Press) to enable customer bookings.'
+                    : 'Try clearing your search query or pricing filter to view other services.'}
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleOpenAddService}
+                  className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black inline-flex items-center gap-2 cursor-pointer shadow-md transition-transform hover:scale-102"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Create New Service</span>
+                </button>
+                {(serviceSearchQuery || servicePricingFilter !== 'ALL' || serviceStatusFilter !== 'ALL') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setServiceSearchQuery('');
+                      setServicePricingFilter('ALL');
+                      setServiceStatusFilter('ALL');
+                    }}
+                    className="px-4 py-2.5 border border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold rounded-xl text-[var(--heading-color)] cursor-pointer"
+                  >
+                    Reset Filters
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {filteredServices.map((srv) => {
+                const isUploadingThis = uploadingId === srv.id;
+                const isKg = srv.pricingType === 'PER_KG' || Boolean(srv.baseKgPrice);
+
+                return (
+                  <div
+                    key={srv.id}
+                    className={`bg-white dark:bg-slate-900 border rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between ${
+                      srv.isActive === false
+                        ? 'opacity-60 border-dashed border-slate-300 dark:border-slate-800'
+                        : 'border-[var(--border-color)]'
+                    }`}
+                  >
+                    <div>
+                      {/* Image Header */}
+                      <div className="relative h-44 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden group">
+                        {srv.imageUrl ? (
+                          <img
+                            src={srv.imageUrl}
+                            alt={srv.name}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_wash_fold.jpg';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-slate-400">
+                            <span className="text-4xl">{srv.icon || '✨'}</span>
+                            <span className="text-[10px] font-bold">No Photo</span>
+                          </div>
+                        )}
+
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent flex flex-col justify-between p-3">
+                          {/* Top Badges */}
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/90 text-white flex items-center gap-1 backdrop-blur-xs shadow-xs">
+                              <Clock className="w-3 h-3" /> {srv.turnaroundHours || 24}h TAT
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => handleToggleServiceActive(srv)}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-all shadow-xs backdrop-blur-xs border ${
+                                srv.isActive !== false
+                                  ? 'bg-emerald-500/90 hover:bg-emerald-600 text-white border-emerald-400/50'
+                                  : 'bg-amber-500/90 hover:bg-amber-600 text-white border-amber-400/50'
+                              }`}
+                              title={srv.isActive !== false ? 'Click to hide service' : 'Click to activate service'}
+                            >
+                              {srv.isActive !== false ? 'Active' : 'Hidden'}
+                            </button>
+                          </div>
+
+                          {/* Title & Pricing Model in scrim */}
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xl drop-shadow-md">{srv.icon || '✨'}</span>
+                              <h4 className="text-sm font-black text-white drop-shadow-sm truncate">{srv.name}</h4>
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
+                              {isKg ? 'Per Kilogram' : 'Per Item'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Content Area */}
+                      <div className="p-3.5 space-y-2.5">
+                        {/* Pricing Highlight Badge */}
+                        <div className="flex items-center justify-between gap-2">
+                          {isKg ? (
+                            <div className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 text-xs font-black">
+                              <span>⚖️</span>
+                              <span>₹{srv.baseKgPrice || 60} / kg</span>
+                              <span className="text-[10px] font-medium text-emerald-600/80 dark:text-emerald-400/80">
+                                (Min: {srv.minOrderKg || 3} kg)
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="px-2.5 py-1 rounded-xl bg-violet-50 dark:bg-violet-950/60 border border-violet-200 dark:border-violet-800/60 text-violet-700 dark:text-violet-300 flex items-center gap-1.5 text-xs font-black">
+                              <span>👔</span>
+                              <span>Per Item Matrix Rates</span>
+                            </div>
+                          )}
+                          <span className="text-[10px] font-mono font-bold text-slate-400 truncate max-w-[80px]">
+                            {srv.id}
+                          </span>
+                        </div>
+
+                        {srv.description && (
+                          <p className="text-[11px] text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
+                            {srv.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Action Bar */}
+                    <div className="p-3 pt-0">
+                      <div className="flex items-center gap-1.5 pt-2.5 border-t border-[var(--border-color)]">
+                        {/* Edit Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditService(srv)}
+                          className="flex-1 py-1.5 px-2.5 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-600 dark:hover:text-white rounded-xl text-xs font-bold transition-all border border-blue-200 dark:border-blue-800 flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                          title={`Edit ${srv.name}`}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+
+                        {/* Delete Button */}
+                        <button
+                          type="button"
+                          onClick={() => setDeletingService(srv)}
+                          className="p-1.5 rounded-xl text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-rose-200 dark:border-rose-900/60 transition-all cursor-pointer shadow-2xs"
+                          title={`Delete ${srv.name}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Photo Upload from Computer */}
+                        <button
+                          type="button"
+                          disabled={isUploadingThis}
+                          onClick={() => handleTriggerUpload('SERVICE', srv.id, srv.name)}
+                          className="p-1.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[var(--border-color)] transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                          title="Upload Cover Photo from Computer"
+                        >
+                          <Camera className="w-3.5 h-3.5 text-blue-600" />
+                        </button>
+
+                        {/* Paste Image URL */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingUrlTarget({
+                              type: 'SERVICE',
+                              id: srv.id,
+                              name: srv.name,
+                              icon: srv.icon,
+                              currentUrl: srv.imageUrl || '',
+                            });
+                            setManualImageUrl(srv.imageUrl || '');
+                          }}
+                          className="p-1.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[var(--border-color)] transition-all cursor-pointer shadow-2xs"
+                          title="Paste direct Image URL"
+                        >
+                          <Link2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -3384,6 +3965,443 @@ export function UnifiedCatalogManager({
                   <>
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Yes, Delete Category</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: Add / Edit Service Master */}
+      {/* ========================================================================= */}
+      {isServiceModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-[var(--border-color)] max-w-lg w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150 my-8">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-[var(--border-color)]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-xl shadow-md">
+                  <span>{serviceForm.icon || '✨'}</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-[var(--heading-color)]">
+                    {editingService ? `Edit Service: ${editingService.name}` : 'Add New Laundry Service'}
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                    Configure service name, turnaround time, pricing model & photo
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsServiceModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Hidden file input for photo upload */}
+            <input
+              ref={serviceFileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleServiceModalUpload}
+            />
+
+            {/* Modal Form */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveService();
+              }}
+              className="mt-4 space-y-4"
+            >
+              {/* Service Name & Code */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider text-[var(--heading-color)] mb-1">
+                    Service Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Iron Only (Steam Press)"
+                    value={serviceForm.name}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      setServiceForm((prev) => ({
+                        ...prev,
+                        name,
+                        slug: prev.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                      }));
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider text-[var(--heading-color)] mb-1">
+                    Service ID / Code
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. srv-m-steam-iron"
+                    value={serviceForm.id}
+                    disabled={Boolean(editingService)}
+                    onChange={(e) => setServiceForm((prev) => ({ ...prev, id: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              {/* Icon Picker & Quick Presets */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-[var(--heading-color)] mb-1.5">
+                  Service Icon / Emoji
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={serviceForm.icon}
+                    onChange={(e) => setServiceForm((prev) => ({ ...prev, icon: e.target.value }))}
+                    className="w-14 text-center px-2 py-1.5 text-lg rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none flex-1">
+                    {['👔', '🧺', '🧥', '👞', '✨', '🪟', '🛏️', '🔥', '🧸', '🧽', '👗', '⚡'].map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setServiceForm((prev) => ({ ...prev, icon: emoji }))}
+                        className={`p-1.5 rounded-lg text-base hover:bg-blue-50 dark:hover:bg-blue-950 transition-all cursor-pointer ${
+                          serviceForm.icon === emoji ? 'bg-blue-100 dark:bg-blue-900 ring-2 ring-blue-500' : 'bg-slate-100 dark:bg-slate-800'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Turnaround Time (TAT) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-black uppercase tracking-wider text-[var(--heading-color)]">
+                    Turnaround Time (Hours) <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                    {serviceForm.turnaroundHours} hours ({Math.round((serviceForm.turnaroundHours / 24) * 10) / 10} days)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="168"
+                    required
+                    value={serviceForm.turnaroundHours}
+                    onChange={(e) => setServiceForm((prev) => ({ ...prev, turnaroundHours: Number(e.target.value) || 24 }))}
+                    className="w-24 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {[12, 18, 24, 36, 48, 72].map((hrs) => (
+                      <button
+                        key={hrs}
+                        type="button"
+                        onClick={() => setServiceForm((prev) => ({ ...prev, turnaroundHours: hrs }))}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          serviceForm.turnaroundHours === hrs
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-800 text-[var(--text-secondary)] hover:text-[var(--heading-color)]'
+                        }`}
+                      >
+                        {hrs}h
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Pricing Model Selection */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-[var(--heading-color)] mb-1.5">
+                  Pricing Model <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setServiceForm((prev) => ({ ...prev, pricingType: 'PER_ITEM' }))}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                      serviceForm.pricingType === 'PER_ITEM'
+                        ? 'border-violet-500 bg-violet-50/70 dark:bg-violet-950/40 ring-2 ring-violet-500/20'
+                        : 'border-[var(--border-color)] bg-slate-50 dark:bg-slate-800 hover:border-slate-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm">👔</span>
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                        serviceForm.pricingType === 'PER_ITEM' ? 'bg-violet-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                      }`}>
+                        Per Item
+                      </span>
+                    </div>
+                    <div className="text-xs font-black text-[var(--heading-color)]">Individual Garments</div>
+                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 leading-tight">
+                      Rates configured per cloth type in the 2D Pricing Matrix.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setServiceForm((prev) => ({ ...prev, pricingType: 'PER_KG' }))}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                      serviceForm.pricingType === 'PER_KG'
+                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20'
+                        : 'border-[var(--border-color)] bg-slate-50 dark:bg-slate-800 hover:border-slate-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm">⚖️</span>
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                        serviceForm.pricingType === 'PER_KG' ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                      }`}>
+                        Per Kilogram
+                      </span>
+                    </div>
+                    <div className="text-xs font-black text-[var(--heading-color)]">Bulk Weight</div>
+                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 leading-tight">
+                      Flat/tiered rate charged per kilogram for daily wash & fold.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* If Per Kg: Base Price & Min Order Kg */}
+              {serviceForm.pricingType === 'PER_KG' && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-wider text-emerald-900 dark:text-emerald-200 mb-1">
+                      Base Price per Kg (₹) <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={serviceForm.baseKgPrice}
+                        onChange={(e) => setServiceForm((prev) => ({ ...prev, baseKgPrice: e.target.value }))}
+                        className="w-full pl-7 pr-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 text-xs font-black text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        placeholder="60"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-wider text-emerald-900 dark:text-emerald-200 mb-1">
+                      Min Order Weight (Kg)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0.5"
+                        step="0.5"
+                        value={serviceForm.minOrderKg}
+                        onChange={(e) => setServiceForm((prev) => ({ ...prev, minOrderKg: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 text-xs font-black text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        placeholder="3"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">kg</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-[var(--heading-color)] mb-1">
+                  Service Description
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. High-pressure wrinkle removal, sharp crease setting & crisp hanger finish."
+                  value={serviceForm.description}
+                  onChange={(e) => setServiceForm((prev) => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-medium text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none leading-relaxed"
+                />
+              </div>
+
+              {/* Photo Upload & Preview */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-[var(--border-color)] space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black uppercase tracking-wider text-[var(--heading-color)]">
+                    Service Cover Photo
+                  </label>
+                  {serviceForm.imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setServiceForm((prev) => ({ ...prev, imageUrl: '' }))}
+                      className="text-[10px] text-rose-500 hover:underline cursor-pointer"
+                    >
+                      Remove Photo
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-xl bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0 border border-[var(--border-color)] shadow-inner flex items-center justify-center text-xl">
+                    {serviceForm.imageUrl ? (
+                      <img
+                        src={serviceForm.imageUrl}
+                        alt="Service Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <span>{serviceForm.icon || '✨'}</span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-1.5">
+                    <button
+                      type="button"
+                      disabled={serviceUploadingS3}
+                      onClick={() => serviceFileInputRef.current?.click()}
+                      className="px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-xl text-xs font-bold border border-blue-200 dark:border-blue-800 inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {serviceUploadingS3 ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Uploading to S3...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="w-3.5 h-3.5" />
+                          <span>Upload from Computer</span>
+                        </>
+                      )}
+                    </button>
+
+                    <input
+                      type="url"
+                      placeholder="Or paste direct image URL (https://...)"
+                      value={serviceForm.imageUrl}
+                      onChange={(e) => setServiceForm((prev) => ({ ...prev, imageUrl: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[var(--border-color)] text-[11px] text-[var(--heading-color)] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Toggle Switch */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-[var(--border-color)]">
+                <div>
+                  <div className="text-xs font-bold text-[var(--heading-color)]">Service Status</div>
+                  <div className="text-[11px] text-[var(--text-secondary)]">
+                    {serviceForm.isActive ? 'Active and visible in customer booking screens' : 'Hidden from customer bookings'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setServiceForm((prev) => ({ ...prev, isActive: !prev.isActive }))}
+                  className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-all ${
+                    serviceForm.isActive
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300'
+                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300'
+                  }`}
+                >
+                  {serviceForm.isActive ? 'Active' : 'Hidden'}
+                </button>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-color)]">
+                <button
+                  type="button"
+                  onClick={() => setIsServiceModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[var(--text-secondary)] hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingService}
+                  className="px-5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isSavingService ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving Service...</span>
+                    </>
+                  ) : (
+                    <span>{editingService ? 'Update Service' : 'Create Service'}</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: Delete Service Confirmation */}
+      {/* ========================================================================= */}
+      {deletingService && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-[var(--border-color)] max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 pb-3 border-b border-[var(--border-color)]">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 flex items-center justify-center text-xl shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-[var(--heading-color)]">
+                  Delete Service Master
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Permanent action affecting catalog and customer bookings.
+                </p>
+              </div>
+            </div>
+
+            <div className="my-4 space-y-3">
+              <p className="text-xs text-[var(--heading-color)] font-medium leading-relaxed">
+                Are you sure you want to permanently delete <span className="font-black text-rose-600">"{deletingService.name}"</span> ({deletingService.id})?
+              </p>
+              <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                This will remove the service from all customer order flows, rate sheets, and the commercial catalog.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-color)]">
+              <button
+                type="button"
+                disabled={isDeletingServiceLoading}
+                onClick={() => setDeletingService(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingServiceLoading}
+                onClick={handleConfirmDeleteService}
+                className="px-4 py-2 text-xs font-black text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                {isDeletingServiceLoading ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Yes, Delete Service</span>
                   </>
                 )}
               </button>

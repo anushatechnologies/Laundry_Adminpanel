@@ -81,6 +81,8 @@ export async function POST(req: NextRequest) {
       categoryTag,
       categoryImageUrl,
       serviceId,
+      serviceData,
+      isServiceDeleted,
       serviceImageUrl,
       subcategoryName,
       subcategoryImageUrl,
@@ -91,9 +93,11 @@ export async function POST(req: NextRequest) {
     const categoryOverrides = current.categoryOverrides || {};
     const fullCategoryOverrides = current.fullCategoryOverrides || {};
     const serviceOverrides = current.serviceOverrides || {};
+    const fullServiceOverrides = current.fullServiceOverrides || {};
     const subcategoryOverrides = current.subcategoryOverrides || {};
     const deletedClothIds = Array.isArray(current.deletedClothIds) ? current.deletedClothIds : [];
     const deletedCategoryIds = Array.isArray(current.deletedCategoryIds) ? current.deletedCategoryIds : [];
+    const deletedServiceIds = Array.isArray(current.deletedServiceIds) ? current.deletedServiceIds : [];
 
     if (categoryTag && categoryImageUrl) {
       categoryOverrides[categoryTag.toUpperCase()] = categoryImageUrl;
@@ -114,6 +118,25 @@ export async function POST(req: NextRequest) {
         const idx = deletedCategoryIds.indexOf(categoryId);
         if (idx !== -1) {
           deletedCategoryIds.splice(idx, 1);
+        }
+      }
+    }
+
+    if (serviceId) {
+      if (isServiceDeleted) {
+        if (!deletedServiceIds.includes(serviceId)) {
+          deletedServiceIds.push(serviceId);
+        }
+        delete fullServiceOverrides[serviceId];
+        delete serviceOverrides[serviceId];
+      } else if (serviceData) {
+        fullServiceOverrides[serviceId] = { ...(fullServiceOverrides[serviceId] || {}), ...serviceData };
+        if (serviceData.imageUrl) {
+          serviceOverrides[serviceId] = serviceData.imageUrl;
+        }
+        const idx = deletedServiceIds.indexOf(serviceId);
+        if (idx !== -1) {
+          deletedServiceIds.splice(idx, 1);
         }
       }
     }
@@ -175,9 +198,11 @@ export async function POST(req: NextRequest) {
       categoryOverrides,
       fullCategoryOverrides: cleanCatOverrides,
       serviceOverrides,
+      fullServiceOverrides,
       subcategoryOverrides,
       deletedClothIds,
       deletedCategoryIds,
+      deletedServiceIds,
       updatedAt: new Date().toISOString(),
     };
 
