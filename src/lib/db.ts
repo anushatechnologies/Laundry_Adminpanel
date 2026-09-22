@@ -1078,12 +1078,10 @@ class LaundryDatabase {
           try {
             const parsedCloth = JSON.parse(savedClothTypes);
             const parsedMatrix = JSON.parse(savedMatrix);
-            // If parsed data is old dummy list (< 50 items) or matrix size < 150, reset to master
+            // If parsed data is completely corrupted, reset to master
             if (
               !Array.isArray(parsedCloth) ||
-              parsedCloth.length < 50 ||
               !Array.isArray(parsedMatrix) ||
-              parsedMatrix.length < 200 ||
               parsedMatrix.some((p: any) => p.clothName === 'Shirt' && p.serviceId === 'srv-m-dry-clean' && p.price === 1)
             ) {
               this.clothTypes = [...INITIAL_CLOTH_TYPES];
@@ -1523,18 +1521,25 @@ class LaundryDatabase {
   }
 
   createClothType(data: Partial<ClothType>): ClothType {
-    const id = `cloth-${Date.now()}`;
+    const id = data.id || `cloth-${Date.now()}`;
     const newCloth: ClothType = {
       id,
       name: data.name || 'New Garment',
       icon: data.icon || '👕',
       categoryTag: data.categoryTag || 'MENS',
       categoryLabel: data.categoryLabel || "Men's Clothing",
+      subCategory: typeof data.subCategory === 'string' ? data.subCategory.trim() || undefined : undefined,
       description: data.description || '',
+      imageUrl: data.imageUrl || undefined,
       isActive: data.isActive !== undefined ? data.isActive : true,
-      sortOrder: this.clothTypes.length + 1,
+      sortOrder: data.sortOrder || (this.clothTypes.length + 1),
     };
-    this.clothTypes.push(newCloth);
+    const existingIdx = this.clothTypes.findIndex((c) => c.id === id);
+    if (existingIdx >= 0) {
+      this.clothTypes[existingIdx] = { ...this.clothTypes[existingIdx], ...newCloth };
+    } else {
+      this.clothTypes.push(newCloth);
+    }
     this.persist();
     return newCloth;
   }
@@ -1568,6 +1573,7 @@ class LaundryDatabase {
     }
     const overrides = this.getClothOverrides();
     for (const [id, data] of Object.entries(overrides)) {
+      if (deleted.has(id)) continue;
       const item = this.clothTypes.find((c) => c.id === id);
       if (item && data) {
         // Guard against corrupted or invalid URLs stored in legacy cache
@@ -1580,6 +1586,20 @@ class LaundryDatabase {
           delete safeData.imageUrl;
         }
         Object.assign(item, safeData);
+      } else if (data && typeof data === 'object' && (data as any).name) {
+        // If an override contains a full cloth item not yet in this.clothTypes, append it
+        this.clothTypes.push({
+          id,
+          name: (data as any).name,
+          icon: (data as any).icon || '👕',
+          categoryTag: (data as any).categoryTag || 'MENS',
+          categoryLabel: (data as any).categoryLabel || "Men's Clothing",
+          subCategory: (data as any).subCategory,
+          description: (data as any).description || '',
+          imageUrl: (data as any).imageUrl,
+          isActive: (data as any).isActive !== false,
+          sortOrder: (data as any).sortOrder || (this.clothTypes.length + 1),
+        });
       }
     }
   }

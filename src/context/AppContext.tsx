@@ -351,19 +351,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const remoteCloths = Array.isArray(catalog.clothTypes) ? catalog.clothTypes : (catalog.data?.clothTypes || []);
 
         if (Array.isArray(remoteCloths) && remoteCloths.length > 0) {
-          if (remoteCloths.length < localMasterCloths.length) {
-            // Remote backend is running an older seed (e.g. 55 items vs 72 local master items).
-            // Merge: keep all 72 items, applying any remote modifications to existing items.
-            const remoteMap = new Map(remoteCloths.map((c: any) => [c.id, c]));
-            const merged = localMasterCloths.map((localItem) => {
-              const remoteMatch = remoteMap.get(localItem.id);
-              return remoteMatch ? { ...localItem, ...remoteMatch } : localItem;
-            });
-            setClothTypes(merged);
-          } else {
-            setClothTypes(remoteCloths);
+          const remoteMap = new Map(remoteCloths.map((c: any) => [c.id, c]));
+          const merged = [...remoteCloths];
+          for (const local of localMasterCloths) {
+            if (!remoteMap.has(local.id)) {
+              merged.push(local);
+            }
           }
-        } else {
+          setClothTypes(merged);
+        } else if (localMasterCloths.length > 0) {
           setClothTypes(localMasterCloths);
         }
 
@@ -378,18 +374,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const dedupedRemote = deduplicatePriceMatrix(sanitizedRemote);
           if (dedupedRemote.length < localMasterPrices.length) {
             const remotePriceMap = new Map(dedupedRemote.map((p: any) => [`${p.clothTypeId}-${p.serviceId}`, p]));
-            const mergedPrices = localMasterPrices
-              .filter((p) => isServiceAllowedForCategory(p.categoryTag, p.serviceId))
-              .map((p) => {
-                const r = remotePriceMap.get(`${p.clothTypeId}-${p.serviceId}`);
-                return r ? { ...p, ...r } : p;
-              });
+            const mergedPrices = localMasterPrices.map((localPrice) => {
+              const remoteMatch = remotePriceMap.get(`${localPrice.clothTypeId}-${localPrice.serviceId}`);
+              return remoteMatch ? { ...localPrice, ...remoteMatch } : localPrice;
+            });
             setPriceMatrix(deduplicatePriceMatrix(mergedPrices));
           } else {
             setPriceMatrix(dedupedRemote);
           }
         } else {
-          setPriceMatrix(deduplicatePriceMatrix(localMasterPrices.filter((p) => isServiceAllowedForCategory(p.categoryTag, p.serviceId))));
+          setPriceMatrix(localMasterPrices);
         }
 
         if (catalog.bulkPricing && Array.isArray(catalog.bulkPricing) && catalog.bulkPricing.length > 0) {
@@ -420,9 +414,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
           }
           if (clothOverrides && typeof clothOverrides === 'object') {
-            setClothTypes((prev) =>
-              prev.map((item) => (clothOverrides[item.id] ? { ...item, ...clothOverrides[item.id] } : item))
-            );
+            setClothTypes((prev) => {
+              const existingIds = new Set(prev.map((item) => item.id));
+              const updated = prev.map((item) =>
+                clothOverrides[item.id] ? { ...item, ...clothOverrides[item.id] } : item
+              );
+              for (const [cId, cData] of Object.entries(clothOverrides)) {
+                if (!existingIds.has(cId) && cData && typeof cData === 'object' && (cData as any).name) {
+                  updated.push({ id: cId, ...(cData as any) });
+                }
+              }
+              return updated;
+            });
           }
         }
       } catch (err) {
@@ -774,15 +777,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Dynamic Pricing Handlers with Backend API Persistence
   const addClothType = async (data: Partial<ClothType>): Promise<ClothType> => {
+    // 1. Sync to Global S3 Cloud Overrides immediately so photo & product persist globally
+    if (data.id) {
+      try {
+        const s3Data: Partial<ClothType> = { ...data };
+        if (s3Data.imageUrl && !s3Data.imageUrl.startsWith('http')) {
+          delete (s3Data as any).imageUrl;
+        }
+        await fetch('/api/catalog-overrides', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clothId: data.id, data: s3Data }),
+        });
+      } catch (e) {
+        console.warn('Could not sync new cloth to S3 cloud overrides', e);
+      }
+    }
+
     try {
       const created = await adminApi<ClothType>('/services/cloth-types', {
         method: 'POST',
         body: JSON.stringify(data),
       });
-      db.createClothType(created);
+      const clothToSave: ClothType = { ...data, ...created } as ClothType;
+      db.createClothType(clothToSave);
       setClothTypes([...db.getClothTypes()]);
-      showToast(`Cloth item "${created.name}" saved to database.`, 'success');
-      return created;
+      showToast(`Cloth item "${clothToSave.name}" saved to database.`, 'success');
+      return clothToSave;
     } catch {
       const local = db.createClothType(data);
       setClothTypes([...db.getClothTypes()]);

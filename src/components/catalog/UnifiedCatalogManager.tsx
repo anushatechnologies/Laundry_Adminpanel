@@ -7,7 +7,8 @@ import { ClothType, ServicePriceItem } from '@/types';
 import { 
   Search, Plus, Camera, Edit2, X, 
   RefreshCw, ShieldCheck, Link2, ExternalLink, Layers, Sparkles, Tag, Clock, ArrowRight, Settings,
-  Trash2, Check, CheckCircle2, Loader2, UploadCloud, Eye, EyeOff, AlertTriangle, FolderPlus, ArrowUpRight
+  Trash2, Check, CheckCircle2, Loader2, UploadCloud, Eye, EyeOff, AlertTriangle, FolderPlus, ArrowUpRight,
+  GripVertical, ChevronUp, ChevronDown, Zap
 } from 'lucide-react';
 import { 
   getAdminCategories, 
@@ -118,6 +119,7 @@ export interface AddProductServiceItem {
   serviceName: string;
   serviceIcon?: string;
   price: number;
+  expressPrice?: number;
   turnaroundHours: number;
 }
 
@@ -907,8 +909,45 @@ export function UnifiedCatalogManager({
   const [newServiceForAddModal, setNewServiceForAddModal] = useState<{
     serviceId: string;
     price: number;
+    expressPrice: number;
     turnaroundHours: number;
-  }>({ serviceId: '', price: 50, turnaroundHours: 24 });
+  }>({ serviceId: '', price: 50, expressPrice: 75, turnaroundHours: 24 });
+
+  // Drag and Drop state for Add Garment modal
+  const [draggedAddServiceIdx, setDraggedAddServiceIdx] = useState<number | null>(null);
+  const [dragOverAddServiceIdx, setDragOverAddServiceIdx] = useState<number | null>(null);
+
+  const handleAddDragStart = (idx: number) => {
+    setDraggedAddServiceIdx(idx);
+  };
+
+  const handleAddDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (draggedAddServiceIdx === null || draggedAddServiceIdx === idx) return;
+    setDragOverAddServiceIdx(idx);
+  };
+
+  const handleAddDrop = (targetIdx: number) => {
+    if (draggedAddServiceIdx === null || draggedAddServiceIdx === targetIdx) {
+      setDraggedAddServiceIdx(null);
+      setDragOverAddServiceIdx(null);
+      return;
+    }
+    const list = [...addGarmentServices];
+    const [moved] = list.splice(draggedAddServiceIdx, 1);
+    list.splice(targetIdx, 0, moved);
+    setAddGarmentServices(list);
+    setDraggedAddServiceIdx(null);
+    setDragOverAddServiceIdx(null);
+  };
+
+  const moveAddGarmentService = (fromIdx: number, toIdx: number) => {
+    if (toIdx < 0 || toIdx >= addGarmentServices.length) return;
+    const list = [...addGarmentServices];
+    const [moved] = list.splice(fromIdx, 1);
+    list.splice(toIdx, 0, moved);
+    setAddGarmentServices(list);
+  };
 
   const getCategoryKey = (catId: string) => {
     const upper = (catId || '').toUpperCase().trim();
@@ -938,14 +977,16 @@ export function UnifiedCatalogManager({
     if (availableServicesToAdd.length > 0) {
       if (!availableServicesToAdd.some((s) => s.id === newServiceForAddModal.serviceId)) {
         const first = availableServicesToAdd[0];
+        const basePrice = first.baseKgPrice || 50;
         setNewServiceForAddModal({
           serviceId: first.id,
-          price: first.baseKgPrice || 50,
+          price: basePrice,
+          expressPrice: Math.round(basePrice * 1.5),
           turnaroundHours: first.turnaroundHours || 24,
         });
       }
     } else {
-      setNewServiceForAddModal({ serviceId: '', price: 50, turnaroundHours: 24 });
+      setNewServiceForAddModal({ serviceId: '', price: 50, expressPrice: 75, turnaroundHours: 24 });
     }
   }, [availableServicesToAdd]);
 
@@ -962,11 +1003,13 @@ export function UnifiedCatalogManager({
     const rule = CATEGORY_SERVICES_RULES[normCat] || CATEGORY_SERVICES_RULES.MENS;
     const initialServices: AddProductServiceItem[] = rule.defaultServices.map((defSrv) => {
       const found = servicesList.find((s) => s.id === defSrv.serviceId);
+      const price = defSrv.defaultPrice;
       return {
         serviceId: defSrv.serviceId,
         serviceName: defSrv.name,
         serviceIcon: found?.icon || '🧺',
-        price: defSrv.defaultPrice,
+        price,
+        expressPrice: Math.round(price * 1.5),
         turnaroundHours: defSrv.serviceId === 'srv-m-express' ? 12 : defSrv.serviceId === 'srv-m-spa' ? 48 : 24,
       };
     });
@@ -985,11 +1028,13 @@ export function UnifiedCatalogManager({
     const rule = CATEGORY_SERVICES_RULES[normCat] || CATEGORY_SERVICES_RULES.MENS;
     const newServices: AddProductServiceItem[] = rule.defaultServices.map((defSrv) => {
       const found = servicesList.find((s) => s.id === defSrv.serviceId);
+      const price = defSrv.defaultPrice;
       return {
         serviceId: defSrv.serviceId,
         serviceName: defSrv.name,
         serviceIcon: found?.icon || '🧺',
-        price: defSrv.defaultPrice,
+        price,
+        expressPrice: Math.round(price * 1.5),
         turnaroundHours: defSrv.serviceId === 'srv-m-express' ? 12 : defSrv.serviceId === 'srv-m-spa' ? 48 : 24,
       };
     });
@@ -998,7 +1043,13 @@ export function UnifiedCatalogManager({
 
   const handleUpdateAddGarmentServicePrice = (serviceId: string, price: number) => {
     setAddGarmentServices((prev) =>
-      prev.map((s) => (s.serviceId === serviceId ? { ...s, price } : s))
+      prev.map((s) => (s.serviceId === serviceId ? { ...s, price, expressPrice: Math.round(price * 1.5) } : s))
+    );
+  };
+
+  const handleUpdateAddGarmentServiceExpressPrice = (serviceId: string, expressPrice: number) => {
+    setAddGarmentServices((prev) =>
+      prev.map((s) => (s.serviceId === serviceId ? { ...s, expressPrice } : s))
     );
   };
 
@@ -1014,13 +1065,15 @@ export function UnifiedCatalogManager({
       showToast(`${srvMeta.name} is already added.`, 'info');
       return;
     }
+    const price = Number(newServiceForAddModal.price) || 50;
     setAddGarmentServices((prev) => [
       ...prev,
       {
         serviceId: srvMeta.id,
         serviceName: srvMeta.name,
         serviceIcon: srvMeta.icon || '🧺',
-        price: Number(newServiceForAddModal.price) || 50,
+        price,
+        expressPrice: Number(newServiceForAddModal.expressPrice) || Math.round(price * 1.5),
         turnaroundHours: Number(newServiceForAddModal.turnaroundHours) || (srvMeta.turnaroundHours || 24),
       },
     ]);
@@ -1074,6 +1127,75 @@ export function UnifiedCatalogManager({
     return { name: 'Service', icon: '🧺' };
   };
 
+  // Drag and Drop & State for Edit Garment Modal services
+  const [editingClothServices, setEditingClothServices] = useState<ServicePriceItem[]>([]);
+  const [draggedEditServiceIdx, setDraggedEditServiceIdx] = useState<number | null>(null);
+  const [dragOverEditServiceIdx, setDragOverEditServiceIdx] = useState<number | null>(null);
+
+  const handleEditDragStart = (idx: number) => {
+    setDraggedEditServiceIdx(idx);
+  };
+
+  const handleEditDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (draggedEditServiceIdx === null || draggedEditServiceIdx === idx) return;
+    setDragOverEditServiceIdx(idx);
+  };
+
+  const handleEditDrop = (targetIdx: number) => {
+    if (draggedEditServiceIdx === null || draggedEditServiceIdx === targetIdx) {
+      setDraggedEditServiceIdx(null);
+      setDragOverEditServiceIdx(null);
+      return;
+    }
+    const list = [...editingClothServices];
+    const [moved] = list.splice(draggedEditServiceIdx, 1);
+    list.splice(targetIdx, 0, moved);
+    setEditingClothServices(list);
+    setDraggedEditServiceIdx(null);
+    setDragOverEditServiceIdx(null);
+    reorderClothPriceMatrix(list);
+  };
+
+  const moveEditService = (fromIdx: number, toIdx: number) => {
+    if (toIdx < 0 || toIdx >= editingClothServices.length) return;
+    const list = [...editingClothServices];
+    const [moved] = list.splice(fromIdx, 1);
+    list.splice(toIdx, 0, moved);
+    setEditingClothServices(list);
+    reorderClothPriceMatrix(list);
+  };
+
+  const reorderClothPriceMatrix = (reordered: ServicePriceItem[]) => {
+    if (!editingCloth) return;
+    reordered.forEach((p, i) => {
+      upsertPriceItem({ ...p, sortOrder: i + 1 } as any);
+    });
+  };
+
+  const handleUpdateEditServicePrice = (item: ServicePriceItem, newPrice: number) => {
+    const updated: ServicePriceItem = {
+      ...item,
+      price: newPrice,
+      expressPrice: item.expressPrice || Math.round(newPrice * 1.5),
+    };
+    setEditingClothServices((prev) =>
+      prev.map((s) => (s.id === item.id || s.serviceId === item.serviceId ? updated : s))
+    );
+    upsertPriceItem(updated);
+  };
+
+  const handleUpdateEditServiceExpressPrice = (item: ServicePriceItem, newExpressPrice: number) => {
+    const updated: ServicePriceItem = {
+      ...item,
+      expressPrice: newExpressPrice,
+    };
+    setEditingClothServices((prev) =>
+      prev.map((s) => (s.id === item.id || s.serviceId === item.serviceId ? updated : s))
+    );
+    upsertPriceItem(updated);
+  };
+
   useEffect(() => {
     if (editingCloth) {
       setEditingClothForm({
@@ -1086,19 +1208,21 @@ export function UnifiedCatalogManager({
         isActive: editingCloth.isActive !== false,
       });
 
-      const existingIds = new Set(
-        priceMatrix
-          .filter((p) => p.clothTypeId === editingCloth.id && p.isActive !== false && Number(p.price) > 0)
-          .map((p) => p.serviceId)
+      const currentServices = priceMatrix.filter(
+        (p) => p.clothTypeId === editingCloth.id && p.isActive !== false && Number(p.price) > 0 && isServiceAllowedForCategory(editingCloth.categoryTag, p.serviceId)
       );
+      setEditingClothServices(currentServices);
+
+      const existingIds = new Set(currentServices.map((p) => p.serviceId));
       const unassigned = servicesList.find(
         (s) => !existingIds.has(s.id) && isServiceAllowedForCategory(editingCloth.categoryTag, s.id)
       );
       const defaultService = unassigned || servicesList.find((s) => isServiceAllowedForCategory(editingCloth.categoryTag, s.id));
+      const defaultPrice = defaultService?.id === 'srv-m-spa' ? 250 : 50;
       setNewServiceToAdd({
         serviceId: defaultService?.id || 'srv-m-dry-clean',
-        price: defaultService?.id === 'srv-m-spa' ? 250 : 50,
-        expressPrice: defaultService?.id === 'srv-m-spa' ? 350 : 75,
+        price: defaultPrice,
+        expressPrice: Math.round(defaultPrice * 1.5),
         turnaroundHours: defaultService?.turnaroundHours || 24,
       });
     }
@@ -1151,6 +1275,7 @@ export function UnifiedCatalogManager({
     };
 
     upsertPriceItem(newPriceItem);
+    setEditingClothServices((prev) => [...prev.filter((s) => s.serviceId !== newPriceItem.serviceId), newPriceItem]);
     showToast(`Added ${srvMeta.name} (₹${newPriceItem.price}) to ${editingCloth.name}!`, 'success');
   };
 
@@ -1158,6 +1283,7 @@ export function UnifiedCatalogManager({
     const targetCloth = clothItem || editingCloth;
     if (priceItemId) {
       await deletePriceItem(priceItemId);
+      setEditingClothServices((prev) => prev.filter((s) => s.id !== priceItemId && s.serviceId !== priceItemId));
     }
     if (targetCloth) {
       showToast(`Removed ${serviceName} from ${targetCloth.name}.`, 'info');
@@ -3017,8 +3143,9 @@ export function UnifiedCatalogManager({
 
                   await addClothType(newCloth);
 
-                  const newPriceItems: ServicePriceItem[] = addGarmentServices.map((srv) => {
+                  const newPriceItems: ServicePriceItem[] = addGarmentServices.map((srv, index) => {
                     const price = Number(srv.price) || 50;
+                    const expressPrice = Number(srv.expressPrice) || Math.round(price * 1.5);
                     return {
                       id: `pr-${newId}-${srv.serviceId}`,
                       clothTypeId: newId,
@@ -3028,10 +3155,11 @@ export function UnifiedCatalogManager({
                       serviceId: srv.serviceId,
                       serviceName: srv.serviceName,
                       price,
-                      expressPrice: Math.round(price * 1.5),
+                      expressPrice,
                       turnaroundHours: srv.turnaroundHours || 24,
                       isActive: true,
                       isAvailable: true,
+                      sortOrder: index + 1,
                     };
                   });
 
@@ -3216,51 +3344,129 @@ export function UnifiedCatalogManager({
                   </span>
                 </div>
 
-                {/* List of currently attached services with price input and delete button */}
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {addGarmentServices.map((srv) => (
-                    <div
-                      key={srv.serviceId}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-[var(--border-color)] gap-2 hover:border-blue-300 transition-all"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-lg shrink-0">{srv.serviceIcon || '🧺'}</span>
-                        <div className="truncate">
-                          <span className="text-xs font-bold text-[var(--heading-color)] block truncate">
-                            {srv.serviceName}
-                          </span>
-                          <span className="text-[10px] text-[var(--text-secondary)]">
-                            ⚡ {srv.turnaroundHours}h TAT • Express 1.5x
-                          </span>
+                {/* List of currently attached services with Drag & Drop, Price, Express Price and Delete */}
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {addGarmentServices.map((srv, index) => {
+                    const isDragging = draggedAddServiceIdx === index;
+                    const isDragOver = dragOverAddServiceIdx === index;
+                    const expressVal = srv.expressPrice || Math.round(srv.price * 1.5);
+                    return (
+                      <div
+                        key={srv.serviceId}
+                        draggable
+                        onDragStart={() => handleAddDragStart(index)}
+                        onDragOver={(e) => handleAddDragOver(e, index)}
+                        onDrop={() => handleAddDrop(index)}
+                        onDragEnd={() => {
+                          setDraggedAddServiceIdx(null);
+                          setDragOverAddServiceIdx(null);
+                        }}
+                        className={`flex items-center justify-between p-2.5 rounded-xl border gap-2 transition-all select-none ${
+                          isDragging
+                            ? 'opacity-40 border-blue-400 bg-blue-50/50 dark:bg-blue-950/30'
+                            : isDragOver
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/50 shadow-md ring-2 ring-blue-400'
+                            : 'bg-slate-50 dark:bg-slate-800/80 border-[var(--border-color)] hover:border-blue-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {/* Drag Handle & Up/Down reorder arrows */}
+                          <div className="flex items-center gap-0.5 text-slate-400 shrink-0">
+                            <div 
+                              className="p-1 cursor-grab active:cursor-grabbing hover:text-blue-600 rounded transition-colors"
+                              title="Drag to reorder priority in customer app"
+                            >
+                              <GripVertical className="w-4 h-4" />
+                            </div>
+                            <div className="flex flex-col">
+                              <button
+                                type="button"
+                                disabled={index === 0}
+                                onClick={() => moveAddGarmentService(index, index - 1)}
+                                className="text-slate-400 hover:text-blue-600 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed p-0.5 leading-none"
+                                title="Move up"
+                              >
+                                <ChevronUp className="w-2.5 h-2.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={index === addGarmentServices.length - 1}
+                                onClick={() => moveAddGarmentService(index, index + 1)}
+                                className="text-slate-400 hover:text-blue-600 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed p-0.5 leading-none"
+                                title="Move down"
+                              >
+                                <ChevronDown className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <span className="text-lg shrink-0">{srv.serviceIcon || '🧺'}</span>
+                          <div className="truncate flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-[var(--heading-color)] truncate">
+                                {srv.serviceName}
+                              </span>
+                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                #{index + 1}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-[var(--text-secondary)] block">
+                              ⚡ {srv.turnaroundHours}h TAT • Express: ₹{expressVal}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Regular Rate */}
+                          <div className="flex flex-col items-end">
+                            <label className="text-[9px] font-bold text-slate-500 block leading-none mb-0.5">Standard</label>
+                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1 rounded-lg border border-[var(--border-color)] shadow-2xs">
+                              <span className="text-[11px] font-bold text-slate-400">₹</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={srv.price}
+                                onChange={(e) =>
+                                  handleUpdateAddGarmentServicePrice(srv.serviceId, Number(e.target.value))
+                                }
+                                className="w-12 text-xs font-black text-[var(--heading-color)] text-right focus:outline-none"
+                                placeholder="Price"
+                                title="Standard Service Price"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Express Rate */}
+                          <div className="flex flex-col items-end">
+                            <label className="text-[9px] font-bold text-amber-600 dark:text-amber-400 block leading-none mb-0.5">⚡ Express</label>
+                            <div className="flex items-center gap-1 bg-amber-50/70 dark:bg-amber-950/40 px-2 py-1 rounded-lg border border-amber-200 dark:border-amber-800 shadow-2xs">
+                              <span className="text-[11px] font-bold text-amber-600">₹</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={expressVal}
+                                onChange={(e) =>
+                                  handleUpdateAddGarmentServiceExpressPrice(srv.serviceId, Number(e.target.value))
+                                }
+                                className="w-12 text-xs font-black text-amber-700 dark:text-amber-300 text-right focus:outline-none bg-transparent"
+                                placeholder="Express"
+                                title="Express Superfast Rate (12h Delivery)"
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAddGarmentService(srv.serviceId)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer transition-colors mt-3"
+                            title={`Remove ${srv.serviceName}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-[var(--border-color)] shadow-2xs">
-                          <span className="text-[11px] font-bold text-slate-400">₹</span>
-                          <input
-                            type="number"
-                            min="1"
-                            value={srv.price}
-                            onChange={(e) =>
-                              handleUpdateAddGarmentServicePrice(srv.serviceId, Number(e.target.value))
-                            }
-                            className="w-14 text-xs font-black text-[var(--heading-color)] text-right focus:outline-none"
-                            placeholder="Price"
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAddGarmentService(srv.serviceId)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer transition-colors"
-                          title={`Remove ${srv.serviceName}`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   {addGarmentServices.length === 0 && (
                     <div className="p-4 rounded-xl border border-dashed border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 text-center space-y-1">
@@ -3287,15 +3493,18 @@ export function UnifiedCatalogManager({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
                       <div className="sm:col-span-2">
+                        <label className="text-[9px] font-bold text-slate-600 dark:text-slate-400 block mb-0.5">Service</label>
                         <select
                           value={newServiceForAddModal.serviceId}
                           onChange={(e) => {
                             const found = servicesList.find((s) => s.id === e.target.value);
+                            const p = found?.baseKgPrice || 50;
                             setNewServiceForAddModal({
                               serviceId: e.target.value,
-                              price: found?.baseKgPrice || 50,
+                              price: p,
+                              expressPrice: Math.round(p * 1.5),
                               turnaroundHours: found?.turnaroundHours || 24,
                             });
                           }}
@@ -3310,18 +3519,21 @@ export function UnifiedCatalogManager({
                       </div>
 
                       <div>
+                        <label className="text-[9px] font-bold text-slate-600 dark:text-slate-400 block mb-0.5">Standard ₹</label>
                         <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1.5 rounded-lg border border-[var(--border-color)]">
                           <span className="text-[10px] font-bold text-slate-400">₹</span>
                           <input
                             type="number"
                             min="1"
                             value={newServiceForAddModal.price}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const p = Number(e.target.value);
                               setNewServiceForAddModal({
                                 ...newServiceForAddModal,
-                                price: Number(e.target.value),
-                              })
-                            }
+                                price: p,
+                                expressPrice: Math.round(p * 1.5),
+                              });
+                            }}
                             className="w-full text-xs font-bold text-[var(--heading-color)] focus:outline-none"
                             placeholder="Price"
                           />
@@ -3329,11 +3541,31 @@ export function UnifiedCatalogManager({
                       </div>
 
                       <div>
+                        <label className="text-[9px] font-bold text-amber-600 dark:text-amber-400 block mb-0.5">⚡ Express ₹</label>
+                        <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1.5 rounded-lg border border-amber-200 dark:border-amber-800">
+                          <span className="text-[10px] font-bold text-amber-600">₹</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={newServiceForAddModal.expressPrice}
+                            onChange={(e) =>
+                              setNewServiceForAddModal({
+                                ...newServiceForAddModal,
+                                expressPrice: Number(e.target.value),
+                              })
+                            }
+                            className="w-full text-xs font-bold text-[var(--heading-color)] focus:outline-none"
+                            placeholder="Express"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-end">
                         <button
                           type="button"
                           onClick={handleAddAnotherServiceToAddGarment}
                           disabled={!newServiceForAddModal.serviceId}
-                          className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                          className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>Attach</span>
@@ -3593,7 +3825,7 @@ export function UnifiedCatalogManager({
                 </div>
               </form>
 
-              {/* 2. Services & Price Matrix for this Garment */}
+              {/* 2. Services & Price Matrix for this Garment with Drag & Drop */}
               <div className="space-y-3 pt-2 border-t border-[var(--border-color)]">
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-black uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5">
@@ -3601,73 +3833,150 @@ export function UnifiedCatalogManager({
                     <span>2. Services Linked to this Product (Appears in Mobile App)</span>
                   </div>
                   <span className="text-[11px] text-slate-500 font-medium">
-                    {priceMatrix.filter((p) => p.clothTypeId === editingCloth.id && p.isActive !== false && Number(p.price) > 0 && isServiceAllowedForCategory(editingCloth.categoryTag, p.serviceId)).length} services active
+                    {editingClothServices.length} services active
                   </span>
                 </div>
 
-                {/* List of current services */}
-                <div className="space-y-2">
-                  {priceMatrix
-                    .filter((p) => p.clothTypeId === editingCloth.id && p.isActive !== false && Number(p.price) > 0 && isServiceAllowedForCategory(editingCloth.categoryTag, p.serviceId))
-                    .map((item) => {
-                      const meta = getServiceMeta(item.serviceId);
-                      return (
-                        <div
-                          key={item.id || item.serviceId}
-                          className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-[var(--border-color)] gap-3"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="text-xl shrink-0">{meta.icon}</span>
-                            <div className="truncate">
-                              <span className="text-xs font-black text-[var(--heading-color)] block truncate">
-                                {meta.name}
-                              </span>
-                              <span className="text-[10px] text-[var(--text-secondary)]">
-                                Turnaround: {item.turnaroundHours || 24}h • Express: ₹{item.expressPrice || Math.round(item.price * 1.5)}
-                              </span>
+                {/* List of current services with Drag & Drop and Express Rates */}
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {editingClothServices.map((item, index) => {
+                    const meta = getServiceMeta(item.serviceId);
+                    const isDragging = draggedEditServiceIdx === index;
+                    const isDragOver = dragOverEditServiceIdx === index;
+                    const expressVal = item.expressPrice || Math.round(item.price * 1.5);
+                    return (
+                      <div
+                        key={item.id || item.serviceId}
+                        draggable
+                        onDragStart={() => handleEditDragStart(index)}
+                        onDragOver={(e) => handleEditDragOver(e, index)}
+                        onDrop={() => handleEditDrop(index)}
+                        onDragEnd={() => {
+                          setDraggedEditServiceIdx(null);
+                          setDragOverEditServiceIdx(null);
+                        }}
+                        className={`flex items-center justify-between p-2.5 rounded-xl border gap-2 transition-all select-none ${
+                          isDragging
+                            ? 'opacity-40 border-blue-400 bg-blue-50/50 dark:bg-blue-950/30'
+                            : isDragOver
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/50 shadow-md ring-2 ring-blue-400'
+                            : 'bg-slate-50 dark:bg-slate-800/80 border-[var(--border-color)] hover:border-blue-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {/* Drag Handle & Up/Down reorder arrows */}
+                          <div className="flex items-center gap-0.5 text-slate-400 shrink-0">
+                            <div 
+                              className="p-1 cursor-grab active:cursor-grabbing hover:text-blue-600 rounded transition-colors"
+                              title="Drag to reorder priority in customer app"
+                            >
+                              <GripVertical className="w-4 h-4" />
+                            </div>
+                            <div className="flex flex-col">
+                              <button
+                                type="button"
+                                disabled={index === 0}
+                                onClick={() => moveEditService(index, index - 1)}
+                                className="text-slate-400 hover:text-blue-600 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed p-0.5 leading-none"
+                                title="Move up"
+                              >
+                                <ChevronUp className="w-2.5 h-2.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={index === editingClothServices.length - 1}
+                                onClick={() => moveEditService(index, index + 1)}
+                                className="text-slate-400 hover:text-blue-600 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed p-0.5 leading-none"
+                                title="Move down"
+                              >
+                                <ChevronDown className="w-2.5 h-2.5" />
+                              </button>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-[var(--border-color)]">
+                          <span className="text-xl shrink-0">{meta.icon}</span>
+                          <div className="truncate flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-black text-[var(--heading-color)] truncate">
+                                {meta.name}
+                              </span>
+                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                #{index + 1}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-[var(--text-secondary)] block">
+                              Turnaround: {item.turnaroundHours || 24}h • ⚡ Express: ₹{expressVal}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Standard Rate */}
+                          <div className="flex flex-col items-end">
+                            <label className="text-[9px] font-bold text-slate-500 block leading-none mb-0.5">Standard</label>
+                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1 rounded-lg border border-[var(--border-color)] shadow-2xs">
                               <span className="text-[11px] font-bold text-slate-400">₹</span>
                               <input
                                 type="number"
                                 min="1"
                                 value={item.price}
-                                onChange={(e) => {
-                                  const val = Number(e.target.value);
-                                  upsertPriceItem({
-                                    ...item,
-                                    price: val,
-                                    expressPrice: Math.round(val * 1.5),
-                                  });
-                                }}
-                                className="w-14 text-xs font-black text-[var(--heading-color)] text-right focus:outline-none"
+                                onChange={(e) => handleUpdateEditServicePrice(item, Number(e.target.value))}
+                                className="w-12 text-xs font-black text-[var(--heading-color)] text-right focus:outline-none"
+                                placeholder="Price"
+                                title="Standard Service Price"
                               />
                             </div>
-
-                            <button
-                              type="button"
-                              onClick={() => handleOpenPriceModal(editingCloth, item.serviceId)}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
-                              title="Full price details"
-                            >
-                              <Settings className="w-3.5 h-3.5" />
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveServiceFromCloth(item.id, meta.name)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-                              title="Remove service from this product"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
                           </div>
+
+                          {/* Express Rate */}
+                          <div className="flex flex-col items-end">
+                            <label className="text-[9px] font-bold text-amber-600 dark:text-amber-400 block leading-none mb-0.5">⚡ Express</label>
+                            <div className="flex items-center gap-1 bg-amber-50/70 dark:bg-amber-950/40 px-2 py-1 rounded-lg border border-amber-200 dark:border-amber-800 shadow-2xs">
+                              <span className="text-[11px] font-bold text-amber-600">₹</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={expressVal}
+                                onChange={(e) => handleUpdateEditServiceExpressPrice(item, Number(e.target.value))}
+                                className="w-12 text-xs font-black text-amber-700 dark:text-amber-300 text-right focus:outline-none bg-transparent"
+                                placeholder="Express"
+                                title="Express Superfast Rate (12h Delivery)"
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPriceModal(editingCloth, item.serviceId)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer mt-3"
+                            title="Full price details"
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveServiceFromCloth(item.id, meta.name)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer mt-3"
+                            title="Remove service from this product"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                      );
-                    })}
+                      </div>
+                    );
+                  })}
+
+                  {editingClothServices.length === 0 && (
+                    <div className="p-4 rounded-xl border border-dashed border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 text-center space-y-1">
+                      <p className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                        No services attached to this product yet
+                      </p>
+                      <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80">
+                        Use the form below to attach laundry services to this garment.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Add New Service to this Garment Form */}
@@ -3685,9 +3994,9 @@ export function UnifiedCatalogManager({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
                     <div className="sm:col-span-2">
-                      <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                      <label className="text-[9px] font-bold text-slate-600 dark:text-slate-400 block mb-0.5">
                         Select Service
                       </label>
                       <select
@@ -3695,9 +4004,12 @@ export function UnifiedCatalogManager({
                         onChange={(e) => {
                           const srvId = e.target.value;
                           const found = servicesList.find((s) => s.id === srvId);
+                          const p = found?.baseKgPrice || 50;
                           setNewServiceToAdd({
                             ...newServiceToAdd,
                             serviceId: srvId,
+                            price: p,
+                            expressPrice: Math.round(p * 1.5),
                             turnaroundHours: found?.turnaroundHours || 24,
                           });
                         }}
@@ -3714,8 +4026,8 @@ export function UnifiedCatalogManager({
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
-                        Price (₹)
+                      <label className="text-[9px] font-bold text-slate-600 dark:text-slate-400 block mb-0.5">
+                        Standard ₹
                       </label>
                       <input
                         type="number"
@@ -3735,8 +4047,27 @@ export function UnifiedCatalogManager({
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
-                        Turnaround (h)
+                      <label className="text-[9px] font-bold text-amber-600 dark:text-amber-400 block mb-0.5">
+                        ⚡ Express ₹
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={newServiceToAdd.expressPrice}
+                        onChange={(e) =>
+                          setNewServiceToAdd({
+                            ...newServiceToAdd,
+                            expressPrice: Number(e.target.value),
+                          })
+                        }
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 text-xs font-bold text-[var(--heading-color)] focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-bold text-slate-600 dark:text-slate-400 block mb-0.5">
+                        TAT (h)
                       </label>
                       <input
                         type="number"
