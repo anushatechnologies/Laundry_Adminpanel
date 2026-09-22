@@ -15,7 +15,8 @@ import {
   updateAdminCategory, 
   deleteAdminCategory,
   updateAdminServiceMaster, 
-  getAdminCatalog 
+  getAdminCatalog,
+  getAdminSubcategories,
 } from '@/lib/api';
 import { CategorySubcategoryModal } from './CategorySubcategoryModal';
 import { getLocalFallbackPhoto } from '@/components/common/GarmentImage';
@@ -257,6 +258,43 @@ export function UnifiedCatalogManager({
   // Master Categories State (with live photo overrides)
   const [categories, setCategories] = useState<MasterCategoryItem[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [liveSubcategories, setLiveSubcategories] = useState<any[]>([]);
+
+  // Category matching helper
+  const isSubInCat = (subTag: string, cat: { id: string; name?: string; slug?: string }) => {
+    if (!subTag || !cat) return false;
+    const s = subTag.trim().toLowerCase();
+    const id = (cat.id || '').trim().toLowerCase();
+    const slug = (cat.slug || '').trim().toLowerCase();
+    const name = (cat.name || '').trim().toLowerCase();
+    if (s === id || s === slug || s === name) return true;
+
+    const MENS_TAGS = ['m', 'cat-1', 'mens', 'men'];
+    const WOMENS_TAGS = ['w', 'cat-2', 'womens', 'women'];
+    const KIDS_TAGS = ['k', 'cat-3', 'kids', 'kid'];
+    const HOME_TAGS = ['cat-4', 'home_textiles', 'home-textiles', 'home'];
+    const FOOT_TAGS = ['cat-5', 'footwear', 'shoes', 'foot'];
+    const ACC_TAGS = ['cat-6', 'accessories', 'bags'];
+    const BRIDAL_TAGS = ['cat-7', 'bridal', 'wedding'];
+    const BULK_TAGS = ['cat-8', 'bulk', 'commercial'];
+
+    const matchesGroup = (tags: string[]) => {
+      const sMatches = tags.some((t) => s === t || s.includes(t));
+      const catMatches = tags.some((t) => id === t || slug.includes(t) || name.includes(t));
+      return sMatches && catMatches;
+    };
+
+    if (matchesGroup(MENS_TAGS)) return true;
+    if (matchesGroup(WOMENS_TAGS)) return true;
+    if (matchesGroup(KIDS_TAGS)) return true;
+    if (matchesGroup(HOME_TAGS)) return true;
+    if (matchesGroup(FOOT_TAGS)) return true;
+    if (matchesGroup(ACC_TAGS)) return true;
+    if (matchesGroup(BRIDAL_TAGS)) return true;
+    if (matchesGroup(BULK_TAGS)) return true;
+
+    return false;
+  };
 
   // Services State (with live photo overrides)
   const [servicesList, setServicesList] = useState(INITIAL_SERVICES_MASTERS);
@@ -289,13 +327,18 @@ export function UnifiedCatalogManager({
   const loadLiveCatalog = async () => {
     setIsLoadingCategories(true);
     try {
-      const [catsRes, catalogRes, ovRes] = await Promise.allSettled([
+      const [catsRes, catalogRes, ovRes, subsRes] = await Promise.allSettled([
         getAdminCategories(),
         getAdminCatalog(),
         fetch('/api/catalog-overrides?t=' + Date.now(), { cache: 'no-store' }).then((r) =>
           r.ok ? r.json() : null
         ),
+        getAdminSubcategories(),
       ]);
+
+      if (subsRes.status === 'fulfilled' && Array.isArray(subsRes.value)) {
+        setLiveSubcategories(subsRes.value);
+      }
 
       const ovJson = ovRes.status === 'fulfilled' ? ovRes.value : null;
       const ovData = ovJson?.data || ovJson;
@@ -808,23 +851,29 @@ export function UnifiedCatalogManager({
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = { ALL: clothTypes.length };
     categories.forEach((cat) => {
-      counts[cat.id] = clothTypes.filter((c) => c.categoryTag === cat.id).length;
+      counts[cat.id] = clothTypes.filter((c) => isSubInCat(c.categoryTag, cat)).length;
     });
     return counts;
   }, [clothTypes, categories]);
 
-  // Subcategories for current active category
+  // Subcategories for current active category (combines garments + database subcategories)
   const availableSubcategories = useMemo(() => {
-    const relevant = activeCategory === 'ALL'
+    const relevantClothSubs = (activeCategory === 'ALL'
       ? clothTypes
-      : clothTypes.filter((c) => c.categoryTag === activeCategory);
+      : clothTypes.filter((c) => isSubInCat(c.categoryTag, { id: activeCategory }))
+    ).map((c) => c.subCategory).filter(Boolean);
 
-    const subs = new Set<string>();
-    relevant.forEach((c) => {
-      if (c.subCategory) subs.add(c.subCategory);
-    });
-    return Array.from(subs).sort();
-  }, [clothTypes, activeCategory]);
+    const activeCatObj = categories.find((c) => c.id === activeCategory);
+    const relevantLiveSubs = liveSubcategories
+      .filter((s: any) => {
+        const tag = s.categoryTag || s.category_tag || '';
+        return activeCategory === 'ALL' || isSubInCat(tag, activeCatObj || { id: activeCategory });
+      })
+      .map((s: any) => s.name)
+      .filter(Boolean);
+
+    return Array.from(new Set([...relevantClothSubs, ...relevantLiveSubs])).sort();
+  }, [clothTypes, activeCategory, categories, liveSubcategories]);
 
   // Filtered Garment Items
   const filteredClothes = useMemo(() => {
@@ -1316,10 +1365,17 @@ export function UnifiedCatalogManager({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredCategories.map((cat) => {
               const garmentsCount = categoryCounts[cat.id] || 0;
-              const subcategoriesForCat = Array.from(
-                new Set(clothTypes.filter((c) => c.categoryTag === cat.id && c.subCategory).map((c) => c.subCategory))
+              const liveSubs = liveSubcategories.filter((s: any) =>
+                isSubInCat(s.categoryTag || s.category_tag || '', cat)
               );
-              const subCount = subcategoriesForCat.length;
+              const clothSubs = clothTypes
+                .filter((c) => isSubInCat(c.categoryTag || '', cat) && c.subCategory)
+                .map((c) => c.subCategory);
+
+              const subcategoriesForCat = Array.from(
+                new Set([...liveSubs.map((s: any) => s.name), ...clothSubs])
+              ).filter(Boolean);
+              const subCount = Math.max(liveSubs.length, subcategoriesForCat.length);
               const isUploadingThis = uploadingId === cat.id;
 
               return (
@@ -1426,33 +1482,51 @@ export function UnifiedCatalogManager({
                           </div>
                         </button>
 
-                        <div className="p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200/70 dark:border-purple-800/60 text-left">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (hideModeTabs) {
+                              window.location.href = '/subcategories';
+                            } else {
+                              setViewMode('SUBCATEGORIES');
+                            }
+                          }}
+                          className="p-2.5 rounded-xl bg-purple-50/70 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-950/80 border border-purple-200/70 dark:border-purple-800/60 text-left transition-all cursor-pointer group/sub"
+                          title={`View & manage subcategories in ${cat.name}`}
+                        >
                           <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 block mb-0.5">
                             Subcategories
                           </span>
-                          <span className="text-sm font-black text-purple-950 dark:text-purple-100">
-                            {subCount} Groups
-                          </span>
-                        </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-black text-purple-950 dark:text-purple-100">
+                              {subCount} Groups
+                            </span>
+                            <ArrowUpRight className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 group-hover/sub:translate-x-0.5 group-hover/sub:-translate-y-0.5 transition-transform" />
+                          </div>
+                        </button>
                       </div>
 
                       {/* Subcategory Tags Preview */}
-                      {subcategoriesForCat.length > 0 && (
+                      {subcategoriesForCat.length > 0 ? (
                         <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                          {subcategoriesForCat.slice(0, 3).map((sub) => (
+                          {subcategoriesForCat.slice(0, 4).map((sub) => (
                             <span
                               key={sub}
-                              className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                              className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/80 flex items-center gap-1 shadow-2xs"
                             >
-                              {sub}
+                              <span>🏷️</span> {sub}
                             </span>
                           ))}
-                          {subcategoriesForCat.length > 3 && (
+                          {subcategoriesForCat.length > 4 && (
                             <span className="text-[10px] font-bold text-slate-400 px-1">
-                              +{subcategoriesForCat.length - 3} more
+                              +{subcategoriesForCat.length - 4} more
                             </span>
                           )}
                         </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-400 italic pt-0.5 flex items-center gap-1">
+                          <span>🏷️</span> No subcategories attached
+                        </p>
                       )}
                     </div>
                   </div>
