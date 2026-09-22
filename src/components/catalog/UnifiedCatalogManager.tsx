@@ -244,6 +244,14 @@ function compressImage(file: File, maxWidth = 1200, quality = 0.85): Promise<str
   });
 }
 
+export interface AddProductServiceItem {
+  serviceId: string;
+  serviceName: string;
+  serviceIcon?: string;
+  price: number;
+  turnaroundHours: number;
+}
+
 export interface UnifiedCatalogManagerProps {
   initialMode?: 'GARMENTS' | 'CATEGORIES' | 'SUBCATEGORIES' | 'SERVICES';
   lockedMode?: 'GARMENTS' | 'CATEGORIES' | 'SUBCATEGORIES' | 'SERVICES';
@@ -272,9 +280,9 @@ export function UnifiedCatalogManager({
     lockedMode || initialMode || 'GARMENTS'
   );
 
-  // Master Categories State (with live photo overrides)
-  const [categories, setCategories] = useState<MasterCategoryItem[]>([]);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  // Master Categories State (with live photo overrides) - initialized to master default to prevent initial flash/delay
+  const [categories, setCategories] = useState<MasterCategoryItem[]>(INITIAL_MASTER_CATEGORIES);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [liveSubcategories, setLiveSubcategories] = useState<any[]>([]);
 
   // Category matching helper
@@ -396,6 +404,13 @@ export function UnifiedCatalogManager({
 
         // Deduplicate categories by uppercase ID and filter deleted
         const catMap = new Map<string, any>();
+        // Seed default master categories first so the 8 standard categories are never dropped
+        for (const initCat of INITIAL_MASTER_CATEGORIES) {
+          const upperId = String(initCat.id).toUpperCase();
+          if (!delSet.has(upperId)) {
+            catMap.set(upperId, { ...initCat });
+          }
+        }
         for (const cat of mapped) {
           const upperId = String(cat.id || '').trim().toUpperCase();
           const upperSlug = String(cat.slug || '').trim().toUpperCase();
@@ -408,7 +423,7 @@ export function UnifiedCatalogManager({
           if (fullCategoryOverrides && fullCategoryOverrides[cat.id]) {
             updated = { ...updated, ...fullCategoryOverrides[cat.id] };
           }
-          catMap.set(upperId, updated);
+          catMap.set(upperId, { ...(catMap.get(upperId) || {}), ...updated });
         }
         setCategories(Array.from(catMap.values()));
       }
@@ -1006,6 +1021,14 @@ export function UnifiedCatalogManager({
   const [isSubmittingNewProduct, setIsSubmittingNewProduct] = useState(false);
   const addGarmentFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Dynamic Service Matrix State for Add Product
+  const [addGarmentServices, setAddGarmentServices] = useState<AddProductServiceItem[]>([]);
+  const [newServiceForAddModal, setNewServiceForAddModal] = useState<{
+    serviceId: string;
+    price: number;
+    turnaroundHours: number;
+  }>({ serviceId: '', price: 50, turnaroundHours: 24 });
+
   const getCategoryKey = (catId: string) => {
     const upper = (catId || '').toUpperCase().trim();
     if (upper === 'M' || upper === 'CAT-1' || upper.includes('MEN')) return 'MENS';
@@ -1024,15 +1047,102 @@ export function UnifiedCatalogManager({
     return CATEGORY_SERVICES_RULES[normCat] || CATEGORY_SERVICES_RULES.MENS;
   }, [addGarmentCategory]);
 
+  // Available services from servicesList not yet added to this new garment
+  const availableServicesToAdd = useMemo(() => {
+    const currentIds = new Set(addGarmentServices.map((s) => s.serviceId));
+    return servicesList.filter((s) => !currentIds.has(s.id));
+  }, [servicesList, addGarmentServices]);
+
+  useEffect(() => {
+    if (availableServicesToAdd.length > 0) {
+      if (!availableServicesToAdd.some((s) => s.id === newServiceForAddModal.serviceId)) {
+        const first = availableServicesToAdd[0];
+        setNewServiceForAddModal({
+          serviceId: first.id,
+          price: first.baseKgPrice || 50,
+          turnaroundHours: first.turnaroundHours || 24,
+        });
+      }
+    } else {
+      setNewServiceForAddModal({ serviceId: '', price: 50, turnaroundHours: 24 });
+    }
+  }, [availableServicesToAdd]);
+
   const handleOpenAddGarment = () => {
-    const defaultCat = activeCategory !== 'ALL' ? activeCategory : (categories[0]?.id || 'M');
+    const defaultCat = activeCategory !== 'ALL' ? activeCategory : (categories[0]?.id || 'MENS');
     setAddGarmentCategory(defaultCat);
     const matching = liveSubcategories.filter((s: any) =>
       isSubInCat(s.categoryTag || s.category_tag || '', { id: defaultCat })
     );
     setAddGarmentSubcategory(matching[0]?.name || '');
     setAddGarmentImageUrl('');
+
+    const normCat = getCategoryKey(defaultCat);
+    const rule = CATEGORY_SERVICES_RULES[normCat] || CATEGORY_SERVICES_RULES.MENS;
+    const initialServices: AddProductServiceItem[] = rule.defaultServices.map((defSrv) => {
+      const found = servicesList.find((s) => s.id === defSrv.serviceId);
+      return {
+        serviceId: defSrv.serviceId,
+        serviceName: defSrv.name,
+        serviceIcon: found?.icon || '🧺',
+        price: defSrv.defaultPrice,
+        turnaroundHours: defSrv.serviceId === 'srv-m-express' ? 12 : defSrv.serviceId === 'srv-m-spa' ? 48 : 24,
+      };
+    });
+    setAddGarmentServices(initialServices);
     setShowAddModal(true);
+  };
+
+  const handleAddGarmentCategoryChange = (newCat: string) => {
+    setAddGarmentCategory(newCat);
+    const matching = liveSubcategories.filter((s: any) =>
+      isSubInCat(s.categoryTag || s.category_tag || '', { id: newCat })
+    );
+    setAddGarmentSubcategory(matching[0]?.name || '');
+
+    const normCat = getCategoryKey(newCat);
+    const rule = CATEGORY_SERVICES_RULES[normCat] || CATEGORY_SERVICES_RULES.MENS;
+    const newServices: AddProductServiceItem[] = rule.defaultServices.map((defSrv) => {
+      const found = servicesList.find((s) => s.id === defSrv.serviceId);
+      return {
+        serviceId: defSrv.serviceId,
+        serviceName: defSrv.name,
+        serviceIcon: found?.icon || '🧺',
+        price: defSrv.defaultPrice,
+        turnaroundHours: defSrv.serviceId === 'srv-m-express' ? 12 : defSrv.serviceId === 'srv-m-spa' ? 48 : 24,
+      };
+    });
+    setAddGarmentServices(newServices);
+  };
+
+  const handleUpdateAddGarmentServicePrice = (serviceId: string, price: number) => {
+    setAddGarmentServices((prev) =>
+      prev.map((s) => (s.serviceId === serviceId ? { ...s, price } : s))
+    );
+  };
+
+  const handleRemoveAddGarmentService = (serviceId: string) => {
+    setAddGarmentServices((prev) => prev.filter((s) => s.serviceId !== serviceId));
+  };
+
+  const handleAddAnotherServiceToAddGarment = () => {
+    if (!newServiceForAddModal.serviceId) return;
+    const srvMeta = servicesList.find((s) => s.id === newServiceForAddModal.serviceId);
+    if (!srvMeta) return;
+    if (addGarmentServices.some((s) => s.serviceId === srvMeta.id)) {
+      showToast(`${srvMeta.name} is already added.`, 'info');
+      return;
+    }
+    setAddGarmentServices((prev) => [
+      ...prev,
+      {
+        serviceId: srvMeta.id,
+        serviceName: srvMeta.name,
+        serviceIcon: srvMeta.icon || '🧺',
+        price: Number(newServiceForAddModal.price) || 50,
+        turnaroundHours: Number(newServiceForAddModal.turnaroundHours) || (srvMeta.turnaroundHours || 24),
+      },
+    ]);
   };
 
   // Edit Garment & Manage its Services Modal
@@ -1485,27 +1595,14 @@ export function UnifiedCatalogManager({
           )}
 
           {viewMode === 'GARMENTS' && (
-            <>
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search garments (e.g. Shirt, Jeans)..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl text-xs font-medium text-[var(--heading-color)] w-64 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleOpenAddGarment}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add Product</span>
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={handleOpenAddGarment}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Product</span>
+            </button>
           )}
 
           {viewMode === 'SERVICES' && (
@@ -2976,20 +3073,20 @@ export function UnifiedCatalogManager({
       {/* ========================================================================= */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-[var(--border-color)] max-w-lg w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-[var(--border-color)] max-w-xl w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)] shrink-0">
               <div>
                 <h3 className="text-base font-black text-[var(--heading-color)]">
                   Add New Garment to Catalog
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                  Configure garment details and default prices across services
+                  Configure garment taxonomy, AWS S3 photography, and commercial service rates
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -3004,13 +3101,13 @@ export function UnifiedCatalogManager({
                   showToast('Garment name is required', 'error');
                   return;
                 }
-                const icon = (form.elements.namedItem('icon') as HTMLInputElement).value.trim() || '👔';
                 const cat = addGarmentCategory;
                 const sub = addGarmentSubcategory.trim() || 'General';
+                const catMatch = categories.find((c) => c.id === cat);
+                const icon = catMatch?.icon || '👔';
 
                 setIsSubmittingNewProduct(true);
                 try {
-                  const catMatch = categories.find((c) => c.id === cat);
                   const categoryLabel = catMatch ? catMatch.name : (cat === 'MENS' ? "Men's Clothing" : "Commercial Garments");
 
                   const newId = `cloth-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`;
@@ -3029,20 +3126,19 @@ export function UnifiedCatalogManager({
 
                   await addClothType(newCloth);
 
-                  const newPriceItems: ServicePriceItem[] = addCategoryRule.defaultServices.map((defSrv) => {
-                    const inputVal = (form.elements.namedItem(`srvPrice_${defSrv.serviceId}`) as HTMLInputElement)?.value;
-                    const price = Number(inputVal) || defSrv.defaultPrice;
+                  const newPriceItems: ServicePriceItem[] = addGarmentServices.map((srv) => {
+                    const price = Number(srv.price) || 50;
                     return {
-                      id: `pr-${newId}-${defSrv.serviceId}`,
+                      id: `pr-${newId}-${srv.serviceId}`,
                       clothTypeId: newId,
                       clothName: name,
                       clothIcon: icon,
                       categoryTag: cat,
-                      serviceId: defSrv.serviceId,
-                      serviceName: defSrv.name,
+                      serviceId: srv.serviceId,
+                      serviceName: srv.serviceName,
                       price,
                       expressPrice: Math.round(price * 1.5),
-                      turnaroundHours: defSrv.serviceId === 'srv-m-express' ? 12 : defSrv.serviceId === 'srv-m-spa' ? 48 : 24,
+                      turnaroundHours: srv.turnaroundHours || 24,
                       isActive: true,
                       isAvailable: true,
                     };
@@ -3052,7 +3148,7 @@ export function UnifiedCatalogManager({
                     await upsertPriceItem(p);
                   }
 
-                  showToast(`Added "${name}" to catalog!`, 'success');
+                  showToast(`Added "${name}" to catalog with ${newPriceItems.length} service rates!`, 'success');
                   setShowAddModal(false);
                 } catch (err: any) {
                   showToast('Failed to add product: ' + (err.message || 'Error'), 'error');
@@ -3060,32 +3156,22 @@ export function UnifiedCatalogManager({
                   setIsSubmittingNewProduct(false);
                 }
               }}
-              className="mt-4 space-y-3.5"
+              className="mt-4 space-y-4 overflow-y-auto pr-1 flex-1"
             >
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                    Garment Name *
-                  </label>
-                  <input
-                    name="name"
-                    required
-                    placeholder="e.g. Linen Kurta"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                    Icon Emoji
-                  </label>
-                  <input
-                    name="icon"
-                    defaultValue="👔"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-center text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+              {/* Garment Name (Full Width - Icon Emoji Removed) */}
+              <div>
+                <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                  Garment Name *
+                </label>
+                <input
+                  name="name"
+                  required
+                  placeholder="e.g. Linen Kurta, Silk Saree, Leather Jacket"
+                  className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
 
+              {/* Master Category & Subcategory */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
@@ -3093,14 +3179,7 @@ export function UnifiedCatalogManager({
                   </label>
                   <select
                     value={addGarmentCategory}
-                    onChange={(e) => {
-                      const newCat = e.target.value;
-                      setAddGarmentCategory(newCat);
-                      const matching = liveSubcategories.filter((s: any) =>
-                        isSubInCat(s.categoryTag || s.category_tag || '', { id: newCat })
-                      );
-                      setAddGarmentSubcategory(matching[0]?.name || '');
-                    }}
+                    onChange={(e) => handleAddGarmentCategoryChange(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     {categories.length > 0 ? (
@@ -3129,8 +3208,8 @@ export function UnifiedCatalogManager({
                 </div>
               </div>
 
-              {/* Photo Upload for New Garment */}
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-[var(--border-color)] space-y-2">
+              {/* Photo Upload for New Garment (No misleading default photo) */}
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-[var(--border-color)] space-y-2">
                 <input
                   ref={addGarmentFileInputRef}
                   type="file"
@@ -3175,15 +3254,16 @@ export function UnifiedCatalogManager({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 border border-[var(--border-color)] relative">
-                    <img
-                      src={addGarmentImageUrl || getLocalFallbackPhoto('preview', addGarmentCategory)}
-                      alt="Garment Preview"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
-                    />
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 border-2 border-dashed border-[var(--border-color)] relative flex items-center justify-center">
+                    {addGarmentImageUrl ? (
+                      <img
+                        src={addGarmentImageUrl}
+                        alt="Garment Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Camera className="w-6 h-6 text-slate-400" />
+                    )}
                     {addGarmentUploadingS3 && (
                       <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white">
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -3192,65 +3272,205 @@ export function UnifiedCatalogManager({
                   </div>
 
                   <div className="flex-1 space-y-1">
-                    <button
-                      type="button"
-                      disabled={addGarmentUploadingS3}
-                      onClick={() => addGarmentFileInputRef.current?.click()}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      {addGarmentUploadingS3 ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Uploading...</span>
-                        </>
-                      ) : (
-                        <>
-                          <UploadCloud className="w-3.5 h-3.5" />
-                          <span>Choose Photo</span>
-                        </>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={addGarmentUploadingS3}
+                        onClick={() => addGarmentFileInputRef.current?.click()}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {addGarmentUploadingS3 ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <UploadCloud className="w-3.5 h-3.5" />
+                            <span>{addGarmentImageUrl ? 'Change Photo' : 'Choose Photo'}</span>
+                          </>
+                        )}
+                      </button>
+                      {addGarmentImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setAddGarmentImageUrl('')}
+                          className="px-2 py-1.5 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg font-bold cursor-pointer"
+                        >
+                          Remove
+                        </button>
                       )}
-                    </button>
+                    </div>
                     <p className="text-[10px] text-[var(--text-secondary)]">
-                      Optional. Fallback photography is automatically applied if omitted.
+                      {addGarmentImageUrl
+                        ? 'Photo ready. Stored in AWS S3 and shown in mobile app.'
+                        : 'Optional. Fallback photography is automatically applied if omitted.'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                  Default Rates for {addGarmentCategory === 'FOOTWEAR' ? 'Footwear' : addGarmentCategory === 'ACCESSORIES' ? 'Bags & Accessories' : 'Garment'} (₹)
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {addCategoryRule.defaultServices.map((defSrv) => (
-                    <div key={defSrv.serviceId}>
-                      <span className="text-[10px] text-[var(--text-secondary)] block truncate font-medium" title={defSrv.name}>
-                        {defSrv.name}
-                      </span>
-                      <input
-                        name={`srvPrice_${defSrv.serviceId}`}
-                        type="number"
-                        defaultValue={defSrv.defaultPrice}
-                        className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-center"
-                      />
+              {/* Dynamic Attached Services & Pricing Builder */}
+              <div className="space-y-3 pt-2 border-t border-[var(--border-color)]">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-black uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Attached Services & Pricing ({addGarmentServices.length})</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    Shown in Customer App
+                  </span>
+                </div>
+
+                {/* List of currently attached services with price input and delete button */}
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {addGarmentServices.map((srv) => (
+                    <div
+                      key={srv.serviceId}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-[var(--border-color)] gap-2 hover:border-blue-300 transition-all"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-lg shrink-0">{srv.serviceIcon || '🧺'}</span>
+                        <div className="truncate">
+                          <span className="text-xs font-bold text-[var(--heading-color)] block truncate">
+                            {srv.serviceName}
+                          </span>
+                          <span className="text-[10px] text-[var(--text-secondary)]">
+                            ⚡ {srv.turnaroundHours}h TAT • Express 1.5x
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-[var(--border-color)] shadow-2xs">
+                          <span className="text-[11px] font-bold text-slate-400">₹</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={srv.price}
+                            onChange={(e) =>
+                              handleUpdateAddGarmentServicePrice(srv.serviceId, Number(e.target.value))
+                            }
+                            className="w-14 text-xs font-black text-[var(--heading-color)] text-right focus:outline-none"
+                            placeholder="Price"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAddGarmentService(srv.serviceId)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer transition-colors"
+                          title={`Remove ${srv.serviceName}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
+
+                  {addGarmentServices.length === 0 && (
+                    <div className="p-4 rounded-xl border border-dashed border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 text-center space-y-1">
+                      <p className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                        No services attached yet
+                      </p>
+                      <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80">
+                        Select a service below to attach to this garment.
+                      </p>
+                    </div>
+                  )}
                 </div>
+
+                {/* Add Another Service Section */}
+                {availableServicesToAdd.length > 0 && (
+                  <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                        <Plus className="w-3 h-3 text-blue-600" />
+                        <span>Add Another Service</span>
+                      </span>
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">
+                        {availableServicesToAdd.length} available
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                      <div className="sm:col-span-2">
+                        <select
+                          value={newServiceForAddModal.serviceId}
+                          onChange={(e) => {
+                            const found = servicesList.find((s) => s.id === e.target.value);
+                            setNewServiceForAddModal({
+                              serviceId: e.target.value,
+                              price: found?.baseKgPrice || 50,
+                              turnaroundHours: found?.turnaroundHours || 24,
+                            });
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none"
+                        >
+                          {availableServicesToAdd.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.icon} {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1.5 rounded-lg border border-[var(--border-color)]">
+                          <span className="text-[10px] font-bold text-slate-400">₹</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={newServiceForAddModal.price}
+                            onChange={(e) =>
+                              setNewServiceForAddModal({
+                                ...newServiceForAddModal,
+                                price: Number(e.target.value),
+                              })
+                            }
+                            className="w-full text-xs font-bold text-[var(--heading-color)] focus:outline-none"
+                            placeholder="Price"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <button
+                          type="button"
+                          onClick={handleAddAnotherServiceToAddGarment}
+                          disabled={!newServiceForAddModal.serviceId}
+                          className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Attach</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-color)]">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-color)] shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-[var(--text-secondary)] hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[var(--text-secondary)] hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer"
+                  disabled={isSubmittingNewProduct}
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  Add to Catalog
+                  {isSubmittingNewProduct ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Adding to Catalog...</span>
+                    </>
+                  ) : (
+                    <span>Add to Catalog</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -3299,31 +3519,17 @@ export function UnifiedCatalogManager({
                   <span>1. Product Details</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-2">
-                    <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                      Product / Garment Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={editingClothForm.name}
-                      onChange={(e) => setEditingClothForm({ ...editingClothForm, name: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
-                      Icon Emoji
-                    </label>
-                    <input
-                      type="text"
-                      value={editingClothForm.icon}
-                      onChange={(e) => setEditingClothForm({ ...editingClothForm, icon: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-center text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                <div>
+                  <label className="text-xs font-bold text-[var(--heading-color)] block mb-1">
+                    Product / Garment Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingClothForm.name}
+                    onChange={(e) => setEditingClothForm({ ...editingClothForm, name: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] text-xs font-bold text-[var(--heading-color)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

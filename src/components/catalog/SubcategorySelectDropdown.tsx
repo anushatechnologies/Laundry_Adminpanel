@@ -176,7 +176,23 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
     }
   };
 
-  const currentPhoto = value ? (getSubcategoryImageUrl(value, categoryTag) || undefined) : undefined;
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [value, categoryTag]);
+
+  const currentPhoto = useMemo(() => {
+    if (!value) return undefined;
+    const match = remoteSubcategories.find(
+      (s) => (s.name || '').trim().toLowerCase() === value.trim().toLowerCase()
+    );
+    const remoteUrl = match?.imageUrl || match?.image_url;
+    if (remoteUrl && typeof remoteUrl === 'string' && remoteUrl.trim().length > 10) {
+      return remoteUrl.trim();
+    }
+    return getSubcategoryImageUrl(value, categoryTag) || undefined;
+  }, [value, remoteSubcategories, categoryTag]);
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
@@ -237,15 +253,17 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
             <div className="flex items-center gap-2 min-w-0">
               {value ? (
                 <>
-                  <div className="w-5 h-5 rounded-md overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 border border-slate-300 dark:border-slate-600">
-                    <img
-                      src={currentPhoto}
-                      alt={value}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
-                    />
+                  <div className="w-5 h-5 rounded-md overflow-hidden bg-blue-50 dark:bg-slate-700 shrink-0 border border-slate-300 dark:border-slate-600 flex items-center justify-center">
+                    {currentPhoto && !imgError ? (
+                      <img
+                        src={currentPhoto}
+                        alt={value}
+                        className="w-full h-full object-cover"
+                        onError={() => setImgError(true)}
+                      />
+                    ) : (
+                      <span className="text-[10px]">🏷️</span>
+                    )}
                   </div>
                   <span className="text-xs font-bold text-[var(--heading-color)] truncate">
                     {value}
@@ -325,15 +343,18 @@ export const SubcategorySelectDropdown: React.FC<SubcategorySelectDropdownProps>
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-6 h-6 rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 border border-slate-300 dark:border-slate-700 shadow-2xs">
-                          <img
-                            src={photo}
-                            alt={item.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
-                            }}
-                          />
+                        <div className="w-6 h-6 rounded-lg overflow-hidden bg-blue-50 dark:bg-slate-700 shrink-0 border border-slate-300 dark:border-slate-700 shadow-2xs flex items-center justify-center">
+                          {photo ? (
+                            <img
+                              src={photo}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
+                          ) : null}
+                          <span className="text-[10px]">🏷️</span>
                         </div>
                         <span className="text-xs truncate">{item.name}</span>
                       </div>

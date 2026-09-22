@@ -13,15 +13,45 @@ export const CATEGORY_DEFAULT_PHOTOS: Record<string, string> = {
   'KIDS-BABY': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/kids-baby.jpg',
   HOME: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/home-textiles.jpg',
   'HOME-TEXTILES': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/home-textiles.jpg',
+  HOME_TEXTILES: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/home-textiles.jpg',
   WINTER: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/winter-wear.jpg',
   'WINTER-WEAR': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/winter-wear.jpg',
   WEDDING: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/wedding-silk.jpg',
   'WEDDING-SILK': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/wedding-silk.jpg',
+  BRIDAL: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-wedding-silk.jpg',
+  FOOTWEAR: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg',
+  'FOOTWEAR-SHOES': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg',
+  ACCESSORIES: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/accessories.jpg',
+  'BAGS-ACCESSORIES': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/accessories.jpg',
+  SPECIAL: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/cat-special-treatments.jpg',
 };
 
 export const SUBCATEGORY_DEFAULT_PHOTOS: Record<string, string> = {
   // All
   all: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/categories/home-textiles.jpg',
+
+  // Generic Apparel Taxonomy
+  'top wear': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-shirts.jpg',
+  topwear: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-shirts.jpg',
+  'bottom wear': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-trousers.jpg',
+  bottomwear: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-trousers.jpg',
+  'daily wear': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-tshirts.jpg',
+  'casual wear': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-tshirts.jpg',
+  'formal wear': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-suits.jpg',
+
+  // Footwear & Bags
+  'formal shoes': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-shoes-formal.jpg',
+  'suede shoes': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-shoes-suede.jpg',
+  sneakers: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg',
+  'sports shoes': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg',
+  shoes: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg',
+  footwear: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/services/service_shoe_clean.jpg',
+  backpacks: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bag-backpack.jpg',
+  backpack: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bag-backpack.jpg',
+  handbags: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bag-luxury.jpg',
+  handbag: 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-bag-luxury.jpg',
+  'luggage & trolley': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/garments/cloth-trolley-large.jpg',
+  'belts & wallets': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-accessories.jpg',
 
   // Men's Wear (ordered with specific names first)
   't-shirts & polos': 'https://anjanilaundry.s3.ap-south-2.amazonaws.com/subcategories/mens-tshirts.jpg',
