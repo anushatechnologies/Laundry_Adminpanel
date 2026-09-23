@@ -30,6 +30,7 @@ import {
 import { getSubcategoryImageUrl } from '@/lib/category-photos';
 import { MasterCategorySelectDropdown } from './MasterCategorySelectDropdown';
 import { useApp } from '@/context/AppContext';
+import { isSubcategoryInCategory } from '@/lib/categoryMatching';
 
 interface CategoryItem {
   id: string;
@@ -157,29 +158,7 @@ export const SubcategoriesManager: React.FC<{ onRefreshCatalog?: () => void }> =
 
   // Helper to match a subcategory's categoryTag to a category object
   const isSubcategoryInCat = (subTag: string, cat: CategoryItem) => {
-    if (!subTag || !cat) return false;
-    const s = subTag.trim().toLowerCase();
-    const id = (cat.id || '').trim().toLowerCase();
-    const slug = (cat.slug || '').trim().toLowerCase();
-    const name = (cat.name || '').trim().toLowerCase();
-
-    if (s === id || s === slug || s === name) return true;
-
-    // Cross-compat aliases
-    if (s === 'mens' && (id === 'm' || id === 'cat-1' || slug.includes('men') || name.includes('men'))) return true;
-    if (s === 'womens' && (id === 'w' || id === 'cat-2' || slug.includes('women') || name.includes('women'))) return true;
-    if (s === 'kids' && (id === 'k' || id === 'cat-3' || slug.includes('kid') || name.includes('kid'))) return true;
-    if (s === 'home_textiles' && (id === 'cat-4' || slug.includes('home') || slug.includes('textile') || name.includes('home'))) return true;
-    if (s === 'footwear' && (id === 'cat-5' || slug.includes('foot') || slug.includes('shoe') || name.includes('foot'))) return true;
-    if (s === 'accessories' && (id === 'cat-6' || slug.includes('access') || slug.includes('bag') || name.includes('access'))) return true;
-    if (s === 'bridal' && (id === 'cat-7' || slug.includes('bridal') || slug.includes('wedding') || name.includes('bridal'))) return true;
-    if (s === 'bulk' && (id === 'cat-8' || slug.includes('bulk') || name.includes('bulk'))) return true;
-
-    // Inverse check
-    if ((id === 'mens' || slug.includes('men') || name.includes('men')) && (s === 'm' || s === 'cat-1' || s === 'mens')) return true;
-    if ((id === 'womens' || slug.includes('women') || name.includes('women')) && (s === 'w' || s === 'cat-2' || s === 'womens')) return true;
-
-    return false;
+    return isSubcategoryInCategory(subTag, cat);
   };
 
   const getCategoryName = (subTag: string): string => {

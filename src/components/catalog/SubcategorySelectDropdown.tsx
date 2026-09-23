@@ -5,38 +5,10 @@ import { ChevronDown, Check, Plus, Search, Sparkles, X, Loader2 } from 'lucide-r
 import { getAdminSubcategories, createAdminSubcategory } from '@/lib/api';
 import { getSubcategoryImageUrl } from '@/lib/category-photos';
 import { useApp } from '@/context/AppContext';
+import { isSubcategoryInCategory } from '@/lib/categoryMatching';
 
 export const isTagInCat = (subTag: string, catTag: string) => {
-  if (!subTag || !catTag) return false;
-  const s = subTag.trim().toLowerCase();
-  const c = catTag.trim().toLowerCase();
-  if (s === c) return true;
-
-  const MENS_TAGS = ['m', 'cat-1', 'mens', 'men'];
-  const WOMENS_TAGS = ['w', 'cat-2', 'womens', 'women'];
-  const KIDS_TAGS = ['k', 'cat-3', 'kids', 'kid'];
-  const HOME_TAGS = ['cat-4', 'home_textiles', 'home-textiles', 'home'];
-  const FOOT_TAGS = ['cat-5', 'footwear', 'shoes', 'foot'];
-  const ACC_TAGS = ['cat-6', 'accessories', 'bags'];
-  const BRIDAL_TAGS = ['cat-7', 'bridal', 'wedding'];
-  const BULK_TAGS = ['cat-8', 'bulk', 'commercial'];
-
-  const matchesGroup = (tags: string[]) => {
-    const sMatches = tags.some((t) => s === t || s.includes(t));
-    const cMatches = tags.some((t) => c === t || c.includes(t));
-    return sMatches && cMatches;
-  };
-
-  return (
-    matchesGroup(MENS_TAGS) ||
-    matchesGroup(WOMENS_TAGS) ||
-    matchesGroup(KIDS_TAGS) ||
-    matchesGroup(HOME_TAGS) ||
-    matchesGroup(FOOT_TAGS) ||
-    matchesGroup(ACC_TAGS) ||
-    matchesGroup(BRIDAL_TAGS) ||
-    matchesGroup(BULK_TAGS)
-  );
+  return isSubcategoryInCategory(subTag, catTag);
 };
 
 interface SubcategorySelectDropdownProps {

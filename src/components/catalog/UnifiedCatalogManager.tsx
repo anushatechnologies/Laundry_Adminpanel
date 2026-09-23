@@ -33,6 +33,7 @@ import {
   getCategoryServiceFocusOptions, 
   CATEGORY_SERVICES_RULES 
 } from '@/lib/catalogCategoryServices';
+import { getNormalizedCategoryTag, isSubcategoryInCategory } from '@/lib/categoryMatching';
 
 export interface MasterCategoryItem {
   id: string;
@@ -156,41 +157,8 @@ export function UnifiedCatalogManager({
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [liveSubcategories, setLiveSubcategories] = useState<any[]>([]);
 
-  // Category matching helper
-  const isSubInCat = (subTag: string, cat: { id: string; name?: string; slug?: string }) => {
-    if (!subTag || !cat) return false;
-    const s = subTag.trim().toLowerCase();
-    const id = (cat.id || '').trim().toLowerCase();
-    const slug = (cat.slug || '').trim().toLowerCase();
-    const name = (cat.name || '').trim().toLowerCase();
-    if (s === id || s === slug || s === name) return true;
-
-    const MENS_TAGS = ['m', 'cat-1', 'mens', 'men'];
-    const WOMENS_TAGS = ['w', 'cat-2', 'womens', 'women'];
-    const KIDS_TAGS = ['k', 'cat-3', 'kids', 'kid'];
-    const HOME_TAGS = ['cat-4', 'home_textiles', 'home-textiles', 'home'];
-    const FOOT_TAGS = ['cat-5', 'footwear', 'shoes', 'foot'];
-    const ACC_TAGS = ['cat-6', 'accessories', 'bags'];
-    const BRIDAL_TAGS = ['cat-7', 'bridal', 'wedding'];
-    const BULK_TAGS = ['cat-8', 'bulk', 'commercial'];
-
-    const matchesGroup = (tags: string[]) => {
-      const sMatches = tags.some((t) => s === t || s.includes(t));
-      const catMatches = tags.some((t) => id === t || slug.includes(t) || name.includes(t));
-      return sMatches && catMatches;
-    };
-
-    if (matchesGroup(MENS_TAGS)) return true;
-    if (matchesGroup(WOMENS_TAGS)) return true;
-    if (matchesGroup(KIDS_TAGS)) return true;
-    if (matchesGroup(HOME_TAGS)) return true;
-    if (matchesGroup(FOOT_TAGS)) return true;
-    if (matchesGroup(ACC_TAGS)) return true;
-    if (matchesGroup(BRIDAL_TAGS)) return true;
-    if (matchesGroup(BULK_TAGS)) return true;
-
-    return false;
-  };
+  // Category matching helper using robust taxonomy normalization
+  const isSubInCat = isSubcategoryInCategory;
 
   // Services State (with live photo overrides)
   const [servicesList, setServicesList] = useState<ServiceMasterItem[]>(INITIAL_SERVICES_MASTERS);
@@ -950,16 +918,7 @@ export function UnifiedCatalogManager({
   };
 
   const getCategoryKey = (catId: string) => {
-    const upper = (catId || '').toUpperCase().trim();
-    if (upper === 'M' || upper === 'CAT-1' || upper.includes('MEN')) return 'MENS';
-    if (upper === 'W' || upper === 'CAT-2' || upper.includes('WOMEN')) return 'WOMENS';
-    if (upper === 'K' || upper === 'CAT-3' || upper.includes('KID')) return 'KIDS';
-    if (upper === 'CAT-4' || upper.includes('HOME') || upper.includes('TEXTILE')) return 'HOME_TEXTILES';
-    if (upper === 'CAT-5' || upper.includes('FOOT') || upper.includes('SHOE')) return 'FOOTWEAR';
-    if (upper === 'CAT-6' || upper.includes('ACCESS')) return 'ACCESSORIES';
-    if (upper === 'CAT-7' || upper.includes('BRIDAL')) return 'BRIDAL';
-    if (upper === 'CAT-8' || upper.includes('BULK')) return 'BULK';
-    return upper;
+    return getNormalizedCategoryTag(catId);
   };
 
   const addCategoryRule = useMemo(() => {
@@ -1340,8 +1299,11 @@ export function UnifiedCatalogManager({
   // Filtered Garment Items
   const filteredClothes = useMemo(() => {
     return clothTypes.filter((cloth) => {
-      if (activeCategory !== 'ALL' && cloth.categoryTag !== activeCategory) {
-        return false;
+      if (activeCategory !== 'ALL') {
+        const activeCatObj = categories.find((c) => c.id === activeCategory);
+        if (!isSubcategoryInCategory(cloth.categoryTag, activeCatObj || activeCategory)) {
+          return false;
+        }
       }
       if (activeSubcategory !== 'ALL' && cloth.subCategory !== activeSubcategory) {
         return false;
@@ -1355,7 +1317,7 @@ export function UnifiedCatalogManager({
       }
       return true;
     });
-  }, [clothTypes, activeCategory, activeSubcategory, searchQuery]);
+  }, [clothTypes, activeCategory, activeSubcategory, searchQuery, categories]);
 
   // Trigger Upload for any Entity
   const handleTriggerUpload = (type: 'CLOTH' | 'CATEGORY' | 'SERVICE', id: string, name: string) => {
